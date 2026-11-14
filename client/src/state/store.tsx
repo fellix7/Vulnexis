@@ -29,8 +29,6 @@ export interface ScanStore {
   current: ScanRecord | null
   status: 'idle' | 'scanning' | 'error'
   error: string | null
-  /** True while the running scan includes source files (so the AI step will run). */
-  scanningWithAi: boolean
   /** Agent steps of the running scan, as the server streams them. */
   liveSteps: AgentStep[]
   /** Real scans, newest first. Persisted in this browser only. */
@@ -119,7 +117,6 @@ export function ScanProvider({ children }: { children: ReactNode }) {
   })
   const [status, setStatus] = useState<ScanStore['status']>('idle')
   const [error, setError] = useState<string | null>(null)
-  const [scanningWithAi, setScanningWithAi] = useState(false)
   const [liveSteps, setLiveSteps] = useState<AgentStep[]>([])
   const [sources, setSources] = useState<SourceFile[] | null>(null)
   const [health, setHealth] = useState<Health | null>(null)
@@ -137,7 +134,6 @@ export function ScanProvider({ children }: { children: ReactNode }) {
     setStatus('scanning')
     setError(null)
     const withSources = input.request.sources ?? []
-    setScanningWithAi(input.source !== 'upload' || withSources.length > 0)
     setLiveSteps([])
     try {
       const result = await streamScan(input.request, (step) =>
@@ -235,7 +231,6 @@ export function ScanProvider({ children }: { children: ReactNode }) {
       current,
       status,
       error,
-      scanningWithAi,
       liveSteps,
       history,
       sources,
@@ -250,7 +245,7 @@ export function ScanProvider({ children }: { children: ReactNode }) {
       setReview,
       dismissError,
     }),
-    [current, status, error, scanningWithAi, liveSteps, history, sources, health, healthFailed, runScan, loadDemo, openScan, closeScan, deleteScan, clearHistory, setReview, dismissError],
+    [current, status, error, liveSteps, history, sources, health, healthFailed, runScan, loadDemo, openScan, closeScan, deleteScan, clearHistory, setReview, dismissError],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

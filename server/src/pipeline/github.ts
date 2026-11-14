@@ -17,7 +17,7 @@ const TIMEOUT_MS = 15_000;
 export class RepoError extends Error {}
 
 export function parseRepoUrl(raw: string): { owner: string; name: string; ref?: string } {
-  const s = raw.trim().replace(/\.git$/, '').replace(/\/+$/, '');
+  const s = raw.trim().replace(/\/+$/, '').replace(/\.git$/, '');
   const short = s.match(/^([\w.-]+)\/([\w.-]+)$/);
   if (short) return { owner: short[1]!, name: short[2]! };
   let url: URL;
@@ -35,6 +35,7 @@ export function parseRepoUrl(raw: string): { owner: string; name: string; ref?: 
 }
 
 const MAX_TARBALL_BYTES = 60 * 1024 * 1024;
+const MAX_UNPACKED_BYTES = 300 * 1024 * 1024;
 
 // One download per scan: the repository snapshot from codeload (no API quota, no token, public repos only).
 async function download(owner: string, name: string, ref: string): Promise<Buffer> {
@@ -55,7 +56,12 @@ async function download(owner: string, name: string, ref: string): Promise<Buffe
     if (size > MAX_TARBALL_BYTES) throw new RepoError('This repository is larger than 60 MB. Upload its package-lock.json instead.');
     chunks.push(Buffer.from(c));
   }
-  return gunzipSync(Buffer.concat(chunks));
+  try {
+    // A small .tar.gz can expand to gigabytes; cap it so one link cannot exhaust server memory.
+    return gunzipSync(Buffer.concat(chunks), { maxOutputLength: MAX_UNPACKED_BYTES });
+  } catch {
+    throw new RepoError('This repository is too large to read (over 300 MB unpacked). Upload its package-lock.json instead.');
+  }
 }
 
 interface TarFile {
@@ -64,7 +70,7 @@ interface TarFile {
 }
 
 // Minimal ustar reader: regular files only, with GNU long names and PAX path headers.
-function untar(buf: Buffer, keep: (path: string, size: number) => boolean): { files: TarFile[]; all: { path: string; size: number }[] } {
+export function untar(buf: Buffer, keep: (path: string, size: number) => boolean): { files: TarFile[]; all: { path: string; size: number }[] } {
   const files: TarFile[] = [];
   const all: { path: string; size: number }[] = [];
   let off = 0;

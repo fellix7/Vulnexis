@@ -24,5 +24,6 @@ npm-debug.log*
 .vscode/*
 !.vscode/extensions.json
 
-# agent worktrees
-.claude/
+# agent worktrees (project skills are shared with the team)
+.claude/*
+!.claude/skills/
