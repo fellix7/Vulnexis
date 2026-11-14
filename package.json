@@ -1,0 +1,19 @@
+{
+  "name": "kavach",
+  "private": true,
+  "version": "0.1.0",
+  "description": "AI security agent for Indian builders: which vulnerable dependencies to fix first, why, in Hindi or English.",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,magenta \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w server && npm run build -w client",
+    "typecheck": "npm run typecheck -w server && npm run build -w client",
+    "start": "npm run start -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
+}
