@@ -7,12 +7,12 @@ import { useOpenDemo } from './useOpenDemo'
 // Landing sections added for Kavach: the agent loop, why it is built for India, and pricing in rupees.
 
 const LOOP: { icon: IconName; en: string; hi: string; dEn: string; dHi: string; ai?: boolean }[] = [
-  { icon: 'github', en: 'Take a real input', hi: 'असली इनपुट', dEn: 'A public GitHub link or a package-lock.json. No login, no personal data.', dHi: 'पब्लिक GitHub लिंक या package-lock.json। न लॉग-इन, न निजी जानकारी।' },
-  { icon: 'bot', en: 'Plan', hi: 'योजना', dEn: 'Decides which tools this run needs from what you gave it, and says why.', dHi: 'आपके दिए इनपुट से तय करता है कि कौन-से टूल चाहिए, और क्यों।' },
-  { icon: 'search', en: 'Call tools', hi: 'टूल चलाना', dEn: 'OSV.dev for facts, FIRST EPSS and CISA KEV for real-world exploitation, npm for versions.', dHi: 'तथ्यों के लिए OSV.dev, असली हमलों के लिए EPSS और CISA KEV, वर्ज़न के लिए npm।' },
-  { icon: 'sparkle', en: 'Read your code', hi: 'कोड पढ़ना', dEn: 'Gemini checks whether your code calls the vulnerable function. Every cited line is re-verified.', dHi: 'Gemini देखता है कि आपका कोड कमज़ोर फ़ंक्शन चलाता है या नहीं। हर उद्धरण दोबारा जाँचा जाता है।', ai: true },
-  { icon: 'shield-check', en: 'Verify the fix', hi: 'सुधार पक्का करना', dEn: 'Re-queries every upgrade target so a fix never lands on another vulnerable version.', dHi: 'हर अपग्रेड वर्ज़न को दोबारा जाँचता है ताकि नया वर्ज़न भी कमज़ोर न निकले।' },
-  { icon: 'message', en: 'Answer in your language', hi: 'आपकी भाषा में जवाब', dEn: 'A fix order, exact commands, a CERT-In / DPDP brief and a WhatsApp summary in Hindi or English.', dHi: 'सुधार का क्रम, सटीक कमांड, CERT-In / DPDP रिपोर्ट और हिंदी या अंग्रेज़ी में WhatsApp सारांश।' },
+  { icon: 'github', en: 'Take a real input', hi: 'असली इनपुट', dEn: 'A GitHub link or a lockfile. No login.', dHi: 'पब्लिक GitHub लिंक या package-lock.json। न लॉग-इन, न निजी जानकारी।' },
+  { icon: 'bot', en: 'Plan', hi: 'योजना', dEn: 'Picks the tools this run needs, and says why.', dHi: 'आपके दिए इनपुट से तय करता है कि कौन-से टूल चाहिए, और क्यों।' },
+  { icon: 'search', en: 'Call tools', hi: 'टूल चलाना', dEn: 'OSV.dev, EPSS, CISA KEV and npm.', dHi: 'तथ्यों के लिए OSV.dev, असली हमलों के लिए EPSS और CISA KEV, वर्ज़न के लिए npm।' },
+  { icon: 'sparkle', en: 'Read your code', hi: 'कोड पढ़ना', dEn: 'Does your code call the vulnerable function?', dHi: 'Gemini देखता है कि आपका कोड कमज़ोर फ़ंक्शन चलाता है या नहीं। हर उद्धरण दोबारा जाँचा जाता है।', ai: true },
+  { icon: 'shield-check', en: 'Verify the fix', hi: 'सुधार पक्का करना', dEn: 'Every upgrade target is re-checked.', dHi: 'हर अपग्रेड वर्ज़न को दोबारा जाँचता है ताकि नया वर्ज़न भी कमज़ोर न निकले।' },
+  { icon: 'message', en: 'Answer in your language', hi: 'आपकी भाषा में जवाब', dEn: 'Commands, a CERT-In/DPDP brief, WhatsApp in Hindi.', dHi: 'सुधार का क्रम, सटीक कमांड, CERT-In / DPDP रिपोर्ट और हिंदी या अंग्रेज़ी में WhatsApp सारांश।' },
 ]
 
 export function AgentSection() {
@@ -77,7 +77,7 @@ export function IndiaSection() {
       icon: 'scale',
       en: 'DPDP Act: up to ₹250 crore',
       hi: 'DPDP अधिनियम: ₹250 करोड़ तक',
-      dEn: 'Apps holding personal data of Indians must take reasonable security safeguards (Section 8(5)). Leaving known, fixable vulnerabilities in production is hard to defend.',
+      dEn: 'Section 8(5): reasonable safeguards for personal data. Known, unpatched bugs are hard to defend.',
       dHi: 'भारतीयों का निजी डेटा रखने वाले ऐप को उचित सुरक्षा उपाय करने होते हैं (धारा 8(5))। जानी-पहचानी कमज़ोरियाँ छोड़ना मुश्किल में डाल सकता है।',
       src: 'https://www.meity.gov.in/data-protection-framework',
     },
@@ -85,7 +85,7 @@ export function IndiaSection() {
       icon: 'clock',
       en: 'CERT-In: report within 6 hours',
       hi: 'CERT-In: 6 घंटे में रिपोर्ट',
-      dEn: 'Attacks on servers and applications must be reported to CERT-In within 6 hours of noticing, with logs kept 180 days in India. Kavach tells you what to watch for.',
+      dEn: 'Report attacks within 6 hours; keep logs 180 days in India.',
       dHi: 'सर्वर या ऐप पर हमले की सूचना 6 घंटे में CERT-In को देनी होती है, और लॉग 180 दिन भारत में रखने होते हैं। Kavach बताता है कि किस पर नज़र रखें।',
       src: 'https://www.cert-in.org.in/PDF/CERT-In_Directions_70B_28.04.2022.pdf',
     },
@@ -93,14 +93,14 @@ export function IndiaSection() {
       icon: 'message',
       en: 'Hindi for the founder, commands for the dev',
       hi: 'फ़ाउंडर के लिए हिंदी, डेवलपर के लिए कमांड',
-      dEn: 'The developer gets exact upgrade commands. The founder or client gets a plain Hindi or English summary on WhatsApp, in one tap.',
+      dEn: 'Commands for the developer; a plain summary on WhatsApp for the founder.',
       dHi: 'डेवलपर को सटीक अपग्रेड कमांड मिलते हैं। फ़ाउंडर या क्लाइंट को एक टैप में WhatsApp पर आसान हिंदी या अंग्रेज़ी सारांश।',
     },
     {
       icon: 'globe',
       en: 'Works on a ₹8,000 phone',
       hi: '₹8,000 के फ़ोन पर भी चलता है',
-      dEn: 'Paste a GitHub link from a phone browser. No install, no account, no upload. Dark, light-weight UI with large tap targets.',
+      dEn: 'Paste a link in a phone browser. No install, no account.',
       dHi: 'फ़ोन ब्राउज़र से GitHub लिंक डालें। न इंस्टॉल, न अकाउंट, न अपलोड। हल्का UI, बड़े बटन।',
     },
   ]
@@ -122,10 +122,10 @@ export function IndiaSection() {
         <ul className="kv-cards">
           {cards.map((c) => (
             <li key={c.en} className="kv-card">
-              <span className="kv-card__icon" aria-hidden="true">
+              <h3 className="kv-card__head">
                 <Icon name={c.icon} size={18} />
-              </span>
-              <h3>{tr(c.en, c.hi)}</h3>
+                <span>{tr(c.en, c.hi)}</span>
+              </h3>
               <p>{tr(c.dEn, c.dHi)}</p>
               {c.src && (
                 <a href={c.src} target="_blank" rel="noreferrer noopener" className="kv-card__src">

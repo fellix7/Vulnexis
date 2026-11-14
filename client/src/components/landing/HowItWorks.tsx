@@ -12,7 +12,7 @@ interface Step {
 const STEPS: Step[] = [
   {
     title: 'Scan dependencies',
-    body: 'Reads exact versions and the dependency tree from package-lock v2 and v3, then matches every package against OSV.dev.',
+    body: 'Reads every exact version, then matches each against OSV.dev.',
     tags: (
       <>
         <span className="badge badge--mono">OSV.dev</span>
@@ -22,7 +22,7 @@ const STEPS: Step[] = [
   },
   {
     title: 'Assess risk',
-    body: 'Combines EPSS exploit probability, CISA KEV, severity and production or dev use into transparent tier rules.',
+    body: 'EPSS, CISA KEV, severity and scope, through fixed tier rules.',
     tags: (
       <>
         <span className="badge badge--mono">EPSS</span>
@@ -33,7 +33,7 @@ const STEPS: Step[] = [
   },
   {
     title: 'Analyse relevant code',
-    body: 'Gemini reads the advisory and only the code that imports the package. Every cited line is checked against your file; a “uses” verdict that cannot be verified becomes Uncertain.',
+    body: 'Gemini reads only the code that imports the package; each cited line is re-checked.',
     tags: (
       <>
         <AiTag>Gemini</AiTag>
@@ -43,7 +43,7 @@ const STEPS: Step[] = [
   },
   {
     title: 'Generate a verified fix plan',
-    body: 'Picks the smallest version that clears every advisory for a package, re-checks it against OSV, and gives the exact npm command.',
+    body: 'The smallest clean version, re-checked, with the exact npm command.',
     tags: (
       <>
         <span className="badge badge--mono">npm</span>
@@ -68,7 +68,7 @@ export function HowItWorks() {
           id="how-title"
           eyebrow="How it works"
           title="From lockfile to fix plan in four steps."
-          lede="Each step is marked as a lookup, a rule or an AI judgement, so you know what you are trusting."
+          lede="Each step is marked: lookup, rule or AI judgement."
         />
 
         <ol className="lp-steps">

@@ -278,11 +278,8 @@
   color: var(--text-2);
 }
 .rem__block h3 {
-  font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--text-3);
 }
 .rem__block p {

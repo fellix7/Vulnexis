@@ -39,11 +39,8 @@
 }
 .ce-ai__label {
   margin-bottom: 4px;
-  font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--ai);
 }
 .ce-ai__text {
@@ -148,11 +145,8 @@
   background: var(--bg-raised);
 }
 .ce-pane__title {
-  font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--text-3);
 }
 .ce-pane__body {

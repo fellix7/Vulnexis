@@ -68,9 +68,6 @@ export function Problem() {
               ))}
               <li className="lp-flat__rest subtle">+ {FLAT_REST} more vulnerable packages</li>
             </ul>
-            <p className="lp-compare__note subtle">
-              Sorted by count. Dev-only and production packages sit side by side, and nothing says which advisory your code can reach.
-            </p>
             <ul className="lp-points">
               {TYPICAL.map((t) => (
                 <li key={t}>
@@ -120,7 +117,6 @@ export function Problem() {
                 </>
               )}
             </div>
-            <p className="lp-compare__note subtle">One finding from the demo data. Each one carries its reasons, evidence and verified fix.</p>
             <ul className="lp-points lp-points--yes">
               {APPROACH.map((t) => (
                 <li key={t}>

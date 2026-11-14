@@ -6,22 +6,22 @@ import { SectionHead } from './SectionHead'
 const CELLS = [
   {
     title: 'Exact dependency inventory',
-    body: 'Exact versions, direct or transitive, production or dev, plus the chain of packages that pulled each one in. Matching is by name and version against OSV.dev, never a guess.',
+    body: 'Every installed version and the chain that pulled it in, matched exactly against OSV.dev.',
     tag: <VerifiedTag>Lookup, not AI</VerifiedTag>,
   },
   {
     title: 'Transparent risk prioritisation',
-    body: 'Four tiers from fixed rules over severity, EPSS, CISA KEV and scope. Every finding lists why it landed where it did. A missing EPSS score is shown as unknown, not zero.',
+    body: 'Four tiers from fixed, published rules; every finding says why it landed there.',
     tag: <VerifiedTag>Published rules</VerifiedTag>,
   },
   {
     title: 'Verified upgrade recommendations',
-    body: 'The smallest version that clears every advisory for a package, re-checked against OSV so the upgrade does not land on another vulnerable release. For a transitive package, the direct dependency to upgrade.',
+    body: 'The smallest safe version, re-checked so the upgrade is not vulnerable too.',
     tag: <VerifiedTag>Re-checked on OSV</VerifiedTag>,
   },
   {
     title: 'Evidence-backed AI explanations',
-    body: 'Plain-language reasoning that is always marked as AI and always comes with citations you can open. Quotes that do not exist in your file are dropped.',
+    body: 'AI reasoning is always marked, and every quoted line is checked against your file.',
     tag: <AiTag>AI, with checked citations</AiTag>,
   },
 ]
@@ -35,22 +35,15 @@ export function Why() {
       <div className="lp-wrap">
         <SectionHead
           id="why-title"
-          eyebrow="Why Kavach"
           title="Every claim comes with its evidence."
-          lede="Five capabilities, each with its evidence attached. The central one answers what a list of advisories cannot: does my code actually call it?"
         />
 
         <article className="lp-feature" aria-labelledby="why-feature-title">
           <div className="lp-feature__text">
-            <p className="eyebrow">Featured · Code-level relevance analysis</p>
             <h3 id="why-feature-title">Does your code actually call the vulnerable function?</h3>
             <p className="muted">
-              Gemini reads the advisory to learn which function or option is at fault, then looks only at the code that imports the
-              package. It answers with a verdict, a short reason and the line it relied on.
-            </p>
-            <p className="muted">
-              Kavach then re-checks that line against your file. A “uses” verdict with no surviving citation is downgraded to Uncertain,
-              and findings the AI did not review say <strong>Not assessed</strong>, never “safe”.
+              Gemini names the line it relied on; Kavach re-checks that line in your file. Unreviewed findings say <strong>Not assessed</strong>,
+              never “safe”.
             </p>
             <ul className="lp-verdicts" aria-label="The three possible verdicts">
               <li>

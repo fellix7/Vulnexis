@@ -61,11 +61,10 @@ export function Callout({ tone = 'info', children, role }: { tone?: Tone; childr
   )
 }
 
-export function PageHeader({ eyebrow, title, description, actions }: { eyebrow?: string; title: string; description?: ReactNode; actions?: ReactNode }) {
+export function PageHeader({ title, description, actions }: { eyebrow?: string; title: string; description?: ReactNode; actions?: ReactNode }) {
   return (
     <header className="page-head">
       <div className="page-head__text">
-        {eyebrow && <span className="eyebrow">{eyebrow}</span>}
         <h1>{title}</h1>
         {description && <p>{description}</p>}
       </div>

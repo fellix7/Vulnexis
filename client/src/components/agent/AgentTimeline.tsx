@@ -34,13 +34,13 @@ function useTicker(on: boolean) {
  * The agent's run as a vertical timeline: which tool it called, with what, what came back,
  * and what it decided next. Used live while scanning and afterwards on the Agent page.
  */
-export function AgentTimeline({ steps, live = false, startedAt }: { steps: AgentStep[]; live?: boolean; startedAt?: number }) {
+export function AgentTimeline({ steps, live = false, startedAt, compact = false }: { steps: AgentStep[]; live?: boolean; startedAt?: number; compact?: boolean }) {
   const { tr } = useLang()
   const now = useTicker(live)
   const elapsed = startedAt ? now - startedAt : 0
 
   return (
-    <ol className={`agent-tl${live ? ' agent-tl--live' : ''}`}>
+    <ol className={`agent-tl${live ? ' agent-tl--live' : ''}${compact ? ' agent-tl--compact' : ''}`}>
       {steps.map((s, i) => {
         const meta = TOOL_META[s.tool]
         const running = s.status === 'running'

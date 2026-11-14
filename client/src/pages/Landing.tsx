@@ -1,7 +1,5 @@
 import './landing.css'
 import { AgentSection, IndiaSection, Pricing } from '../components/landing/Bharat'
-import { FinalCta } from '../components/landing/FinalCta'
-import { Guardrails } from '../components/landing/Guardrails'
 import { Hero } from '../components/landing/Hero'
 import { HowItWorks } from '../components/landing/HowItWorks'
 import { LandingFooter } from '../components/landing/LandingFooter'
@@ -24,9 +22,7 @@ export default function LandingPage() {
         <Problem />
         <HowItWorks />
         <Why />
-        <Guardrails />
         <Pricing />
-        <FinalCta />
       </main>
       <LandingFooter />
     </div>

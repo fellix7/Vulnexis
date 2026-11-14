@@ -229,10 +229,7 @@ label.btn.is-disabled {
   min-width: 0;
 }
 .scan-facts dt {
-  font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
   color: var(--text-3);
 }
 .scan-facts dd {
@@ -407,11 +404,8 @@ label.btn.is-disabled {
 }
 .scan-aside > h2 {
   margin-bottom: var(--s-4);
-  font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--text-3);
 }
 .scan-points {
@@ -607,9 +601,6 @@ label.btn.is-disabled {
   margin: var(--s-2) 0 var(--s-4);
   color: var(--text-3);
   font-size: var(--fs-xs);
-  font-family: var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 .scan-or::before,
 .scan-or::after {

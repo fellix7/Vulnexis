@@ -199,10 +199,7 @@
   min-width: 0;
 }
 .fd-check__state {
-  font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 .fd-checks li.is-met {
   color: var(--text);
@@ -455,10 +452,7 @@
   background: var(--surface-1);
 }
 .fd-chain__root {
-  font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--text-3);
 }
 .fd-chain .is-target {
@@ -484,11 +478,8 @@
   border-radius: var(--r-sm);
   border: 1px solid var(--c);
   color: var(--c);
-  font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 /* Remediation */

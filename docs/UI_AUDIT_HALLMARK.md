@@ -93,3 +93,27 @@ Depth: **polish**, requested by the team. The look and layout are unchanged.
 | F3, F6 | `text-wrap: balance` on display heads; tabular figures on big numbers | clear |
 
 **Still open, by choice:** the house rules H1 (eyebrows and tracked caps), H2 (words per screen), H3 (hero height at 1440 and 1920), R2 (mono labels), R3 (icon tiles), R7 (off-scale spacing). They need a restyle or a landing recomposition. The landing `button.lp-stage` (85 px funnel stage selectors) is **waived** for 39b: these are card-sized selectors, not buttons.
+
+## Restyle applied (second pass)
+
+Requested by the team after the polish. Content and wiring kept; the type system and the landing composition changed.
+
+| Finding | Change |
+| :--- | :--- |
+| H1 eyebrows, tracked caps | Eyebrows removed above every page and section heading; the 15 remaining small-capital label rules (table heads, agent I/O labels, tags, legends) are now the body face, sentence case, untracked |
+| R2 mono labels | Labels use the body face; monospace stays only for code, versions, package names and figures |
+| 38iii one-colour heading | The dimmed second line of the hero headline is now the same colour |
+| H3 hero / 79 empty half | Hero is one screen: headline, one sentence, two actions, and the agent's decisions (demo data) beside them as the signature. The product preview follows as its own section |
+| H2 screen budget | Hero lede cut to one sentence; trust line removed; feature, step and India card copy cut to one sentence each; captions removed |
+| 59 section count | Guardrails and the closing CTA band removed (their content is in the agent section, the pricing CTA and `SYSTEM_POLICIES.md`); 249 lines of dead CSS deleted |
+| R3 icon tiles | India cards set the icon inline with the heading; the DPDP card leads, wider |
+| R7 spacing | Gaps, paddings and margins in `index.css` and `landing.css` moved onto the 4 px scale |
+
+**Re-check (landing):** 0 FAIL on the access, motion, token, eyebrow and tracked-caps gates. What remains:
+- **58**: the hero's agent card adds about 100 words. It is product UI and the page's signature, so it is **waived**.
+- **56**: dismissed, as above.
+- **20**: Hallmark's build stamp, which only applies to pages Hallmark built.
+- Per-file reduced-motion and `:active` reports: dismissed, both exist in `index.css`.
+- **39b** `lp-stage` card selectors and **64** repository names in example chips: **waived**.
+
+**Known gap:** in Hindi mode the agent's step titles and decisions stay in English, because the server writes them. Translating them means adding Hindi strings to `server/src/index.ts`.

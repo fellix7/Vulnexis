@@ -260,11 +260,8 @@ h2 {
   white-space: nowrap;
 }
 .eyebrow {
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--text-3);
 }
 .cluster {
@@ -436,7 +433,7 @@ h2 {
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   height: 22px;
   padding: 0 8px;
   border-radius: var(--r-sm);
@@ -453,8 +450,6 @@ h2 {
   flex: none;
 }
 .badge--mono {
-  font-family: var(--font-mono);
-  letter-spacing: 0;
 }
 .badge--critical {
   color: var(--critical);
@@ -502,9 +497,9 @@ h2 {
 .tier {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   height: 22px;
-  padding: 0 8px 0 7px;
+  padding: 0 8px 0 8px;
   border-radius: var(--r-sm);
   font-size: var(--fs-xs);
   font-weight: 600;
@@ -541,7 +536,7 @@ h2 {
 .sev {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   font-size: var(--fs-sm);
   font-weight: 500;
   white-space: nowrap;
@@ -722,7 +717,7 @@ h2 {
   flex: 1;
   min-width: 0;
   margin: 0;
-  padding: 9px var(--s-3);
+  padding: 8px var(--s-3);
   overflow-x: auto;
   font-size: var(--fs-sm);
   line-height: 1.4;
@@ -740,7 +735,7 @@ kbd,
   display: inline-flex;
   align-items: center;
   height: 18px;
-  padding: 0 5px;
+  padding: 0 4px;
   border: 1px solid var(--line-strong);
   border-bottom-width: 2px;
   border-radius: 4px;
@@ -787,7 +782,7 @@ kbd,
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .field > label,
 .field__label {
@@ -823,9 +818,9 @@ kbd,
 .seg button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   height: 26px;
-  padding: 0 10px;
+  padding: 0 12px;
   border: 0;
   border-radius: var(--r-sm);
   background: transparent;
@@ -867,7 +862,7 @@ kbd,
 }
 .dtable th,
 .dtable td {
-  padding: 10px var(--s-4);
+  padding: 12px var(--s-4);
   text-align: left;
   vertical-align: middle;
   border-bottom: 1px solid var(--line);
@@ -877,11 +872,8 @@ kbd,
   top: 0;
   z-index: 1;
   background: var(--surface-1);
-  font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-weight: 500;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
   color: var(--text-3);
   white-space: nowrap;
 }
@@ -1045,7 +1037,7 @@ kbd,
 .nav-link {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   height: 32px;
   padding: 0 var(--s-3);
   border-radius: var(--r-md);
