@@ -1,9 +1,13 @@
 import semver from 'semver';
-import { cached } from '../cache.js';
+import { cached, OfflineMissError } from '../cache.js';
 import type { Advisory, Package, UpgradePlan } from '../types.js';
 import { mapLimit, queryVersions } from './osv.js';
+import { reasonOf } from '../net.js';
 
 const MAX_VERIFY_TRIES = 5;
+
+/** Upgrades left unverified because OSV or npm could not be reached (read by index.ts per scan). */
+export let unverifiedByNetwork = 0;
 
 // Cache only the list of version strings; the full registry document can be megabytes.
 async function registryVersions(name: string): Promise<string[]> {
@@ -20,7 +24,7 @@ async function registryVersions(name: string): Promise<string[]> {
         lastErr = err;
       }
     }
-    throw new Error(`npm registry lookup for ${name} failed: ${lastErr instanceof Error ? lastErr.message : lastErr}`);
+    throw new Error(`npm registry lookup for ${name} failed: ${reasonOf(lastErr)}`, { cause: lastErr });
   });
 }
 
@@ -59,21 +63,38 @@ const REGISTRY_CONCURRENCY = 8;
 async function resolveFixes(entries: { pkg: Package; advisories: Advisory[] }[]): Promise<(string | null)[]> {
   const candidates = entries.map(({ pkg, advisories }) => candidateFor(pkg.version, advisories));
   const probes = entries.flatMap((e, i) => (candidates[i] ? [{ name: e.pkg.name, version: candidates[i]! }] : []));
-  const probeResults = await queryVersions(probes);
+  let probeResults: string[][];
+  try {
+    probeResults = await queryVersions(probes);
+  } catch (e) {
+    // OSV unreachable and nothing saved: no upgrade can be verified, but the scan itself still stands.
+    if (e instanceof OfflineMissError) throw e;
+    unverifiedByNetwork += probes.length;
+    return entries.map(() => null);
+  }
   const vulnerable = new Map(probes.map((p, k) => [`${p.name}@${p.version}`, probeResults[k]!.length > 0]));
 
   // Candidates that are themselves vulnerable: look at the next stable releases above them.
   const retryIdx = entries.map((_e, i) => i).filter((i) => candidates[i] && vulnerable.get(`${entries[i]!.pkg.name}@${candidates[i]}`));
-  const higherLists = await mapLimit(retryIdx, REGISTRY_CONCURRENCY, async (i) => {
-    const name = entries[i]!.pkg.name;
-    const candidate = candidates[i]!;
-    return (await registryVersions(name))
-      .filter((v) => semver.valid(v) && !semver.prerelease(v) && semver.gt(v, candidate))
-      .sort(semver.compare)
-      .slice(0, MAX_VERIFY_TRIES);
-  });
-  const retryProbes = retryIdx.flatMap((i, k) => higherLists[k]!.map((version) => ({ name: entries[i]!.pkg.name, version })));
-  const retryResults = await queryVersions(retryProbes);
+  let higherLists: string[][];
+  let retryResults: string[][];
+  try {
+    higherLists = await mapLimit(retryIdx, REGISTRY_CONCURRENCY, async (i) => {
+      const name = entries[i]!.pkg.name;
+      const candidate = candidates[i]!;
+      return (await registryVersions(name))
+        .filter((v) => semver.valid(v) && !semver.prerelease(v) && semver.gt(v, candidate))
+        .sort(semver.compare)
+        .slice(0, MAX_VERIFY_TRIES);
+    });
+    const retryProbes = retryIdx.flatMap((i, k) => higherLists[k]!.map((version) => ({ name: entries[i]!.pkg.name, version })));
+    retryResults = await queryVersions(retryProbes);
+  } catch (e) {
+    if (e instanceof OfflineMissError) throw e;
+    unverifiedByNetwork += retryIdx.length;
+    higherLists = retryIdx.map(() => []);
+    retryResults = [];
+  }
 
   const fixes: (string | null)[] = entries.map((e, i) => {
     const c = candidates[i];

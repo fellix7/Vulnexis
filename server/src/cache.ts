@@ -31,17 +31,36 @@ async function readJson<T>(file: string): Promise<T | undefined> {
   }
 }
 
+/** How many live lookups were answered from saved copies because the network failed (read by index.ts per scan). */
+export let savedFallbacks = 0;
+
+async function saved<T>(namespace: string, key: string): Promise<T | undefined> {
+  for (const dir of [SNAPSHOT_DIR, CACHE_DIR]) {
+    const hit = await readJson<{ key: string; value: T }>(fileFor(dir, namespace, key));
+    if (hit) return hit.value;
+  }
+  return undefined;
+}
+
 export async function cached<T>(namespace: string, key: string, fetcher: () => Promise<T>): Promise<T> {
   const alwaysLive = LIVE_NAMESPACES.has(namespace) && !isOffline();
   if (!alwaysLive) {
-    for (const dir of [SNAPSHOT_DIR, CACHE_DIR]) {
-      const hit = await readJson<{ key: string; value: T }>(fileFor(dir, namespace, key));
-      if (hit) return hit.value;
-    }
+    const hit = await saved<T>(namespace, key);
+    if (hit !== undefined) return hit;
   }
   if (isOffline()) throw new OfflineMissError(namespace, key);
 
-  const value = await fetcher();
+  let value: T;
+  try {
+    value = await fetcher();
+  } catch (e) {
+    if (typeof e === 'symbol') throw e; // a caller's "not cached" probe, not a network failure
+    // Live first; if the network fails, a saved copy beats no answer (the scan says so in its notes).
+    const hit = alwaysLive ? await saved<T>(namespace, key) : undefined;
+    if (hit === undefined) throw e;
+    savedFallbacks++;
+    return hit;
+  }
   // Still written, so a live scan can be copied into data/snapshots for offline mode.
   const file = fileFor(CACHE_DIR, namespace, key);
   await mkdir(path.dirname(file), { recursive: true });

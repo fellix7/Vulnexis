@@ -1,14 +1,17 @@
+import './net.js'; // first: route outbound requests through HTTPS_PROXY when one is set
 import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import express from 'express';
 import { Agent, plural, SOURCES } from './agent.js';
-import { OfflineMissError } from './cache.js';
+import { sourceMessage } from './net.js';
+import { printDoctor, runDoctor } from './doctor.js';
+import { OfflineMissError, savedFallbacks } from './cache.js';
 import { analyzeFindings } from './pipeline/ai.js';
 import { enrich } from './pipeline/enrich.js';
 import { matchPackages } from './pipeline/match.js';
 import { parseLockfile } from './pipeline/parse.js';
-import { planUpgrades } from './pipeline/plan.js';
+import { planUpgrades, unverifiedByNetwork } from './pipeline/plan.js';
 import { fetchRepo, RepoError } from './pipeline/github.js';
 import { DEFAULT_EPSS_THRESHOLD, scoreFindings, TIER_ORDER } from './pipeline/score.js';
 import type { AgentStep, Finding, Package, RepoRef, ScanRequest, ScanResult, SourceFile, Tier } from './types.js';
@@ -63,6 +66,8 @@ async function loadSample(): Promise<{ lockfile: unknown; sources: SourceFile[] 
 async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal?: AbortSignal): Promise<ScanResult> {
   const notes: string[] = [];
   const agent = new Agent(onStep, signal);
+  const fallbacksAtStart = savedFallbacks;
+  const unverifiedAtStart = unverifiedByNetwork;
   const hasKey = Boolean(process.env.GEMINI_API_KEY);
   const offline = process.env.OFFLINE === '1';
 
@@ -88,17 +93,22 @@ async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal
           return await fetchRepo(req.repoUrl!);
         } catch (e) {
           if (e instanceof RepoError) throw new ScanError(e.message);
-          throw new ScanError('Could not reach GitHub. Try again, or upload the lockfile instead.', 502);
+          throw new ScanError(sourceMessage('GitHub', e), 502);
         }
       },
       (v) => ({
         title: `Read ${v.repo.owner}/${v.repo.name} @ ${v.repo.ref}`,
         output: `${v.repo.lockfilePath} + ${plural(v.sources.length, 'source file')} (text only, nothing executed)`,
-        decision: v.skipped > 0 ? `Skipped ${plural(v.skipped, 'large or deep file')} to stay inside the 3 MB reading budget.` : undefined,
+        decision: v.fallback
+          ? `The full download failed (${v.fallback}), so I read only the root package-lock.json. The code check will be skipped.`
+          : v.skipped > 0
+            ? `Skipped ${plural(v.skipped, 'large or deep file')} to stay inside the 3 MB reading budget.`
+            : undefined,
         sources: [{ label: `github.com/${v.repo.owner}/${v.repo.name}`, url: v.repo.url }],
       }),
     );
     ({ lockfile, sources, repo } = fetched);
+    if (fetched.fallback) notes.push(`Only the lockfile was read: the repository download failed (${fetched.fallback}). Upload the source folder to enable the code check.`);
   } else {
     lockfile = req.lockfile;
     sources = req.sources ?? [];
@@ -151,7 +161,10 @@ async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal
     'osv',
     `Matching ${plural(packages.length, 'package')} against OSV.dev`,
     { input: 'exact name + version lookups (batched)', sources: [SOURCES.osv] },
-    () => matchPackages(packages),
+    () => matchPackages(packages).catch((e) => {
+      if (e instanceof OfflineMissError) throw e;
+      throw new ScanError(sourceMessage('OSV.dev (the vulnerability database)', e), 502);
+    }),
     (v) => {
       const pk = new Set(v.map((m) => `${m.pkg.name}@${m.pkg.version}`)).size;
       return {
@@ -234,7 +247,10 @@ async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal
     'verify',
     'Finding the smallest safe upgrade for each package',
     { input: 'fixed versions from OSV → re-query OSV for each candidate → next releases from npm if still vulnerable', sources: [SOURCES.osv, SOURCES.npm] },
-    () => planUpgrades(matches),
+    () => planUpgrades(matches).catch((e) => {
+      if (e instanceof OfflineMissError) throw e;
+      throw new ScanError(sourceMessage(/registry\.npmjs/.test(String(e)) ? 'the npm registry' : 'OSV.dev (the vulnerability database)', e), 502);
+    }),
     (v) => {
       const ok = v.filter((p) => p.to).length;
       const major = v.filter((p) => p.jump === 'major').length;
@@ -250,6 +266,15 @@ async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal
     output: `${plural(findings.length, 'finding')} · ${fixNow} to fix now · Hindi + English summary · CERT-In / DPDP brief`,
     decision: fixNow > 0 ? `Start with the ${plural(fixNow, 'Fix now item')}.` : 'Nothing needs an emergency fix. Work through the sprint list.',
   });
+
+  const unverified = unverifiedByNetwork - unverifiedAtStart;
+  if (unverified > 0) {
+    notes.push(`${plural(unverified, 'upgrade')} could not be verified because OSV.dev or the npm registry was unreachable; they show "no verified fix" instead of a guess. Scan again on a network that allows them.`);
+  }
+  const fromSaved = savedFallbacks - fallbacksAtStart;
+  if (fromSaved > 0) {
+    notes.push(`The network blocked some live lookups, so ${plural(fromSaved, 'answer was', 'answers were')} taken from saved data. Results may be a little older than live data.`);
+  }
 
   const result: ScanResult = {
     scannedAt: new Date().toISOString(),
@@ -270,8 +295,13 @@ function failure(e: unknown): { status: number; error: string } {
     return { status: 503, error: 'Offline mode: this project has no saved snapshot. Turn OFFLINE off or scan the sample.' };
   }
   console.error(e);
-  return { status: 502, error: 'Scan failed while contacting a data source. Try again.' };
+  return { status: 502, error: `The scan failed: ${e instanceof Error ? e.message : String(e)}` };
 }
+
+// Connection check: which services this server can reach, and what to do about the ones it cannot.
+app.get('/api/doctor', async (_req, res) => {
+  res.json(await runDoctor());
+});
 
 // Each scan can hold a repository tarball (up to 300 MB unpacked) in memory, so only a few run at once.
 // shortcut: per-process counter; behind several instances, add rate limiting at the proxy instead.
@@ -328,4 +358,5 @@ if (existsSync(CLIENT_DIST)) {
 
 app.listen(PORT, () => {
   console.log(`Vulnexis API listening on http://localhost:${PORT}`);
+  runDoctor().then(printDoctor).catch(() => {});
 });

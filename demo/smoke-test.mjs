@@ -59,6 +59,21 @@ async function main() {
     return;
   }
   ok('server reachable', health.ok === true, `offline=${health.offline} gemini=${health.gemini}`);
+
+  // Connection check: the first thing to read when scans fail
+  try {
+    const doc = await (await fetch(`${BASE}/api/doctor`)).json();
+    console.log('\n      Connection check (from the server):');
+    for (const p of doc.probes) console.log(`        ${p.ok ? 'ok     ' : 'BLOCKED'} ${p.name.padEnd(28)} ${p.detail}`);
+    for (const a of new Set(doc.probes.filter((p) => !p.ok).map((p) => p.advice))) console.log(`        → ${a}`);
+    console.log('');
+    const osv = doc.probes.find((p) => p.id === 'osv');
+    if (!health.offline) ok('server can reach OSV.dev', osv?.ok === true, osv?.ok ? '' : `${osv?.detail}: scans of new projects will fail until this is fixed`);
+    const gem = doc.probes.find((p) => p.id === 'gemini');
+    if (gem) ok('Gemini API key works', gem.ok, gem.ok ? '' : gem.advice);
+  } catch {
+    ok('connection check', null, 'this server has no /api/doctor (old build?)');
+  }
   const app = await fetch(`${BASE}/`);
   ok('web page served', app.ok && (await app.text()).includes('<div id="root">'), app.ok ? 'production build' : `HTTP ${app.status}: run "npm run build" first, or use the dev server on :5173`);
 
@@ -82,7 +97,7 @@ async function main() {
     const kf = k.body?.findings ?? [];
     ok('upload: kirana-billing finds vulnerabilities', k.status === 200 && kf.length > 0, k.status === 200 ? `${kf.length} findings, tiers ${tiers(kf)}, AI ${k.body.aiStatus}` : k.body?.error);
     ok('upload: kirana-billing has Fix now items', kf.some((f) => f.tier === 'FIX_NOW'), `${kf.filter((f) => f.tier === 'FIX_NOW').length} fix now`);
-    ok('upload: dev-only packages land in Monitor', kf.filter((f) => f.pkg.dev).every((f) => f.tier === 'MONITOR'), `${kf.filter((f) => f.pkg.dev).length} dev findings`);
+    ok('upload: dev-only packages land in Monitor', k.status === 200 ? kf.filter((f) => f.pkg.dev).every((f) => f.tier === 'MONITOR') : null, k.status === 200 ? `${kf.filter((f) => f.pkg.dev).length} dev findings` : 'upload failed, see above');
     if (health.gemini) {
       const cited = kf.filter((f) => f.ai?.verdict === 'USES_VULNERABLE_API');
       ok('AI code check cites the demo routes', cited.length > 0, cited.map((f) => `${f.pkg.name} → ${f.ai.citations[0]?.file}:${f.ai.citations[0]?.line}`).slice(0, 3).join('; ') || 'no "uses" verdicts');

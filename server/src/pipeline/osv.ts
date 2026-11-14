@@ -6,6 +6,8 @@ const OSV = 'https://api.osv.dev/v1';
 const BATCH_SIZE = 500;
 export const DETAIL_CONCURRENCY = 8;
 
+import { reasonOf } from '../net.js';
+
 // ---------- HTTP ----------
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -19,8 +21,7 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
       lastErr = err;
     }
   }
-  const reason = lastErr instanceof Error ? lastErr.message : String(lastErr);
-  throw new Error(`Request to ${url} failed after retry: ${reason}`);
+  throw new Error(`Request to ${url} failed after retry: ${reasonOf(lastErr)}`, { cause: lastErr });
 }
 
 export async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, i: number) => Promise<R>): Promise<R[]> {
@@ -85,9 +86,21 @@ export async function queryVersions(pkgs: { name: string; version: string }[]): 
 
   for (let i = 0; i < misses.length; i += BATCH_SIZE) {
     const chunk = misses.slice(i, i + BATCH_SIZE);
-    const { results } = await postBatch(
-      chunk.map((p) => ({ package: { name: p.name, ecosystem: 'npm' as const }, version: p.version })),
-    );
+    let results: BatchResult[];
+    try {
+      ({ results } = await postBatch(chunk.map((p) => ({ package: { name: p.name, ecosystem: 'npm' as const }, version: p.version }))));
+    } catch (e) {
+      // OSV unreachable: use saved answers for this chunk if every package has one, else fail with the network error.
+      for (const p of chunk) {
+        resolved.set(
+          keyOf(p),
+          await cached<string[]>('osv-query', keyOf(p), async () => {
+            throw e;
+          }),
+        );
+      }
+      continue;
+    }
     if (results.length !== chunk.length) throw new Error('OSV querybatch returned a mismatched number of results');
 
     for (let j = 0; j < chunk.length; j++) {

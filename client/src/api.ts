@@ -117,3 +117,20 @@ export async function streamScan(req: ScanRequest, onStep: (step: AgentStep) => 
   }
   throw new Error('The connection closed before the scan finished. Try again.')
 }
+
+export interface Probe {
+  id: string
+  name: string
+  needed: string
+  ok: boolean
+  ms: number
+  detail: string
+  advice?: string
+}
+
+/** GET /api/doctor: which services the server can reach, with advice for the ones it cannot. */
+export async function fetchDoctor(): Promise<{ offline: boolean; probes: Probe[] }> {
+  const r = await fetch('/api/doctor')
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  return (await r.json()) as { offline: boolean; probes: Probe[] }
+}

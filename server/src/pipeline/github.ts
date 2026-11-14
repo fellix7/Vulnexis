@@ -1,4 +1,5 @@
 import { gunzipSync } from 'node:zlib';
+import { adviceFor, reasonOf } from '../net.js';
 import type { RepoRef, SourceFile } from '../types.js';
 
 // Reads a PUBLIC GitHub repository: its package-lock.json and the JavaScript/TypeScript source that the
@@ -37,18 +38,45 @@ export function parseRepoUrl(raw: string): { owner: string; name: string; ref?: 
 const MAX_TARBALL_BYTES = 60 * 1024 * 1024;
 const MAX_UNPACKED_BYTES = 300 * 1024 * 1024;
 
-// One download per scan: the repository snapshot from codeload (no API quota, no token, public repos only).
-async function download(owner: string, name: string, ref: string): Promise<Buffer> {
-  const url = `https://codeload.github.com/${owner}/${name}/tar.gz/${ref.split('/').map(encodeURIComponent).join('/')}`;
-  let res: Response;
-  try {
-    res = await fetch(url, { headers: { 'User-Agent': 'vulnexis-scanner' }, signal: AbortSignal.timeout(TIMEOUT_MS * 2) });
-  } catch {
-    throw new RepoError('Could not reach GitHub. Try again, or upload the lockfile instead.');
+const FIRST_BYTE_MS = 20_000; // GitHub must start answering within this
+const DOWNLOAD_MS = 120_000; // the whole tarball, on a slow venue Wi-Fi
+
+/** A network failure (as opposed to GitHub answering with an error), with the low-level reason kept. */
+class NetworkError extends RepoError {
+  constructor(readonly reason: string) {
+    super(networkMessage(reason));
   }
-  if (res.status === 404) throw new RepoError('Repository not found. Check the link, and make sure the repository is public.');
-  if (res.status === 403 || res.status === 429) throw new RepoError('GitHub is limiting requests from this server. Try again in a minute.');
-  if (!res.ok || !res.body) throw new RepoError(`GitHub answered HTTP ${res.status}.`);
+}
+
+export function networkMessage(reason: string): string {
+  return `Could not download the repository from GitHub. ${adviceFor(reason)} Try again, or upload the lockfile instead. (${reason})`;
+}
+
+/** GET with a first-byte deadline and an overall deadline; one retry on network failure. */
+async function getWithDeadlines(url: string, read: (res: Response) => Promise<Buffer>): Promise<{ res: Response; body: Buffer }> {
+  let last: unknown;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const ctrl = new AbortController();
+    const timeout = () => ctrl.abort(new DOMException('timed out', 'TimeoutError'));
+    const first = setTimeout(timeout, FIRST_BYTE_MS);
+    const total = setTimeout(timeout, DOWNLOAD_MS);
+    try {
+      const res = await fetch(url, { headers: { 'User-Agent': 'vulnexis-scanner' }, signal: ctrl.signal, redirect: 'follow' });
+      clearTimeout(first);
+      return { res, body: res.ok ? await read(res) : Buffer.alloc(0) };
+    } catch (e) {
+      if (e instanceof RepoError) throw e;
+      last = e;
+      console.warn(`[github] ${url} attempt ${attempt + 1} failed: ${reasonOf(e)}`);
+    } finally {
+      clearTimeout(first);
+      clearTimeout(total);
+    }
+  }
+  throw new NetworkError(reasonOf(last));
+}
+
+async function readCapped(res: Response): Promise<Buffer> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const c of res.body as unknown as AsyncIterable<Uint8Array>) {
@@ -56,11 +84,37 @@ async function download(owner: string, name: string, ref: string): Promise<Buffe
     if (size > MAX_TARBALL_BYTES) throw new RepoError('This repository is larger than 60 MB. Upload its package-lock.json instead.');
     chunks.push(Buffer.from(c));
   }
+  return Buffer.concat(chunks);
+}
+
+// One download per scan: the repository snapshot from codeload (no API quota, no token, public repos only).
+async function download(owner: string, name: string, ref: string): Promise<Buffer> {
+  const url = `https://codeload.github.com/${owner}/${name}/tar.gz/${ref.split('/').map(encodeURIComponent).join('/')}`;
+  const { res, body } = await getWithDeadlines(url, readCapped);
+  if (res.status === 404) throw new RepoError('Repository not found. Check the link, and make sure the repository is public.');
+  if (res.status === 403 || res.status === 429) throw new NetworkError(`HTTP ${res.status} from codeload.github.com`);
+  if (!res.ok) throw new RepoError(`GitHub answered HTTP ${res.status}.`);
   try {
     // A small .tar.gz can expand to gigabytes; cap it so one link cannot exhaust server memory.
-    return gunzipSync(Buffer.concat(chunks), { maxOutputLength: MAX_UNPACKED_BYTES });
+    return gunzipSync(body, { maxOutputLength: MAX_UNPACKED_BYTES });
   } catch {
     throw new RepoError('This repository is too large to read (over 300 MB unpacked). Upload its package-lock.json instead.');
+  }
+}
+
+/**
+ * Fallback when the repository download fails: read only the root package-lock.json from
+ * raw.githubusercontent.com. The scan still runs; the code check is skipped (no source files).
+ */
+async function rootLockfile(owner: string, name: string, ref: string): Promise<unknown | null> {
+  const url = `https://raw.githubusercontent.com/${owner}/${name}/${ref.split('/').map(encodeURIComponent).join('/')}/package-lock.json`;
+  const { res, body } = await getWithDeadlines(url, async (r) => Buffer.from(await r.arrayBuffer()));
+  if (res.status === 404) return null;
+  if (!res.ok) throw new NetworkError(`HTTP ${res.status} from raw.githubusercontent.com`);
+  try {
+    return JSON.parse(body.toString('utf8'));
+  } catch {
+    throw new RepoError('package-lock.json in this repository is not valid JSON.');
   }
 }
 
@@ -104,12 +158,33 @@ export interface FetchedRepo {
   sources: SourceFile[];
   skipped: number; // source files not read because of the limits above
   sourceFilesFound: number;
+  fallback?: string; // set when only the root lockfile could be read, with the reason
 }
 
 export async function fetchRepo(rawUrl: string): Promise<FetchedRepo> {
   const { owner, name, ref: askedRef } = parseRepoUrl(rawUrl);
   const ref = askedRef ?? 'HEAD';
-  const tar = await download(owner, name, ref);
+  let tar: Buffer;
+  try {
+    tar = await download(owner, name, ref);
+  } catch (e) {
+    if (!(e instanceof NetworkError)) throw e;
+    // The full download failed on this network: fall back to the root lockfile alone.
+    const lockfile = await rootLockfile(owner, name, ref).catch((e2) => {
+      throw e2 instanceof NetworkError ? e : e2;
+    });
+    if (lockfile === null) {
+      throw new RepoError(`${e.message.replace(/ Try again.*$/, '')} The fallback found no package-lock.json at the repository root either. Upload the lockfile instead.`);
+    }
+    return {
+      repo: { owner, name, ref: askedRef ?? 'default branch', url: `https://github.com/${owner}/${name}`, lockfilePath: 'package-lock.json', sourceFiles: 0 },
+      lockfile,
+      sources: [],
+      skipped: 0,
+      sourceFilesFound: 0,
+      fallback: e.reason,
+    };
+  }
 
   const isLock = (p: string) => /(^|\/)(package-lock|npm-shrinkwrap)\.json$/.test(p) && !SKIP_DIR.test(p);
   const isSource = (p: string, size: number) => SOURCE_EXT.test(p) && !SKIP_DIR.test(p) && !SKIP_FILE.test(p) && size <= MAX_FILE_BYTES;

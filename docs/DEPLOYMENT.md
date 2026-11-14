@@ -16,6 +16,8 @@
 | `GEMINI_RPM` | `4` | Requests per minute (free tier ≈ 5/min per model; raise to ~60 with a paid key) |
 | `PORT` | `8787` | API (and, in production, app) port |
 | `OFFLINE` | `0` | `1` = answer only from `data/snapshots` (demo without network) |
+| `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY` | none | Route all outbound requests through a proxy (college/office networks) |
+| `NODE_EXTRA_CA_CERTS` | none | Extra certificate file (.pem) for networks that inspect HTTPS. The OS certificate store is already trusted on Node 22.15+ |
 | `MAX_CONCURRENT_SCANS` | `4` | Scans allowed at once per process; extra requests get a 429 "busy" message |
 
 Never commit `.env`; it is git-ignored.
@@ -105,6 +107,7 @@ OFFLINE=1 npm run dev
 
 | Symptom | Cause | Fix |
 | :--- | :--- | :--- |
+| Every scan fails | The server cannot reach OSV.dev | Read the **Connection check** printed at startup (or `GET /api/doctor`): set `HTTPS_PROXY`, add `NODE_EXTRA_CA_CERTS`, or use another network. The bundled sample still works from saved data |
 | "API not reachable" in the sidebar | Server not running | `npm run dev` from the repo root |
 | Code evidence shows "Not assessed" everywhere | No `GEMINI_API_KEY`, or no source code given | Add the key, or scan by GitHub link / with a source folder |
 | Many "uncertain" verdicts and quota notes | Free-tier Gemini rate limit | Add `GEMINI_API_KEY_2`, or raise `GEMINI_RPM` with a paid key |

@@ -111,6 +111,18 @@ Tick each line as you go. **Expected** is what you should see.
 
 ## Troubleshooting
 
+**Every scan fails?** Read the **Connection check** that the server prints in its terminal when it starts (also shown on the scan page after a failure, and by the smoke test). It lists each service Vulnexis needs (OSV.dev, EPSS, npm, GitHub, Gemini) as OK or BLOCKED, with the reason and what to do:
+
+| Reason shown | Meaning | Fix |
+| :--- | :--- | :--- |
+| `ECONNRESET`, `ECONNREFUSED`, `UND_ERR_ABORTED`, `ETIMEDOUT` | The network blocks or drops the connection | Use the network's proxy: add `HTTPS_PROXY=http://host:port` to `.env` and restart. Or use a phone hotspot |
+| `SELF_SIGNED_CERT_IN_CHAIN`, `UNABLE_TO_VERIFY_LEAF_SIGNATURE` | The network inspects HTTPS | Vulnexis already trusts your computer's certificates; if it still fails, add `NODE_EXTRA_CA_CERTS=/path/to/cert.pem` to `.env` |
+| `ENOTFOUND` | No internet or DNS | Check the connection |
+| `HTTP 403` on GitHub downloads | GitHub or the network refused the download | Vulnexis falls back to reading only the lockfile; or upload the files |
+| Gemini `HTTP 400/403` | The API key is wrong | Fix `GEMINI_API_KEY` in `.env` (no quotes, no spaces) and restart |
+
+If OSV.dev is blocked, the bundled sample still works (it uses saved data and says so), but new projects need OSV.dev.
+
 | Problem | Fix |
 | :--- | :--- |
 | `Vulnexis needs Node.js 22 or newer` | Install the current LTS from https://nodejs.org |

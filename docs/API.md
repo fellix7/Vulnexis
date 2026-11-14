@@ -7,6 +7,7 @@ All request bodies are JSON (≤ 10 MB). There is no authentication: the API hol
 | Method | Path | Purpose |
 | :--- | :--- | :--- |
 | GET | `/api/health` | Server status and capabilities |
+| GET | `/api/doctor` | Connection check: can the server reach OSV.dev, EPSS, npm, GitHub and Gemini (key validated); reason + advice for each blocked one |
 | POST | `/api/scan/stream` | Run the agent and stream its steps (NDJSON) |
 | POST | `/api/scan` | Run the agent and return the result in one response |
 | GET | `/*` | Production only: built client; paths without a file extension fall back to `index.html`, missing files (e.g. `/assets/old.js`) return 404 |

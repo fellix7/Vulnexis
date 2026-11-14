@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { LockfileDrop } from '../components/scan/LockfileDrop'
 import { MAX_REQUEST_BYTES, readLockfile, stripExtension, type LockfileInfo } from '../components/scan/lockfile'
 import { AgentLive } from '../components/agent/AgentTimeline'
+import { ConnectionCheck } from '../components/scan/ConnectionCheck'
 import { RepoInput } from '../components/scan/RepoInput'
 import { ScanSide } from '../components/scan/ScanSide'
 import { SourceFolder } from '../components/scan/SourceFolder'
@@ -229,6 +230,7 @@ export default function ScanPage() {
                   </button>
                 </div>
               </Callout>
+              {!apiHint && <ConnectionCheck auto={/could not (reach|download)|blocked|network|proxy|certificate|timed? ?out/i.test(error)} />}
               {lastRun.kind === 'upload' && info && <p className="scan-hint">Your chosen files are still selected below.</p>}
             </div>
           )}
