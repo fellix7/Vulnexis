@@ -175,7 +175,7 @@ export async function fetchRepoStats(owner: string, name: string): Promise<{ sta
   const get = (url: string) => fetch(url, { headers, signal: AbortSignal.timeout(8000) });
   const [repo, people] = await Promise.allSettled([
     get(base).then(async (r) => (r.ok ? ((await r.json()) as { stargazers_count?: unknown }).stargazers_count : undefined)),
-    get(`${base}/contributors?per_page=1&anon=1`).then(async (r) => {
+    get(`${base}/contributors?per_page=1`).then(async (r) => {
       if (!r.ok) return undefined;
       // With per_page=1 the page number of rel="last" is the contributor count.
       const last = r.headers.get('link')?.match(/[?&]page=(\d+)>;\s*rel="last"/);

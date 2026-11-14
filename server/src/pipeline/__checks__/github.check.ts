@@ -39,7 +39,7 @@ const reply = (body: unknown, link?: string) => new Response(JSON.stringify(body
 globalThis.fetch = (async (url: string | URL) => {
   const u = String(url);
   if (u.endsWith('/repos/OWASP/NodeGoat')) return reply({ stargazers_count: 2140 });
-  if (u.includes('/contributors')) return reply([{}], '<https://api.github.com/x?per_page=1&anon=1&page=2>; rel="next", <https://api.github.com/x?per_page=1&anon=1&page=87>; rel="last"');
+  if (u.includes('/contributors')) return reply([{}], '<https://api.github.com/x?per_page=1&page=2>; rel="next", <https://api.github.com/x?per_page=1&page=87>; rel="last"');
   return new Response('', { status: 404 });
 }) as typeof fetch;
 assert.deepEqual(await fetchRepoStats('OWASP', 'NodeGoat'), { stars: 2140, contributors: 87 });
