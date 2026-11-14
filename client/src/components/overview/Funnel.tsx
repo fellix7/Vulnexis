@@ -144,7 +144,7 @@ export function Funnel({ findings, review, aiStatus }: { findings: Finding[]; re
                 <span className="ov-stage__caption">{s.caption}</span>
                 <span className="ov-stage__foot">
                   <span className={`ov-stage__bar${s.ai ? ' is-ai' : ''}`} aria-hidden="true">
-                    <span style={{ width: `${pct}%` }} />
+                    <span style={{ transform: `scaleX(${pct / 100})` }} />
                   </span>
                   <span className="ov-stage__pct num subtle">
                     {s.value === '—' ? 'not available' : `${share(s.count, max)} of all findings`}

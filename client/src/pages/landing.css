@@ -517,6 +517,7 @@ html:has(.lp) {
   gap: 16px;
 }
 .lp-stat__n {
+  font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
   font-size: clamp(44px, 5vw, 64px);
   font-weight: 500;
@@ -747,7 +748,7 @@ html:has(.lp) {
   line-height: 1.5;
 }
 .lp-rules .dtable thead th {
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
 }
 .lp-rules__tier {
   width: 1%;
@@ -1255,7 +1256,7 @@ html:has(.lp) {
   width: 18px;
   height: 12px;
   border-radius: 2px;
-  background: linear-gradient(180deg, #ff9933 0 33.3%, #f4f4f2 33.3% 66.6%, #138808 66.6% 100%);
+  background: linear-gradient(180deg, var(--flag-saffron) 0 33.3%, var(--flag-white) 33.3% 66.6%, var(--flag-green) 66.6% 100%);
   opacity: 0.9;
 }
 .lp-nav__actions {
@@ -1329,7 +1330,7 @@ html:has(.lp) {
   margin: 0;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-lg);
-  background: #050606;
+  background: var(--code-bg);
   padding: 18px;
   display: grid;
   gap: 14px;
@@ -1467,12 +1468,13 @@ html:has(.lp) {
 .kv-plan__for {
   margin: 0;
   font-size: var(--fs-sm);
-  color: var(--text-3);
+  color: var(--text-2);
 }
 .kv-plan__price {
   margin: 8px 0;
 }
 .kv-plan__price .num {
+  font-variant-numeric: tabular-nums;
   font-size: 40px;
   font-weight: 650;
   letter-spacing: -0.04em;
@@ -1548,4 +1550,19 @@ html:has(.lp) {
   .kv-gtm__cta .btn {
     justify-content: center;
   }
+}
+
+/* Finish: balanced display heads, steady figures, readable muted text on the featured plan */
+.lp-hero h1,
+.lp-title,
+.kv-loop h3,
+.kv-card h3 {
+  text-wrap: balance;
+}
+.lp-stat__n,
+.kv-plan__price .num {
+  font-variant-numeric: tabular-nums;
+}
+.kv-plan--featured .subtle {
+  color: var(--text-2);
 }

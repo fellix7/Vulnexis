@@ -86,7 +86,7 @@
     color var(--t-fast);
 }
 .fx-chip:hover {
-  border-color: #3a3c42;
+  border-color: var(--line-hover);
   color: var(--text);
 }
 .fx-chip svg {
@@ -180,7 +180,7 @@
   border-radius: 9px;
   background: var(--accent);
   color: var(--text-inverse);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 600;
 }
 .fx-flip {
@@ -231,7 +231,7 @@
 }
 .fx-sel:hover,
 .fx-check:hover {
-  border-color: #3a3c42;
+  border-color: var(--line-hover);
 }
 .fx-sel:focus-within,
 .fx-check:focus-within {
@@ -430,7 +430,7 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   color: var(--text-3);
 }
 .fx-pkg {
@@ -482,7 +482,7 @@
   padding: 0 5px;
   border: 1px solid var(--line-strong);
   border-radius: 3px;
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   line-height: 15px;
   color: var(--text-3);
 }
@@ -628,7 +628,7 @@
 }
 .fx-card__meta {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--text-3);
 }
 .fx-card__fix {

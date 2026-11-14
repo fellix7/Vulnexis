@@ -73,3 +73,23 @@ These are Floor in Hallmark (it treats them as the most reliable "machine-made" 
 - **Polish** (keep the look, fix what a gate names) settles A1 to A5, R1, R4 to R6, the contrast warning, F3 and F6. **About 30 to 45 minutes.** Recommended before the demo: these are what a judge would actually notice (focus, contrast, legibility on a projector).
 - **Restyle** (keep the layout, change the type system) is needed for H1 and R2: removing eyebrows and tracked or mono labels across about 40 places.
 - **Full** redesign would address H2, H3, R3 and the section count by recomposing the landing page. Not recommended inside the hackathon window.
+
+## Polish applied (same day)
+
+Depth: **polish**, requested by the team. The look and layout are unchanged.
+
+| Finding | Change | Re-check |
+| :--- | :--- | :--- |
+| A1 focus | `label.btn` shows the accent ring when its hidden file input has keyboard focus (`index.css`) | 26a clear |
+| A2 field edge | New `--line-input: #666a73` token for `.input` / `.select` borders: 3.5:1 on the card | 40 clear |
+| A3 overflow | `overflow-x: clip` on `html` and `body` | 34 clear |
+| A4 motion | Funnel bars animate `transform: scaleX()` instead of `width` | 10a clear |
+| A5 tokens | `--line-hover`, `--on-solid`, `--critical-solid`, `--topbar-bg`, `--drawer-shadow`, `--code-bg`, `--flag-*` tokens; no colour literals outside `:root` | 48 clear |
+| R1 small text | `--fs-xs` 11 px → 12 px; every 10.5 px / 11 px size uses the token | 75 clear |
+| R4 control height | `.btn--sm` 28 px → 32 px | 39b clear in the app |
+| R5 states | `:active` press feedback on buttons | present in `index.css` (the per-file 26b report for `landing.css` is dismissed) |
+| R6 wrap | Inline `.link` does not wrap | 49b clear |
+| Gradient contrast | Muted text on the featured plan uses `--text-2` | 40 clear |
+| F3, F6 | `text-wrap: balance` on display heads; tabular figures on big numbers | clear |
+
+**Still open, by choice:** the house rules H1 (eyebrows and tracked caps), H2 (words per screen), H3 (hero height at 1440 and 1920), R2 (mono labels), R3 (icon tiles), R7 (off-scale spacing). They need a restyle or a landing recomposition. The landing `button.lp-stage` (85 px funnel stage selectors) is **waived** for 39b: these are card-sized selectors, not buttons.

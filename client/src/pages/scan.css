@@ -115,7 +115,7 @@
     background var(--t-fast) var(--ease);
 }
 .scan-drop:not(.has-file):not(.is-disabled):hover {
-  border-color: #3a3c42;
+  border-color: var(--line-hover);
   background: var(--surface-2);
 }
 .scan-drop.is-over {
@@ -230,7 +230,7 @@ label.btn.is-disabled {
 }
 .scan-facts dt {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--text-3);
