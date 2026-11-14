@@ -1,24 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { LockfileDrop } from '../components/scan/LockfileDrop'
 import { MAX_REQUEST_BYTES, readLockfile, stripExtension, type LockfileInfo } from '../components/scan/lockfile'
-import { ScanProgress } from '../components/scan/ScanProgress'
+import { AgentLive } from '../components/agent/AgentTimeline'
+import { RepoInput } from '../components/scan/RepoInput'
 import { ScanSide } from '../components/scan/ScanSide'
 import { SourceFolder } from '../components/scan/SourceFolder'
 import { Icon } from '../components/ui/Icon'
 import { Callout, PageHeader } from '../components/ui/Kit'
 import { formatBytes } from '../lib/format'
+import { useLang } from '../lib/i18n'
 import { collectSources, type CollectedSources } from '../lib/sources'
 import { Link, navigate } from '../router'
 import { useScan, type ScanInput } from '../state/store'
 import './scan.css'
 
 // Survives leaving and returning to /scan while a request is in flight, so the clock and retry keep working.
-const lastRun = { startedAt: 0, label: '', kind: 'upload' as 'upload' | 'sample' }
+const lastRun = { startedAt: 0, label: '', kind: 'upload' as 'upload' | 'sample' | 'repo', repoUrl: '' }
 
 const SAMPLE_NAME = 'QuickNotes (sample)'
 
 export default function ScanPage() {
-  const { current, status, error, scanningWithAi, health, healthFailed, runScan, loadDemo, dismissError } = useScan()
+  const { current, status, error, liveSteps, health, healthFailed, runScan, loadDemo, dismissError } = useScan()
+  const { tr } = useLang()
   const scanning = status === 'scanning'
 
   const [info, setInfo] = useState<LockfileInfo | null>(null)
@@ -98,7 +101,7 @@ export default function ScanPage() {
     setSizeError(null)
   }, [])
 
-  async function start(input: ScanInput, label: string, kind: 'upload' | 'sample') {
+  async function start(input: ScanInput, label: string, kind: 'upload' | 'sample' | 'repo') {
     lastRun.startedAt = Date.now()
     lastRun.label = label
     lastRun.kind = kind
@@ -139,6 +142,12 @@ export default function ScanPage() {
     void start({ request: { sample: true }, source: 'sample', projectName: SAMPLE_NAME }, SAMPLE_NAME, 'sample')
   }
 
+  function runRepo(url: string) {
+    lastRun.repoUrl = url
+    const name = url.replace(/^https?:\/\/(www\.)?github\.com\//, '').replace(/\/+$/, '')
+    void start({ request: { repoUrl: url }, source: 'repo', projectName: name }, name, 'repo')
+  }
+
   function exploreDemo() {
     loadDemo()
     navigate('/overview')
@@ -146,6 +155,7 @@ export default function ScanPage() {
 
   function retry() {
     if (lastRun.kind === 'sample') runSample()
+    else if (lastRun.kind === 'repo' && lastRun.repoUrl) runRepo(lastRun.repoUrl)
     else if (info) runUpload()
     else dismissError()
   }
@@ -156,9 +166,12 @@ export default function ScanPage() {
   return (
     <div className="scan-page">
       <PageHeader
-        eyebrow="New scan"
-        title="Scan a project"
-        description="Upload your package-lock.json to see which known vulnerabilities in your dependencies deserve attention first, and the smallest safe upgrade for each."
+        eyebrow={tr('New scan', 'नया स्कैन')}
+        title={tr('Give the agent a project', 'एजेंट को प्रोजेक्ट दें')}
+        description={tr(
+          'Paste a public GitHub link or upload a package-lock.json. The agent finds which known vulnerabilities deserve attention first, checks whether your code really uses them, and gives the smallest safe upgrade for each.',
+          'पब्लिक GitHub लिंक डालें या package-lock.json अपलोड करें। एजेंट बताएगा कि कौन-सी कमज़ोरियाँ पहले ठीक करनी हैं, क्या आपका कोड सच में उन्हें इस्तेमाल करता है, और हर एक के लिए सबसे छोटा सुरक्षित अपग्रेड।',
+        )}
       />
 
       {current && !scanning && (
@@ -177,7 +190,7 @@ export default function ScanPage() {
         <div className="scan-main">
           {healthFailed && (
             <Callout tone="warn" role="status">
-              <strong>The scan API is not reachable.</strong> Scanning needs the Vulnera server. From the project root, run <code>npm run dev</code> to start it. You can still{' '}
+              <strong>The scan API is not reachable.</strong> Scanning needs the Kavach server. From the project root, run <code>npm run dev</code> to start it. You can still{' '}
               <button type="button" className="link-btn" onClick={exploreDemo} disabled={scanning}>
                 explore the demo data
               </button>
@@ -192,11 +205,7 @@ export default function ScanPage() {
 
           {scanning && (
             <div ref={progressBox}>
-              <ScanProgress
-                withAi={scanningWithAi && !aiUnavailable}
-                startedAt={lastRun.startedAt || fallbackStart}
-                label={lastRun.label || 'your project'}
-              />
+              <AgentLive steps={liveSteps} startedAt={lastRun.startedAt || fallbackStart} label={lastRun.label || 'your project'} />
             </div>
           )}
 
@@ -224,6 +233,12 @@ export default function ScanPage() {
             </div>
           )}
 
+          <RepoInput disabled={scanning} onScan={runRepo} offline={!!health?.offline} />
+
+          <div className="scan-or" role="separator">
+            <span>{tr('or upload files from your computer', 'या अपने कंप्यूटर से फ़ाइल अपलोड करें')}</span>
+          </div>
+
           <section className="scan-step" aria-labelledby="scan-s1">
             <span className="scan-step__n" aria-hidden="true">
               {info ? <Icon name="check" size={14} /> : '01'}
@@ -231,7 +246,7 @@ export default function ScanPage() {
             <div className="scan-step__body">
               <div className="scan-step__head">
                 <h2 id="scan-s1">Lockfile</h2>
-                <span className="badge">Required</span>
+                <span className="badge">{tr('Required for upload', 'अपलोड के लिए ज़रूरी')}</span>
               </div>
               <p className="scan-step__lede">The package-lock.json from the root of your project. It lists every package and version that npm installed.</p>
               <LockfileDrop info={info} error={lockError} reading={reading} disabled={scanning} onFile={onLockfile} onClear={clearLockfile} />
@@ -252,7 +267,7 @@ export default function ScanPage() {
                 </span>
               </div>
               <p className="scan-step__lede">
-                With your code, Vulnera can check whether it actually calls the vulnerable function. Only files that import a vulnerable package are analysed, and only short
+                With your code, Kavach can check whether it actually calls the vulnerable function. Only files that import a vulnerable package are analysed, and only short
                 snippets around those uses go to Gemini. Nothing is installed or executed. Up to 300 files and 3 MB are read; without a folder, findings show “Not assessed”.
               </p>
               <SourceFolder
@@ -269,7 +284,7 @@ export default function ScanPage() {
           <div className="scan-run">
             <button type="button" className="btn btn--primary btn--lg" onClick={runUpload} disabled={!canRun} aria-describedby="scan-run-note">
               <Icon name="play" size={14} />
-              {scanning ? 'Scanning…' : 'Run scan'}
+              {scanning ? tr('Agent working…', 'एजेंट काम कर रहा है…') : tr('Run scan', 'स्कैन शुरू करें')}
             </button>
             <p id="scan-run-note" className="scan-run__note">
               {!info
@@ -287,7 +302,7 @@ export default function ScanPage() {
           )}
 
           <section className="scan-alt" aria-labelledby="scan-alt-h">
-            <h2 id="scan-alt-h">No lockfile handy?</h2>
+            <h2 id="scan-alt-h">{tr('No project handy?', 'कोई प्रोजेक्ट नहीं है?')}</h2>
             <div className="scan-alt__grid">
               <div className="scan-alt__item">
                 <h3>Scan the bundled sample project</h3>

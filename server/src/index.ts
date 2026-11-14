@@ -1,14 +1,19 @@
+import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import express from 'express';
+import { Agent, plural, SOURCES } from './agent.js';
 import { OfflineMissError } from './cache.js';
 import { analyzeFindings } from './pipeline/ai.js';
 import { enrich } from './pipeline/enrich.js';
 import { matchPackages } from './pipeline/match.js';
 import { parseLockfile } from './pipeline/parse.js';
 import { planUpgrades } from './pipeline/plan.js';
-import { scoreFindings } from './pipeline/score.js';
-import type { ScanRequest, ScanResult, SourceFile } from './types.js';
+import { fetchRepo, RepoError } from './pipeline/github.js';
+import { DEFAULT_EPSS_THRESHOLD, scoreFindings, TIER_ORDER } from './pipeline/score.js';
+import type { AgentStep, Finding, Package, RepoRef, ScanRequest, ScanResult, SourceFile, Tier } from './types.js';
+
+const TIER_NAME: Record<Tier, string> = { FIX_NOW: 'fix now', FIX_SPRINT: 'this sprint', PLAN: 'plan', MONITOR: 'monitor' };
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 8787);
@@ -55,61 +60,251 @@ async function loadSample(): Promise<{ lockfile: unknown; sources: SourceFile[] 
   return { lockfile, sources };
 }
 
-async function scan(req: ScanRequest): Promise<ScanResult> {
+async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void): Promise<ScanResult> {
   const notes: string[] = [];
-  const { lockfile, sources } = req.sample
-    ? await loadSample()
-    : { lockfile: req.lockfile, sources: req.sources ?? [] };
+  const agent = new Agent(onStep);
+  const hasKey = Boolean(process.env.GEMINI_API_KEY);
+  const offline = process.env.OFFLINE === '1';
+
+  // 1. Get the project: bundled sample, a public GitHub repository, or an uploaded lockfile.
+  let lockfile: unknown;
+  let sources: SourceFile[];
+  let repo: RepoRef | undefined;
+  if (req.sample) {
+    ({ lockfile, sources } = await agent.run(
+      'github',
+      'Loading the bundled sample project',
+      { input: 'samples/demo-app (QuickNotes, a deliberately outdated Express app)' },
+      () => loadSample(),
+      (v) => ({ output: `package-lock.json + ${plural(v.sources.length, 'source file')}` }),
+    ));
+  } else if (req.repoUrl) {
+    const fetched = await agent.run(
+      'github',
+      'Reading the public GitHub repository',
+      { input: req.repoUrl, sources: [SOURCES.github] },
+      async () => {
+        try {
+          return await fetchRepo(req.repoUrl!);
+        } catch (e) {
+          if (e instanceof RepoError) throw new ScanError(e.message);
+          throw new ScanError('Could not reach GitHub. Try again, or upload the lockfile instead.', 502);
+        }
+      },
+      (v) => ({
+        title: `Read ${v.repo.owner}/${v.repo.name} @ ${v.repo.ref}`,
+        output: `${v.repo.lockfilePath} + ${plural(v.sources.length, 'source file')} (text only, nothing executed)`,
+        decision: v.skipped > 0 ? `Skipped ${plural(v.skipped, 'large or deep file')} to stay inside the 3 MB reading budget.` : undefined,
+        sources: [{ label: `github.com/${v.repo.owner}/${v.repo.name}`, url: v.repo.url }],
+      }),
+    );
+    ({ lockfile, sources, repo } = fetched);
+  } else {
+    lockfile = req.lockfile;
+    sources = req.sources ?? [];
+  }
   if (!lockfile || typeof lockfile !== 'object') {
-    throw new ScanError('Expected { lockfile: <package-lock.json contents> } or { sample: true }.');
+    throw new ScanError('Expected { lockfile }, { repoUrl } or { sample: true }.');
   }
 
-  let packages;
+  // 2. Plan: decide which tools this run needs, from what the user gave us and what the server can do.
+  // Offline mode can still replay saved Gemini answers when they were committed to data/snapshots.
+  const savedAi = offline && existsSync(path.resolve(import.meta.dirname, '../../data/snapshots/gemini-package'));
+  const willInvestigate = sources.length > 0 && (hasKey || savedAi);
+  agent.note('plan', 'Planning the investigation', {
+    input: `lockfile ✓ · source files: ${sources.length} · Gemini key: ${hasKey ? 'yes' : 'no'} · data: ${offline ? 'saved snapshots' : 'live'}`,
+    output: [
+      'parse lockfile',
+      'match OSV.dev',
+      'enrich with EPSS + CISA KEV',
+      'rank by fixed rules',
+      willInvestigate ? 'read code with Gemini' : null,
+      'verify safe versions',
+    ]
+      .filter(Boolean)
+      .join(' → '),
+    decision: willInvestigate
+      ? 'Source code is available, so I will check whether your code actually calls each vulnerable function.'
+      : sources.length === 0
+        ? 'No source code was given, so I will skip the code check and mark code usage as "Not assessed" instead of guessing.'
+        : 'No Gemini key on this server, so I will skip the code check and say so rather than guess.',
+  });
+
+  let packages: Package[];
   try {
-    packages = parseLockfile(lockfile);
+    packages = await agent.run(
+      'parse',
+      'Reading the lockfile',
+      { input: 'package-lock.json (lockfileVersion 2/3)' },
+      async () => parseLockfile(lockfile),
+      (v) => {
+        const direct = v.filter((p) => p.direct).length;
+        const dev = v.filter((p) => p.dev).length;
+        return { title: `Read ${plural(v.length, 'installed package')}`, output: `${direct} direct · ${v.length - direct} transitive · ${dev} dev-only` };
+      },
+    );
   } catch (e) {
     throw new ScanError(e instanceof Error ? e.message : 'Could not read the lockfile.');
   }
 
-  const matches = await matchPackages(packages);
+  const matches = await agent.run(
+    'osv',
+    `Matching ${plural(packages.length, 'package')} against OSV.dev`,
+    { input: 'exact name + version lookups (batched)', sources: [SOURCES.osv] },
+    () => matchPackages(packages),
+    (v) => {
+      const pk = new Set(v.map((m) => `${m.pkg.name}@${m.pkg.version}`)).size;
+      return {
+        output: `${plural(v.length, 'known vulnerability', 'known vulnerabilities')} in ${plural(pk, 'package')}`,
+        decision: v.length === 0 ? 'Nothing matched, so there is nothing to rank. Stopping early.' : 'Facts come from this lookup only. AI never adds or removes a finding.',
+      };
+    },
+  );
   const advisories = [...new Map(matches.map((m) => [m.advisory.id, m.advisory])).values()];
-  const enriched = await enrich(advisories);
+
+  const enriched = await agent.run(
+    'enrich',
+    `Checking ${plural(advisories.length, 'advisory', 'advisories')} for real-world exploitation`,
+    { input: 'CVE ids → EPSS score, CISA KEV membership', sources: [SOURCES.epss, SOURCES.kev] },
+    () => enrich(advisories),
+    (v) => {
+      const vals = [...v.map.values()];
+      const kev = vals.filter((e) => e.kev === true).length;
+      const hot = vals.filter((e) => e.epss !== null && e.epss >= DEFAULT_EPSS_THRESHOLD).length;
+      return {
+        output: `${plural(kev, 'advisory', 'advisories')} on CISA KEV · ${hot} with EPSS ≥ 10%`,
+        decision: kev > 0 ? `${plural(kev, 'vulnerability is', 'vulnerabilities are')} already exploited in real attacks; these go straight to "Fix now".` : undefined,
+      };
+    },
+  );
   notes.push(...enriched.warnings);
 
   // First pass without AI gives the order Gemini works through (most urgent first).
   const ranked = scoreFindings(matches, enriched.map);
-  const ai = await analyzeFindings(ranked, sources);
-  notes.push(...ai.warnings);
+  const tiers = (fs: Finding[]) => TIER_ORDER.map((t) => `${fs.filter((f) => f.tier === t).length} ${TIER_NAME[t]}`).join(' · ');
+  const directCount = ranked.filter((f) => f.pkg.direct).length;
+  agent.note('rank', 'Ranking findings with fixed, published rules', {
+    input: 'KEV · EPSS ≥ 10% · severity · production vs dev · direct vs transitive',
+    output: tiers(ranked),
+    decision: willInvestigate
+      ? `Next: read the code for the top ${Math.min(30, directCount)} direct-dependency findings, most urgent first.`
+      : 'Ranking is final for this run (no code check).',
+  });
+
+  let ai: Awaited<ReturnType<typeof analyzeFindings>> = { verdicts: new Map(), status: 'disabled', warnings: [] };
+  if (willInvestigate && ranked.length) {
+    ai = await agent.run(
+      'gemini',
+      'Reading your code for calls to the vulnerable functions',
+      {
+        input: `${plural(sources.length, 'source file')} scanned locally; only short snippets around imports of vulnerable packages go to Gemini, secrets masked`,
+        sources: [SOURCES.gemini],
+      },
+      () => analyzeFindings(ranked, sources),
+      (v) => {
+        const vs = [...v.verdicts.values()];
+        const uses = vs.filter((x) => x.verdict === 'USES_VULNERABLE_API').length;
+        const none = vs.filter((x) => x.verdict === 'NO_VULNERABLE_USAGE_FOUND').length;
+        const unsure = vs.filter((x) => x.verdict === 'UNCERTAIN').length;
+        const cites = vs.reduce((n, x) => n + x.citations.length, 0);
+        return {
+          output: `${uses} used · ${none} not used · ${unsure} uncertain · ${plural(cites, 'citation')} re-checked against the real files`,
+          decision:
+            v.status === 'error'
+              ? 'The AI step failed; findings keep their rule-based tier and say "uncertain".'
+              : uses > 0
+                ? `Your code reaches ${plural(uses, 'vulnerable function')}. AI may only raise a priority, never lower it.`
+                : 'No confirmed calls. "Not found" is shown as needing human review, not as safe.',
+        };
+      },
+    );
+    notes.push(...ai.warnings);
+  } else {
+    agent.note('gemini', 'Code check skipped', { output: sources.length ? 'No Gemini key configured' : 'No source code provided' }, 'skipped');
+  }
 
   // AI can only raise a tier, so rescoring with verdicts is safe.
   const findings = ai.verdicts.size ? scoreFindings(matches, enriched.map, ai.verdicts) : ranked;
-  const plans = await planUpgrades(matches);
+  if (ai.verdicts.size) {
+    const raised = findings.filter((f) => f.tier === 'FIX_NOW').length - ranked.filter((f) => f.tier === 'FIX_NOW').length;
+    if (raised > 0) agent.note('rank', `Re-ranked: ${plural(raised, 'finding')} raised to Fix now by code evidence`, { output: tiers(findings) });
+  }
 
-  return {
+  const plans = await agent.run(
+    'verify',
+    'Finding the smallest safe upgrade for each package',
+    { input: 'fixed versions from OSV → re-query OSV for each candidate → next releases from npm if still vulnerable', sources: [SOURCES.osv, SOURCES.npm] },
+    () => planUpgrades(matches),
+    (v) => {
+      const ok = v.filter((p) => p.to).length;
+      const major = v.filter((p) => p.jump === 'major').length;
+      return {
+        output: `${ok} of ${plural(v.length, 'package')} have a verified clean version${major ? ` · ${major} need a major upgrade` : ''}`,
+        decision: ok < v.length ? `${v.length - ok} have no verified fix yet; I will say so instead of suggesting an unverified version.` : 'Every upgrade target was re-checked and is clean.',
+      };
+    },
+  );
+
+  const fixNow = findings.filter((f) => f.tier === 'FIX_NOW').length;
+  agent.note('report', 'Preparing the report', {
+    output: `${plural(findings.length, 'finding')} · ${fixNow} to fix now · Hindi + English summary · CERT-In / DPDP brief`,
+    decision: fixNow > 0 ? `Start with the ${plural(fixNow, 'Fix now item')}.` : 'Nothing needs an emergency fix. Work through the sprint list.',
+  });
+
+  const result: ScanResult = {
     scannedAt: new Date().toISOString(),
     packageCount: packages.length,
     findings,
     plans,
     aiStatus: ai.status,
     notes,
+    agent: agent.steps,
   };
+  if (repo) result.repo = repo;
+  return result;
 }
+
+function failure(e: unknown): { status: number; error: string } {
+  if (e instanceof ScanError) return { status: e.status, error: e.message };
+  if (e instanceof OfflineMissError) {
+    return { status: 503, error: 'Offline mode: this project has no saved snapshot. Turn OFFLINE off or scan the sample.' };
+  }
+  console.error(e);
+  return { status: 502, error: 'Scan failed while contacting a data source. Try again.' };
+}
+
+// Streams the agent's steps as they happen (one JSON object per line), then the result.
+app.post('/api/scan/stream', async (req, res) => {
+  res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+  const send = (obj: unknown) => res.write(`${JSON.stringify(obj)}\n`);
+  try {
+    const result = await scan((req.body ?? {}) as ScanRequest, (step) => send({ type: 'step', step }));
+    send({ type: 'result', result });
+  } catch (e) {
+    send({ type: 'error', ...failure(e) });
+  }
+  res.end();
+});
 
 app.post('/api/scan', async (req, res) => {
   try {
     res.json(await scan((req.body ?? {}) as ScanRequest));
   } catch (e) {
-    if (e instanceof ScanError) {
-      res.status(e.status).json({ error: e.message });
-    } else if (e instanceof OfflineMissError) {
-      res.status(503).json({ error: 'Offline mode: this project has no saved snapshot. Turn OFFLINE off or scan the sample.' });
-    } else {
-      console.error(e);
-      res.status(502).json({ error: 'Scan failed while contacting a data source. Try again.' });
-    }
+    const f = failure(e);
+    res.status(f.status).json({ error: f.error });
   }
 });
 
+// Production: serve the built client from the same origin (one process to deploy).
+const CLIENT_DIST = path.resolve(import.meta.dirname, '../../client/dist');
+if (existsSync(CLIENT_DIST)) {
+  app.use(express.static(CLIENT_DIST, { index: false, maxAge: '1h' }));
+  app.get(/^\/(?!api\/).*/, (_req, res) => res.sendFile(path.join(CLIENT_DIST, 'index.html')));
+}
+
 app.listen(PORT, () => {
-  console.log(`Vulnera API listening on http://localhost:${PORT}`);
+  console.log(`Kavach API listening on http://localhost:${PORT}`);
 });

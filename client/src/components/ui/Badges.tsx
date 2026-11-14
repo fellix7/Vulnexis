@@ -120,7 +120,7 @@ export function SourceBadge({ source }: { source: ScanSource }) {
   const cls = source === 'demo' ? 'badge--accent' : source === 'sample' ? 'badge--info' : 'badge--ok'
   return (
     <span className={`badge ${cls}`}>
-      <Icon name={source === 'demo' ? 'beaker' : source === 'sample' ? 'package' : 'activity'} size={12} />
+      <Icon name={source === 'demo' ? 'beaker' : source === 'sample' ? 'package' : source === 'repo' ? 'github' : 'activity'} size={12} />
       {SOURCE_LABEL[source]}
     </span>
   )

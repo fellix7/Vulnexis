@@ -35,7 +35,7 @@ export function Why() {
       <div className="lp-wrap">
         <SectionHead
           id="why-title"
-          eyebrow="Why Vulnera"
+          eyebrow="Why Kavach"
           title="Every claim comes with its evidence."
           lede="Five capabilities, each with its evidence attached. The central one answers what a list of advisories cannot: does my code actually call it?"
         />
@@ -49,7 +49,7 @@ export function Why() {
               package. It answers with a verdict, a short reason and the line it relied on.
             </p>
             <p className="muted">
-              Vulnera then re-checks that line against your file. A “uses” verdict with no surviving citation is downgraded to Uncertain,
+              Kavach then re-checks that line against your file. A “uses” verdict with no surviving citation is downgraded to Uncertain,
               and findings the AI did not review say <strong>Not assessed</strong>, never “safe”.
             </p>
             <ul className="lp-verdicts" aria-label="The three possible verdicts">

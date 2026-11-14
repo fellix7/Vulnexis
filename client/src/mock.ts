@@ -1,6 +1,6 @@
 // Illustrative demo data for UI development (open the page with ?mock=1).
 // Values are realistic but NOT live: do not treat them as real scan output.
-import type { Advisory, AiVerdict, Enrichment, Finding, Package, ScanResult, Tier, UpgradePlan } from './types'
+import type { Advisory, AgentStep, AiVerdict, Enrichment, Finding, Package, ScanResult, Tier, UpgradePlan } from './types'
 
 const pkg = (name: string, version: string, direct: boolean, dev: boolean, path: string[]): Package => ({
   name,
@@ -366,7 +366,29 @@ const plans: UpgradePlan[] = [
   },
 ]
 
+const S = {
+  osv: { label: 'OSV.dev (Google open-source vulnerability database)', url: 'https://osv.dev' },
+  epss: { label: 'FIRST EPSS (exploit probability)', url: 'https://www.first.org/epss/' },
+  kev: { label: 'CISA Known Exploited Vulnerabilities', url: 'https://www.cisa.gov/known-exploited-vulnerabilities-catalog' },
+  npm: { label: 'npm registry', url: 'https://registry.npmjs.org' },
+  gemini: { label: 'Google Gemini (code reading only)', url: 'https://ai.google.dev' },
+}
+
+// Illustrative agent run matching the demo findings above.
+const agent: AgentStep[] = [
+  { id: 's1', tool: 'plan', title: 'Planning the investigation', status: 'done', startedAt: 0, ms: 2, input: 'lockfile ✓ · source files: 64 · Gemini key: yes · data: live', output: 'parse lockfile → match OSV.dev → enrich with EPSS + CISA KEV → rank by fixed rules → read code with Gemini → verify safe versions', decision: 'Source code is available, so I will check whether your code actually calls each vulnerable function.' },
+  { id: 's2', tool: 'parse', title: 'Read 412 installed packages', status: 'done', startedAt: 3, ms: 41, input: 'package-lock.json (lockfileVersion 2/3)', output: '18 direct · 394 transitive · 231 dev-only' },
+  { id: 's3', tool: 'osv', title: 'Matching 412 packages against OSV.dev', status: 'done', startedAt: 45, ms: 2310, input: 'exact name + version lookups (batched)', output: '15 known vulnerabilities in 10 packages', decision: 'Facts come from this lookup only. AI never adds or removes a finding.', sources: [S.osv] },
+  { id: 's4', tool: 'enrich', title: 'Checking 15 advisories for real-world exploitation', status: 'done', startedAt: 2360, ms: 1180, input: 'CVE ids → EPSS score, CISA KEV membership', output: '1 advisory on CISA KEV · 3 with EPSS ≥ 10%', decision: '1 vulnerability is already exploited in real attacks; it goes straight to "Fix now".', sources: [S.epss, S.kev] },
+  { id: 's5', tool: 'rank', title: 'Ranking findings with fixed, published rules', status: 'done', startedAt: 3545, ms: 3, input: 'KEV · EPSS ≥ 10% · severity · production vs dev · direct vs transitive', output: '1 fix now · 5 this sprint · 5 plan · 4 monitor', decision: 'Next: read the code for the top 8 direct-dependency findings, most urgent first.' },
+  { id: 's6', tool: 'gemini', title: 'Reading your code for calls to the vulnerable functions', status: 'done', startedAt: 3550, ms: 9840, input: '64 source files scanned locally; only short snippets around imports of vulnerable packages go to Gemini, secrets masked', output: '2 used · 3 not used · 3 uncertain · 4 citations re-checked against the real files', decision: 'Your code reaches 2 vulnerable functions. AI may only raise a priority, never lower it.', sources: [S.gemini] },
+  { id: 's7', tool: 'rank', title: 'Re-ranked: 1 finding raised to Fix now by code evidence', status: 'done', startedAt: 13392, ms: 1, output: '2 fix now · 4 this sprint · 5 plan · 4 monitor' },
+  { id: 's8', tool: 'verify', title: 'Finding the smallest safe upgrade for each package', status: 'done', startedAt: 13395, ms: 3020, input: 'fixed versions from OSV → re-query OSV for each candidate → next releases from npm if still vulnerable', output: '9 of 10 packages have a verified clean version · 2 need a major upgrade', decision: '1 has no verified fix yet; I will say so instead of suggesting an unverified version.', sources: [S.osv, S.npm] },
+  { id: 's9', tool: 'report', title: 'Preparing the report', status: 'done', startedAt: 16418, ms: 1, output: '15 findings · 2 to fix now · Hindi + English summary · CERT-In / DPDP brief', decision: 'Start with the 2 Fix now items.' },
+]
+
 export const MOCK_RESULT: ScanResult = {
+  agent,
   scannedAt: '2026-10-24T09:30:00.000Z',
   packageCount: 412,
   findings,

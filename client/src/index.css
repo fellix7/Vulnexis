@@ -2,7 +2,7 @@
 @import '@fontsource-variable/jetbrains-mono';
 
 /* ==========================================================================
-   Vulnera design tokens. Dark-first; colour is always paired with a label or glyph.
+   Kavach design tokens. Dark-first; colour is always paired with a label or glyph.
    Owner: shared foundation. Pages add their own CSS in pages/<page>.css.
    ========================================================================== */
 :root {
@@ -61,7 +61,7 @@
   --tier-monitor: var(--neutral);
 
   /* Type */
-  --font-sans: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: 'Inter Variable', Inter, 'Noto Sans Devanagari', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   --fs-xs: 11px;
   --fs-sm: 12.5px;
@@ -1164,4 +1164,55 @@ kbd,
   .page-head h1 {
     font-size: 24px;
   }
+}
+
+/* ==========================================================================
+   Language switch (EN | हिं). Hindi text gets a little more line height.
+   ========================================================================== */
+.lang-toggle {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--surface-1);
+}
+.lang-toggle button {
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 560;
+  height: 26px;
+  min-width: 34px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.lang-toggle button:hover {
+  color: var(--text);
+}
+.lang-toggle button[aria-pressed='true'] {
+  background: var(--surface-3);
+  color: var(--text);
+}
+.lang-toggle button[lang='hi'] {
+  font-family: 'Noto Sans Devanagari', var(--font-sans);
+}
+:lang(hi) body,
+html:lang(hi) {
+  font-feature-settings: normal;
+}
+html:lang(hi) p,
+html:lang(hi) li,
+html:lang(hi) dd {
+  line-height: 1.7;
+}
+.topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+html:lang(hi) .eyebrow {
+  letter-spacing: 0.02em;
 }

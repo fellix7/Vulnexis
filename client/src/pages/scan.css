@@ -636,3 +636,132 @@ label.btn.is-disabled {
     width: 100%;
   }
 }
+
+/* ---- Step 0: GitHub repository by link ---- */
+.repo-card {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+  padding: var(--s-5);
+  margin-bottom: var(--s-5);
+}
+.repo-card__head {
+  display: flex;
+  gap: var(--s-3);
+  align-items: flex-start;
+}
+.repo-card__icon {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-md);
+  display: grid;
+  place-items: center;
+  background: var(--surface-3);
+  color: var(--text);
+}
+.repo-card h2 {
+  margin: 0;
+  font-size: var(--fs-lg);
+  letter-spacing: -0.01em;
+}
+.repo-card p {
+  margin: 4px 0 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  max-width: 62ch;
+}
+.repo-form {
+  margin-top: var(--s-4);
+  display: flex;
+  gap: var(--s-2);
+}
+.repo-form__input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+}
+.repo-form__input[aria-invalid='true'] {
+  border-color: var(--critical-line);
+}
+.repo-form__go {
+  height: 44px;
+  flex: none;
+}
+.repo-hint {
+  font-size: var(--fs-xs) !important;
+  color: var(--text-3) !important;
+  margin-top: var(--s-2) !important;
+}
+.repo-hint--bad {
+  color: var(--critical) !important;
+}
+.repo-examples {
+  margin-top: var(--s-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--fs-sm);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 var(--s-3);
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.chip:hover:not(:disabled) {
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+.chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.scan-or {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin: var(--s-2) 0 var(--s-4);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.scan-or::before,
+.scan-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+@media (max-width: 560px) {
+  .repo-card {
+    padding: var(--s-4);
+  }
+  .repo-form {
+    flex-direction: column;
+  }
+  .repo-form__go {
+    width: 100%;
+    justify-content: center;
+  }
+}
+@media (max-width: 560px) {
+  .repo-form__input {
+    flex: none;
+    width: 100%;
+  }
+}

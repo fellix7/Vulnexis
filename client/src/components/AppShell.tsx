@@ -6,10 +6,12 @@ import { useScan } from '../state/store'
 import { SourceBadge } from './ui/Badges'
 import { Icon, type IconName } from './ui/Icon'
 import { Logo } from './ui/Logo'
+import { LangToggle, useLang } from '../lib/i18n'
 
 interface NavItem {
   to: string
   label: string
+  hi: string
   icon: IconName
   match: (path: string) => boolean
   count?: (n: Counts) => number | null
@@ -23,23 +25,27 @@ interface Counts {
 }
 
 const WORKSPACE: NavItem[] = [
-  { to: '/overview', label: 'Overview', icon: 'grid', match: (p) => p === '/overview' },
+  { to: '/overview', label: 'Overview', hi: 'सारांश', icon: 'grid', match: (p) => p === '/overview' },
+  { to: '/agent', label: 'Agent trace', hi: 'एजेंट का काम', icon: 'bot', match: (p) => p === '/agent' },
+  { to: '/india', label: 'India brief', hi: 'भारत रिपोर्ट', icon: 'scale', match: (p) => p === '/india' },
   {
     to: '/findings',
     label: 'Findings',
+    hi: 'कमज़ोरियाँ',
     icon: 'list',
     match: (p) => p === '/findings' || p === '/finding',
     count: (n) => n.findings,
   },
-  { to: '/evidence', label: 'Code evidence', icon: 'code', match: (p) => p === '/evidence', count: (n) => n.ai },
-  { to: '/remediation', label: 'Remediation', icon: 'wrench', match: (p) => p === '/remediation', count: (n) => n.plans },
-  { to: '/reports', label: 'Reports & history', icon: 'history', match: (p) => p === '/reports' },
+  { to: '/evidence', label: 'Code evidence', hi: 'कोड सबूत', icon: 'code', match: (p) => p === '/evidence', count: (n) => n.ai },
+  { to: '/remediation', label: 'Remediation', hi: 'सुधार', icon: 'wrench', match: (p) => p === '/remediation', count: (n) => n.plans },
+  { to: '/reports', label: 'Reports & history', hi: 'रिपोर्ट व इतिहास', icon: 'history', match: (p) => p === '/reports' },
 ]
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { path } = useLocation()
   const { current, health, healthFailed, status } = useScan()
   const [open, setOpen] = useState(false)
+  const { tr } = useLang()
 
   useEffect(() => setOpen(false), [path])
   useEffect(() => {
@@ -65,24 +71,24 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="shell">
       <aside className="sidebar" data-open={open} aria-label="Primary">
-        <Link to="/" className="sidebar__brand" aria-label="Vulnera home">
+        <Link to="/" className="sidebar__brand" aria-label="Kavach home">
           <Logo />
         </Link>
         <div className="sidebar__cta">
           <Link to="/scan" className="btn btn--sm" aria-current={path === '/scan' ? 'page' : undefined}>
             <Icon name="plus" size={14} />
-            New scan
+            {tr('New scan', 'नया स्कैन')}
             {status === 'scanning' && <span className="spinner" style={{ marginLeft: 'auto', width: 12, height: 12 }} />}
           </Link>
         </div>
         <nav className="nav-group" aria-label="Workspace">
-          <span className="eyebrow">Workspace</span>
+          <span className="eyebrow">{tr('Workspace', 'वर्कस्पेस')}</span>
           {WORKSPACE.map((item) => {
             const n = counts && item.count ? item.count(counts) : null
             return (
               <Link key={item.to} to={item.to} className="nav-link" aria-current={item.match(path) ? 'page' : undefined}>
                 <Icon name={item.icon} />
-                {item.label}
+                {tr(item.label, item.hi)}
                 {n !== null && n > 0 && <span className="nav-count">{n}</span>}
               </Link>
             )
@@ -90,10 +96,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
         {counts && counts.fixNow > 0 && (
           <nav className="nav-group" aria-label="Shortcuts">
-            <span className="eyebrow">Priority</span>
+            <span className="eyebrow">{tr('Priority', 'प्राथमिकता')}</span>
             <Link to="/findings?tier=FIX_NOW" className="nav-link">
               <span className="tier tier--FIX_NOW" style={{ padding: 0, border: 0, background: 'none' }} aria-hidden="true" />
-              Fix now
+              {tr('Fix now', 'अभी ठीक करें')}
               <span className="nav-count nav-count--hot">{counts.fixNow}</span>
             </Link>
           </nav>
@@ -142,15 +148,16 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           ) : (
             <div className="topbar__ctx">
-              <span className="subtle">No scan loaded</span>
+              <span className="subtle">{tr('No scan loaded', 'कोई स्कैन नहीं')}</span>
             </div>
           )}
           <div className="topbar__actions">
+            <LangToggle compact />
             {path !== '/scan' && (
               <Link to="/scan" className="btn btn--primary btn--sm">
                 <Icon name="upload" size={14} />
-                <span className="hide-sm">Scan a project</span>
-                <span className="sr-only show-sm">Scan a project</span>
+                <span className="hide-sm">{tr('Scan a project', 'प्रोजेक्ट स्कैन करें')}</span>
+                <span className="sr-only show-sm">{tr('Scan a project', 'प्रोजेक्ट स्कैन करें')}</span>
               </Link>
             )}
           </div>

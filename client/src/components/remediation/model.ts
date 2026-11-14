@@ -267,7 +267,7 @@ export function buildOutputs(
   }
 
   lines.push('#!/bin/sh')
-  lines.push(`# Vulnera fix plan for ${comment(opts.project)}`)
+  lines.push(`# Kavach fix plan for ${comment(opts.project)}`)
   lines.push(`# Scan time: ${comment(opts.scannedAt)}`)
   if (opts.demo) lines.push('# DEMO DATA: illustrative, not a real scan. Do not run these commands.')
   lines.push('# Run from the folder that contains package.json. Review each change and run your tests before shipping.')
@@ -297,7 +297,7 @@ export function buildOutputs(
     lines.push('', '# No verified fix: replace, remove or monitor these')
     for (const i of noFix) lines.push(`# ${comment(i.plan.name)} ${comment(i.plan.from)}: ${pl(i.findings.length, 'advisory', 'advisories')} ${i.findings.length === 1 ? 'remains' : 'remain'}`)
   }
-  lines.push('', '# Afterwards, re-run the Vulnera scan to confirm the findings are resolved.', '')
+  lines.push('', '# Afterwards, re-run the Kavach scan to confirm the findings are resolved.', '')
 
   return { commands, script: lines.join('\n'), manual, unsafe, noFix }
 }

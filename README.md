@@ -1,477 +1,133 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=rect&height=220&color=0:09090B,50:17112B,100:082F49&text=VULNERA&fontSize=72&fontColor=FFFFFF&fontAlignY=42&desc=INTELLIGENT%20DEPENDENCY%20SECURITY&descSize=15&descAlignY=64&animation=fadeIn&stroke=8B5CF6&strokeWidth=1" width="100%" alt="Vulnera — Intelligent Dependency Security"/>
+<img src="https://capsule-render.vercel.app/api?type=rect&height=200&color=0:09090B,50:14210A,100:0B1F12&text=KAVACH&fontSize=72&fontColor=FFFFFF&fontAlignY=42&desc=AI%20SECURITY%20AGENT%20FOR%20INDIA%E2%80%99S%20BUILDERS&descSize=15&descAlignY=64&animation=fadeIn&stroke=C6F432&strokeWidth=1" width="100%" alt="Kavach: AI security agent for India's builders"/>
 
-<br/>
+### Paste a GitHub link. Get a fix order, in Hindi or English, mapped to Indian law.
 
-### **Know what to fix. Understand why. Ship with confidence.**
+**Infra Shift Hackathon 2026** · ML.ai × Infrasity × Geek Room · **Problem Statement 3: Open Innovation**
 
-An AI-powered dependency vulnerability intelligence platform that transforms noisy security scans into prioritized, explainable remediation.
-
-<br/>
-
-<a href="https://github.com/YOUR_USERNAME/YOUR_REPOSITORY">
-  <img src="https://img.shields.io/badge/STATUS-BUILDATHON%202026-8B5CF6?style=for-the-badge&labelColor=09090B" alt="Buildathon 2026"/>
-</a>
-<img src="https://img.shields.io/badge/SECURITY-FIRST-06B6D4?style=for-the-badge&labelColor=09090B" alt="Security First"/>
-<img src="https://img.shields.io/badge/AI-GROUNDED-22C55E?style=for-the-badge&labelColor=09090B" alt="Grounded AI"/>
-
-<br/><br/>
-
-**Tech Yuva × Google Developer Groups Gurugram · Build-a-thon 2026**
-
-`PS-09` — Software Dependency Vulnerability Checker
-
-<br/>
-
-[ Overview ](#-the-vision) ·
-[ Features ](#-what-makes-vulnera-different) ·
-[ Architecture ](#-system-architecture) ·
-[ Installation ](#-get-started) ·
-[ Security ](#-security-by-design)
+`कवच` (*kavach*) means armour.
 
 </div>
 
 ---
 
-## ◈ The Vision
+## The problem, in one paragraph
 
-<div align="center">
+Indian student teams, two-person startups and small agencies ship Node.js apps that pull in hundreds of open-source packages. Most have no security person. `npm audit` gives them a wall of 70+ alerts in English security jargon, with no idea which ones matter. Meanwhile the **DPDP Act 2023** makes them responsible for "reasonable security safeguards" (Section 8(5), penalties up to ₹250 crore), and **CERT-In's 2022 directions** require reporting attacks within 6 hours. The founder, often non-technical, needs a decision; the developer needs a command.
 
-> **A vulnerability report should tell you what matters, not just what exists.**
+## What Kavach does
 
-</div>
+**Target user:** a developer at an Indian startup or agency with no security team, and the founder or client they answer to.
 
-Modern applications depend on hundreds of third-party packages. A conventional audit may identify dozens of vulnerabilities, but developers still need to figure out which ones are exploitable, which affect production, and which require immediate action.
+**Outcome:** in about a minute, a short ranked fix list with evidence, verified upgrade commands, and a plain Hindi/English summary they can send on WhatsApp.
 
-**Vulnera bridges that gap.**
+1. **Real input:** paste a public GitHub link (works from a phone browser) or upload `package-lock.json`. No login, no personal data.
+2. **The agent plans** which tools this run needs, and **streams every step live**: tool, input, output, **decision**, and the **source** behind it.
+3. **Calls tools:** OSV.dev (facts), FIRST EPSS + CISA KEV (real-world exploitation), npm registry (versions), Gemini (reads your code).
+4. **Decides:** ranks with fixed, published rules; Gemini can only *raise* a priority when it finds your code calling the vulnerable function, and every code citation is re-checked against the real file.
+5. **Verifies the fix:** re-queries each upgrade target so a fix never lands on another vulnerable version. If there is no clean version, it says so.
+6. **Answers for India:** an **India brief** with verdict, next steps, CERT-In / DPDP obligations with links to the official text, plain-language risk per finding in **Hindi or English**, and **one-tap WhatsApp share**.
 
-It combines vulnerability intelligence, exploitation probability, known-exploitation evidence, dependency context, and source-code analysis to help developers make informed remediation decisions.
+**Honesty rules the agent cannot break:** facts come only from OSV.dev; AI never adds or removes a vulnerability; "not found" is shown as "needs review", never "safe"; when unsure it says "uncertain"; it gives information, not legal advice.
 
-<table>
-<tr>
-<td width="50%" valign="top">
+## Try it (judges)
 
-### ◉ Traditional Scanning
+| Path | What to look at |
+| :--- | :--- |
+| `/scan` → tap **OWASP/NodeGoat** | The agent working live, step by step |
+| `/agent` | Full trace: tools used, decisions, sources cited |
+| `/india` | Verdict, CERT-In/DPDP brief, Hindi toggle, WhatsApp share |
+| `/overview` → `/findings` → any finding | Why it was ranked, code evidence, verified fix |
+| `/remediation` | Exact `npm` commands, verified vs not |
+| **EN / हिंदी** toggle (top right) | Landing, scan, agent trace and India brief in Hindi |
 
-* Long lists of security findings
-* Severity scores without enough context
-* Unclear remediation order
-* Manual investigation of vulnerable code
-* Uncertainty about the safest upgrade
+No network? **Scan the bundled sample** or **Explore demo data** on `/scan`.
 
-</td>
-<td width="50%" valign="top">
+## How it maps to the judging criteria
 
-### ◈ Vulnera Intelligence
+| Criterion | Where it shows |
+| :--- | :--- |
+| **Technical implementation (20)** | TypeScript monorepo; streaming NDJSON agent protocol; tarball reader for GitHub repos (no API quota); batched OSV queries; OSV re-verification of every upgrade; citation validation; offline snapshot mode; single-process production build |
+| **ML.ai implementation (10)** | See [docs/PITCH.md](docs/PITCH.md#mlai), which records how the team used the ML.ai coding agent during the build |
+| **Innovation & originality (10)** | Code-reachability check (does *your* code call the vulnerable function?) + Indian regulatory mapping + bilingual founder summary. No scanner does all three |
+| **User experience & design (10)** | Phone-first GitHub-link flow; live agent timeline; Hindi on the landing page, scan flow, navigation, agent trace and India brief; Devanagari font; dark UI with colour always paired with a label |
+| **Completeness & functionality (10)** | End-to-end: input → plan → tools → decisions → verified fix → India brief → export (Markdown/JSON) → history/compare |
+| **Presentation & demo (10)** | 3-minute script in [docs/PITCH.md](docs/PITCH.md) |
 
-* Risk-ranked, actionable findings
-* EPSS and known-exploitation signals
-* Production-aware prioritization
-* Evidence-backed code usage analysis
-* Verified safe-version recommendations
+## Business case
 
-</td>
-</tr>
-</table>
+| | |
+| :--- | :--- |
+| **Who pays** | Indian seed-stage startups (₹999/month) and dev agencies maintaining client apps (₹4,999/month, 25 projects, white-label report). Free for students and open source |
+| **What they renew for** | Weekly re-scan + WhatsApp alert the day a package they use appears on the exploited list |
+| **First 100 users** | College tech clubs and hackathons (free tier + "Scanned by Kavach" README badge), helpful PRs to popular Indian OSS repos, one free client report for agencies on LinkedIn |
 
-**The goal:** Spend less time sorting vulnerabilities and more time fixing the ones that matter.
+## Architecture
 
----
-
-## ◈ What Makes Vulnera Different?
-
-<table>
-<tr>
-<td width="50%" valign="top">
-
-### 01 · Risk Intelligence
-
-**Beyond CVSS severity.**
-
-Combine vulnerability information with EPSS exploitation probability, CISA Known Exploited Vulnerabilities data, and production-versus-development context.
-
-</td>
-<td width="50%" valign="top">
-
-### 02 · Code-Aware Analysis
-
-**Understand your exposure.**
-
-Gemini examines relevant source snippets to determine whether your code appears to use a vulnerable function, with citations pointing to the supporting source lines.
-
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-
-### 03 · Actionable Remediation
-
-**From finding to fix.**
-
-Identify a minimum safe version, validate the recommendation against OSV, and provide an upgrade command developers can use.
-
-</td>
-<td width="50%" valign="top">
-
-### 04 · Explainable Priorities
-
-**Know why it matters.**
-
-Every priority comes with explicit reasons. AI adds contextual evidence but does not independently determine whether a vulnerability exists.
-
-</td>
-</tr>
-</table>
-
----
-
-## ◈ The Risk Priority Engine
-
-Not every vulnerability deserves the same response time.
-
-Vulnera uses deterministic rules to organize findings into four remediation tiers.
-
-| Priority               | Meaning                                                  | Recommended response           |
-| :--------------------- | :------------------------------------------------------- | :----------------------------- |
-| 🔴 **FIX NOW**         | Strong evidence of immediate risk                        | Address immediately            |
-| 🟠 **FIX THIS SPRINT** | Significant risk requiring prompt remediation            | Schedule in the current sprint |
-| 🟡 **PLAN**            | Meaningful risk suitable for planned remediation         | Add to the engineering backlog |
-| 🔵 **MONITOR**         | Lower current urgency or limited supporting risk signals | Track and reassess             |
-
-### What influences the ranking?
-
-* **Known exploitation:** Is the vulnerability listed in the CISA KEV catalogue?
-* **Exploitation probability:** What does the FIRST EPSS score indicate?
-* **Deployment context:** Is the affected package a production or development dependency?
-* **Source-code usage:** Does the application appear to call the vulnerable functionality?
-* **Fix availability:** Is there a verified safe version to upgrade to?
-
-> **Important:** These tiers are remediation guidance, not a guarantee that a vulnerability is exploitable or harmless. Missing code evidence does not prove that a vulnerability is unreachable.
-
----
-
-## ◈ How Vulnera Works
-
-<div align="center">
-
-```text
-┌────────────────────────────────────────┐
-│           01 · INPUT                   │
-│                                        │
-│  package-lock.json + optional source   │
-└───────────────────┬────────────────────┘
-                    ▼
-┌────────────────────────────────────────┐
-│           02 · DISCOVERY               │
-│                                        │
-│  Match installed packages against OSV  │
-└───────────────────┬────────────────────┘
-                    ▼
-┌────────────────────────────────────────┐
-│           03 · ENRICHMENT               │
-│                                        │
-│  EPSS + CISA KEV + dependency context  │
-└───────────────────┬────────────────────┘
-                    ▼
-┌────────────────────────────────────────┐
-│           04 · PRIORITIZATION           │
-│                                        │
-│  Deterministic risk rules and reasons  │
-└───────────────────┬────────────────────┘
-                    ▼
-┌────────────────────────────────────────┐
-│           05 · AI INVESTIGATION         │
-│                                        │
-│  Gemini + relevant source-code evidence│
-└───────────────────┬────────────────────┘
-                    ▼
-┌────────────────────────────────────────┐
-│           06 · REMEDIATION              │
-│                                        │
-│  Safe-version checks + upgrade command │
-└────────────────────────────────────────┘
+```
+Phone / browser (React 19 + Vite, EN | हिंदी)
+   │  POST /api/scan/stream   { repoUrl } | { lockfile, sources? } | { sample: true }
+   ▼  ← NDJSON: {type:"step"} … {type:"result"}
+Express + TypeScript agent                         server/src/index.ts, agent.ts
+   0. fetch    public GitHub tarball (text only)   pipeline/github.ts
+   1. plan     choose tools from inputs/capabilities
+   2. parse    package-lock.json → packages        pipeline/parse.ts
+   3. osv      exact version match (batched)       pipeline/osv.ts, match.ts
+   4. enrich   FIRST EPSS + CISA KEV               pipeline/enrich.ts
+   5. rank     fixed, published tier rules          pipeline/score.ts
+   6. gemini   code-usage verdicts + citation check pipeline/ai.ts
+   7. verify   smallest clean upgrade, re-checked   pipeline/plan.ts
+   8. report   → client builds India brief (CERT-In / DPDP, Hindi/English)  client/src/lib/india.ts
 ```
 
-</div>
+The original pipeline is unchanged; Kavach wraps it in an agent that records and streams each step.
 
-### The complete workflow
-
-**01 — Upload**
-
-Provide your `package-lock.json`. Optionally include source code for code-aware analysis.
-
-**02 — Identify**
-
-Match installed dependencies against vulnerability information from OSV.dev.
-
-**03 — Enrich**
-
-Add exploitation probability from FIRST EPSS and known-exploitation evidence from CISA KEV.
-
-**04 — Prioritize**
-
-Apply explicit rules to rank findings and explain why each issue belongs in its assigned tier.
-
-**05 — Investigate**
-
-Use Gemini to analyze relevant code snippets, assess apparent vulnerable-function usage, and provide supporting citations. Validate citations automatically.
-
-**06 — Remediate**
-
-Identify a candidate minimum safe version, re-check the recommendation against OSV, and display the corresponding upgrade command.
-
----
-
-## ◈ System Architecture
-
-<div align="center">
-
-```text
-                  ┌─────────────────────┐
-                  │   Developer / User  │
-                  └──────────┬──────────┘
-                             │
-                             ▼
-                  ┌─────────────────────┐
-                  │   React + Vite UI   │
-                  │  Security Dashboard │
-                  └──────────┬──────────┘
-                             │
-                             ▼
-                  ┌─────────────────────┐
-                  │ Express + TypeScript│
-                  │    Scan Pipeline   │
-                  └──────────┬──────────┘
-                             │
-              ┌──────────────┼──────────────┐
-              ▼              ▼              ▼
-       ┌────────────┐ ┌────────────┐ ┌────────────┐
-       │   OSV.dev  │ │ FIRST EPSS │ │  CISA KEV  │
-       │Vulnerability│ │ Probability│ │ Known-Exploited
-       │  Database  │ │   Scores   │ │ Catalogue  │
-       └──────┬─────┘ └──────┬─────┘ └──────┬─────┘
-              └──────────────┼──────────────┘
-                             ▼
-                  ┌─────────────────────┐
-                  │ Deterministic Risk  │
-                  │ Prioritization      │
-                  └──────────┬──────────┘
-                             │
-                             ▼
-                  ┌─────────────────────┐
-                  │ Gemini Code Context│
-                  │ + Citation Checks  │
-                  └──────────┬──────────┘
-                             │
-                             ▼
-                  ┌─────────────────────┐
-                  │ Verified Findings  │
-                  │ + Fix Recommendations
-                  └─────────────────────┘
-```
-
-</div>
-
-### Technology stack
-
-<div align="center">
-
-<img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript"/>
-<img src="https://img.shields.io/badge/Express-000000?style=for-the-badge&logo=express&logoColor=white" alt="Express"/>
-<img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React"/>
-<img src="https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite"/>
-<img src="https://img.shields.io/badge/Google%20Gemini-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white" alt="Google Gemini"/>
-
-<br/>
-
-<img src="https://img.shields.io/badge/OSV.dev-2563EB?style=for-the-badge" alt="OSV.dev"/>
-<img src="https://img.shields.io/badge/FIRST%20EPSS-0F766E?style=for-the-badge" alt="FIRST EPSS"/>
-<img src="https://img.shields.io/badge/CISA%20KEV-B91C1C?style=for-the-badge" alt="CISA KEV"/>
-
-</div>
-
-| Component                  | Technology           | Responsibility                                           |
-| :------------------------- | :------------------- | :------------------------------------------------------- |
-| Frontend                   | React + Vite         | Security dashboard and scan results                      |
-| API                        | Express + TypeScript | Scan orchestration and processing                        |
-| Vulnerability intelligence | OSV.dev              | Package vulnerability matching                           |
-| Exploitation intelligence  | FIRST EPSS           | Exploitation probability signals                         |
-| Known exploitation         | CISA KEV             | Known-exploited vulnerability evidence                   |
-| AI analysis                | Google Gemini        | Contextual source-code analysis and explanations         |
-| Risk engine                | Deterministic rules  | Consistent priority assignment                           |
-| Demo data                  | Local snapshots      | Support the demo without depending entirely on live data |
-
----
-
-## ◈ Get Started
-
-### Prerequisites
-
-* Node.js and npm
-* A Google Gemini API key for AI-assisted analysis
-* A compatible `package-lock.json` for scanning
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/YOUR_USERNAME/YOUR_REPOSITORY.git
-cd YOUR_REPOSITORY
-```
-
-Replace `YOUR_USERNAME` and `YOUR_REPOSITORY` with your actual GitHub details.
-
-### 2. Install dependencies
+## Run it
 
 ```bash
 npm install
 ```
 
-### 3. Configure environment variables
-
-Copy the example environment file:
-
 ```bash
 cp .env.example .env
 ```
 
-Add your Gemini API key to the appropriate server-side environment variable:
-
-```env
-GEMINI_API_KEY=your_gemini_api_key
-```
-
-Use the exact variable name expected by your server configuration. Never commit real API keys.
-
-### 4. Start the application
+Add `GEMINI_API_KEY` to `.env` (free key: https://aistudio.google.com/apikey). Then:
 
 ```bash
 npm run dev
 ```
 
-By default:
+API on `http://localhost:8787`, app on `http://localhost:5173`. For a single production process:
 
-| Service    | Local address           |
-| :--------- | :---------------------- |
-| API server | `http://localhost:8787` |
-| Frontend   | `http://localhost:5173` |
-
-### 5. Run your first scan
-
-1. Open the dashboard.
-2. Upload a `package-lock.json`.
-3. Add source code if you want code-aware analysis.
-4. Review the findings and their priority explanations.
-5. Inspect the supporting evidence and suggested remediation.
-
-**Tip:** Start with the included `samples/` project to explore the demo workflow.
-
-**No lockfile handy?** On the scan page, use **Scan the bundled sample project** (a real pipeline run on `samples/demo-app`) or **Explore demo data** (illustrative, labelled, instant).
-
-### App pages
-
-| Path | What it answers |
-| :--- | :--- |
-| `/` | What Vulnera is and why it differs from a scanner |
-| `/scan` | Upload `package-lock.json` (+ optional source folder for the AI code check) |
-| `/overview` | Current risk posture and the funnel: all → production → used by your code → fix now |
-| `/findings` | Every finding, filterable and sortable; nothing is hidden |
-| `/finding?key=…` | Why it was ranked, advisory, dependency chain, code evidence, review, fix |
-| `/evidence` | Where your code reaches a vulnerable function, with verified citations |
-| `/remediation` | Minimum safe versions and the exact commands, verified vs suggested |
-| `/reports` | Markdown/JSON export, scan history (this browser only), before/after compare |
-
-Design tokens and the page contract are in [docs/DESIGN.md](docs/DESIGN.md). To point the client at an API on another port: `VITE_API_TARGET=http://localhost:8788 npm run dev -w client`.
-
-
----
-
-## ◈ Security by Design
-
-Security tools must handle potentially untrusted input carefully.
-
-Vulnera follows these design principles:
-
-| Principle                                  | Implementation                                                                     |
-| :----------------------------------------- | :--------------------------------------------------------------------------------- |
-| No project execution                       | Uploaded projects are read, not installed or executed                              |
-| Minimal AI context                         | Only small code snippets around relevant usages are sent to Gemini                 |
-| Server-side secrets                        | The Gemini API key stays on the server                                             |
-| Deterministic vulnerability identification | Vulnerability matching relies on structured security data, not AI-generated claims |
-| Evidence-backed analysis                   | AI explanations include source citations that are checked automatically            |
-| Human oversight                            | Lowering a finding's priority requires human judgment                              |
-
-### A note on accuracy
-
-Vulnera supports security triage; it does not replace a full security review.
-
-A missing source-code match does not establish that a vulnerability cannot be exploited. Likewise, a version recommended by a vulnerability database should be checked against your application's compatibility requirements before deployment.
-
----
-
-## ◈ Project Structure
-
-```text
-Vulnera/
-│
-├── server/       # Express + TypeScript API and scan pipeline
-├── client/       # React + Vite dashboard
-├── samples/      # Deliberately outdated demo project
-├── data/         # KEV data and offline API snapshots
-├── docs/         # Planning and design documentation
-│   └── PLAN.md
-│
-├── .env.example
-├── package.json
-└── README.md
+```bash
+npm run build && npm start
 ```
 
----
+`OFFLINE=1` serves OSV/EPSS answers from `data/snapshots` (the bundled sample works without network).
 
-## ◈ Project Documentation
+## Limits (said plainly)
 
-Explore the implementation and design decisions:
+* npm `package-lock.json` only (no Yarn/pnpm yet); public GitHub repos only.
+* The code check reviews the top 30 direct-dependency findings; others show "Not assessed".
+* Missing code evidence does not prove a vulnerability is unreachable.
+* The India brief is information, not legal advice. Check the linked official sources.
 
-* **[Project Plan](docs/PLAN.md)** — architecture, design decisions, and implementation plan.
-* **[OSV.dev](https://osv.dev/)** — open-source vulnerability database.
-* **[FIRST EPSS](https://www.first.org/epss/)** — Exploit Prediction Scoring System.
-* **[CISA KEV](https://www.cisa.gov/known-exploited-vulnerabilities-catalog)** — Known Exploited Vulnerabilities catalogue.
-* **[Google Gemini](https://ai.google.dev/gemini-api/docs)** — documentation for the Gemini API.
+## Security by design
 
----
-
-## ◈ Built for the Build-a-thon
-
-<div align="center">
-
-**TECH YUVA × GOOGLE DEVELOPER GROUPS GURUGRAM**
-
-### Build-a-thon 2026
-
-**Problem Statement PS-09**
-Software Dependency Vulnerability Checker
-
-<br/>
-
-*Making dependency security more explainable, actionable, and developer-friendly.*
-
-<br/>
-
-<img src="https://img.shields.io/badge/BUILT%20WITH-INTELLIGENCE-8B5CF6?style=for-the-badge&labelColor=09090B" alt="Built with intelligence"/>
-<img src="https://img.shields.io/badge/FOCUSED%20ON-SECURITY-06B6D4?style=for-the-badge&labelColor=09090B" alt="Focused on security"/>
-
-</div>
+| Principle | Implementation |
+| :--- | :--- |
+| No project execution | Repos and uploads are read as text, never installed or run |
+| No personal data | No login, no forms; nothing like Aadhaar, PAN, OTP or bank details is ever asked |
+| Minimal AI context | Only short snippets around imports of vulnerable packages reach Gemini, with secrets masked |
+| Server-side secrets | The Gemini key never leaves the server |
+| Cited facts | Every step links its data source; every code citation is machine-verified |
 
 ---
 
 <div align="center">
 
-### **VULNERA**
-
-*Know the risk. Prioritize the fix.*
-
-<br/>
-
-<sub>Developed for Tech Yuva × GDG Gurugram Build-a-thon 2026.</sub>
+Built on the team's Vulnera pipeline (Tech Yuva × GDG Gurugram Build-a-thon 2026), extended into an agent for India.
 
 </div>

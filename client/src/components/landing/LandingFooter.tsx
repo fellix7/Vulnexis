@@ -33,7 +33,7 @@ export function LandingFooter() {
       <div className="lp-wrap">
         <div className="lp-foot__grid">
           <div className="lp-foot__brand">
-            <a href="#top" aria-label="Vulnera, back to top" onClick={(e) => goToSection(e, 'top')}>
+            <a href="#top" aria-label="Kavach, back to top" onClick={(e) => goToSection(e, 'top')}>
               <Logo />
             </a>
             <p className="muted">

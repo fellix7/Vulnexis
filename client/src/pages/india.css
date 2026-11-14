@@ -1,0 +1,306 @@
+.ib-page {
+  display: grid;
+  gap: var(--s-5);
+}
+.ib-page > .page-head {
+  margin-bottom: 0;
+}
+
+/* Verdict card: colour comes from the risk level, always paired with a word and an icon. */
+.ib-hero {
+  --lvl: var(--ok);
+  --lvl-soft: var(--ok-soft);
+  --lvl-line: var(--ok-line);
+  border: 1px solid var(--lvl-line);
+  border-radius: var(--r-lg);
+  background: linear-gradient(135deg, var(--lvl-soft), transparent 60%), var(--surface-1);
+  padding: var(--s-6, 24px);
+  display: grid;
+  gap: var(--s-4);
+}
+.ib-hero--critical {
+  --lvl: var(--critical);
+  --lvl-soft: var(--critical-soft);
+  --lvl-line: var(--critical-line);
+}
+.ib-hero--high {
+  --lvl: var(--high);
+  --lvl-soft: var(--high-soft);
+  --lvl-line: var(--high-line);
+}
+.ib-hero--medium {
+  --lvl: var(--warn);
+  --lvl-soft: var(--warn-soft);
+  --lvl-line: var(--warn-line);
+}
+.ib-hero__verdict {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+.ib-hero__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  display: grid;
+  place-items: center;
+  color: var(--lvl);
+  background: var(--lvl-soft);
+  border: 1px solid var(--lvl-line);
+}
+.ib-hero h2 {
+  margin: 2px 0 0;
+  font-size: var(--fs-2xl);
+  letter-spacing: -0.02em;
+  color: var(--lvl);
+}
+.ib-hero__summary {
+  margin: 0;
+  font-size: var(--fs-lg);
+  line-height: 1.6;
+  color: var(--text);
+  max-width: 75ch;
+}
+.ib-hero__summary--alt {
+  font-size: var(--fs-md);
+  color: var(--text-2);
+  padding-left: var(--s-3);
+  border-left: 2px solid var(--line-strong);
+}
+.ib-hero__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-6, 24px);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.ib-hero__stats > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.ib-hero__stats .num {
+  font-size: var(--fs-xl);
+  font-weight: 620;
+  color: var(--text);
+}
+.ib-hero__actions {
+  gap: var(--s-2);
+}
+
+.ib-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: var(--s-5);
+}
+.ib-steps {
+  list-style: none;
+  margin: 0;
+  padding: var(--s-4) var(--s-5) 0;
+  display: grid;
+  gap: var(--s-3);
+}
+.ib-steps li {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: var(--s-3);
+  color: var(--text-2);
+  line-height: 1.55;
+}
+.ib-steps__n {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: var(--fs-xs);
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid var(--accent-line);
+}
+.ib-steps__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  padding: var(--s-4) var(--s-5) var(--s-5);
+}
+
+.ib-cats {
+  list-style: none;
+  margin: 0;
+  padding: var(--s-4) var(--s-5) var(--s-5);
+  display: grid;
+  gap: var(--s-3);
+}
+.ib-cats__row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-3);
+  font-size: var(--fs-sm);
+  margin-bottom: 6px;
+}
+.ib-cats__bar {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--text-3);
+  min-width: 4px;
+}
+.ib-pd {
+  margin-left: 8px;
+  font-size: var(--fs-xs);
+  color: var(--high);
+  border: 1px solid var(--high-line);
+  background: var(--high-soft);
+  padding: 0 6px;
+  border-radius: 999px;
+}
+
+.ib-section {
+  display: grid;
+  gap: var(--s-4);
+}
+.ib-section__head h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--fs-lg);
+  margin: 0;
+}
+.ib-section__head p {
+  margin: 4px 0 0;
+  font-size: var(--fs-sm);
+}
+.ib-laws {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-4);
+}
+.ib-law {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+  padding: var(--s-5);
+  display: grid;
+  gap: var(--s-3);
+  align-content: start;
+}
+.ib-law__head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-3);
+  align-items: flex-start;
+}
+.ib-law h3 {
+  font-size: var(--fs-md);
+  margin: 0;
+}
+.ib-law__rule {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+.ib-law__why {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  padding: var(--s-3);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.ib-law__why strong {
+  color: var(--text);
+}
+.ib-law__src {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  text-decoration: none;
+}
+.ib-law__src:hover {
+  color: var(--text);
+}
+.ib-applies {
+  flex: none;
+  font-size: var(--fs-xs);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.ib-applies--now {
+  color: var(--critical);
+  border-color: var(--critical-line);
+  background: var(--critical-soft);
+}
+.ib-applies--if {
+  color: var(--warn);
+  border-color: var(--warn-line);
+  background: var(--warn-soft);
+}
+
+.ib-plain {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-3);
+}
+.ib-plain__item {
+  display: grid;
+  gap: var(--s-2);
+  height: 100%;
+  padding: var(--s-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 120ms;
+}
+.ib-plain__item:hover {
+  border-color: var(--line-strong);
+}
+.ib-plain__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+.ib-plain__top code {
+  font-size: var(--fs-sm);
+}
+.ib-plain__cat {
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.ib-plain__item p {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.55;
+}
+.ib-plain__src {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+}
+
+@media (max-width: 900px) {
+  .ib-grid,
+  .ib-laws,
+  .ib-plain {
+    grid-template-columns: 1fr;
+  }
+  .ib-hero {
+    padding: var(--s-5);
+  }
+}

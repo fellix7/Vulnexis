@@ -20,7 +20,7 @@ const GUARDS = [
   },
   {
     title: 'Unknown EPSS is shown as unknown, not zero.',
-    body: 'If no exploit-probability score exists for an advisory, Vulnera says so instead of treating it as low risk. Findings the AI did not review read “Not assessed”.',
+    body: 'If no exploit-probability score exists for an advisory, Kavach says so instead of treating it as low risk. Findings the AI did not review read “Not assessed”.',
   },
 ]
 

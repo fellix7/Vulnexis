@@ -1,11 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { fetchHealth, postScan, type Health } from '../api'
+import { fetchHealth, streamScan, type Health } from '../api'
 import type { Review, ReviewState } from '../lib/review'
 import { MOCK_RESULT } from '../mock'
-import type { ScanRequest, ScanResult, SourceFile } from '../types'
+import type { AgentStep, ScanRequest, ScanResult, SourceFile } from '../types'
 
 // One scan the user can look at. 'demo' records are illustrative data and never enter history.
-export type ScanSource = 'upload' | 'sample' | 'demo'
+export type ScanSource = 'upload' | 'sample' | 'repo' | 'demo'
 
 export interface ScanRecord {
   id: string
@@ -20,7 +20,7 @@ export interface ScanRecord {
 
 export interface ScanInput {
   request: ScanRequest
-  source: 'upload' | 'sample'
+  source: 'upload' | 'sample' | 'repo'
   projectName: string
   fileName?: string
 }
@@ -31,6 +31,8 @@ export interface ScanStore {
   error: string | null
   /** True while the running scan includes source files (so the AI step will run). */
   scanningWithAi: boolean
+  /** Agent steps of the running scan, as the server streams them. */
+  liveSteps: AgentStep[]
   /** Real scans, newest first. Persisted in this browser only. */
   history: ScanRecord[]
   /** Source files of the current upload, kept in memory only (never persisted) for code context. */
@@ -118,6 +120,7 @@ export function ScanProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<ScanStore['status']>('idle')
   const [error, setError] = useState<string | null>(null)
   const [scanningWithAi, setScanningWithAi] = useState(false)
+  const [liveSteps, setLiveSteps] = useState<AgentStep[]>([])
   const [sources, setSources] = useState<SourceFile[] | null>(null)
   const [health, setHealth] = useState<Health | null>(null)
   const [healthFailed, setHealthFailed] = useState(false)
@@ -134,15 +137,24 @@ export function ScanProvider({ children }: { children: ReactNode }) {
     setStatus('scanning')
     setError(null)
     const withSources = input.request.sources ?? []
-    setScanningWithAi(input.source === 'sample' || withSources.length > 0)
+    setScanningWithAi(input.source !== 'upload' || withSources.length > 0)
+    setLiveSteps([])
     try {
-      const result = await postScan(input.request)
+      const result = await streamScan(input.request, (step) =>
+        setLiveSteps((list) => {
+          const i = list.findIndex((s) => s.id === step.id)
+          if (i === -1) return [...list, step]
+          const next = list.slice()
+          next[i] = step
+          return next
+        }),
+      )
       const record: ScanRecord = {
         id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
         source: input.source,
         projectName: input.projectName,
         fileName: input.fileName,
-        sourceFileCount: input.source === 'sample' ? -1 : withSources.length,
+        sourceFileCount: input.source === 'upload' ? withSources.length : (result.repo?.sourceFiles ?? -1),
         result,
         review: {},
         savedAt: new Date().toISOString(),
@@ -224,6 +236,7 @@ export function ScanProvider({ children }: { children: ReactNode }) {
       status,
       error,
       scanningWithAi,
+      liveSteps,
       history,
       sources,
       health,
@@ -237,7 +250,7 @@ export function ScanProvider({ children }: { children: ReactNode }) {
       setReview,
       dismissError,
     }),
-    [current, status, error, scanningWithAi, history, sources, health, healthFailed, runScan, loadDemo, openScan, closeScan, deleteScan, clearHistory, setReview, dismissError],
+    [current, status, error, scanningWithAi, liveSteps, history, sources, health, healthFailed, runScan, loadDemo, openScan, closeScan, deleteScan, clearHistory, setReview, dismissError],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
@@ -259,5 +272,6 @@ export function useScan(): ScanStore {
 export const SOURCE_LABEL: Record<ScanSource, string> = {
   upload: 'Live scan',
   sample: 'Sample project scan',
+  repo: 'GitHub repo scan',
   demo: 'Demo data',
 }

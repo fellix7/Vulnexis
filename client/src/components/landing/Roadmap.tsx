@@ -5,7 +5,7 @@ const HYPOTHESES = [
   {
     title: 'Less manual triage time',
     body: 'A tiered list with reasons should replace most of the reading, sorting and cross-checking done by hand today.',
-    test: 'Time triage on real projects with and without Vulnera.',
+    test: 'Time triage on real projects with and without Kavach.',
   },
   {
     title: 'Faster safe upgrades',

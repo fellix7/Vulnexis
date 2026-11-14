@@ -59,6 +59,38 @@ export interface ScanResult {
   plans: UpgradePlan[];
   aiStatus: 'ok' | 'disabled' | 'error'; // disabled = no GEMINI_API_KEY or no source provided
   notes: string[]; // non-fatal warnings shown in the UI (e.g. offline cache misses)
+  agent?: AgentStep[]; // what the agent did, step by step (tools called, decisions taken, sources)
+  repo?: RepoRef; // set when the project was fetched from a public GitHub repository
+}
+
+// One step of the agent's run. Each step calls one tool (or decides), and says why.
+export type AgentTool = 'plan' | 'github' | 'parse' | 'osv' | 'enrich' | 'rank' | 'gemini' | 'verify' | 'report';
+
+export interface AgentSource {
+  label: string;
+  url: string;
+}
+
+export interface AgentStep {
+  id: string;
+  tool: AgentTool;
+  title: string; // what the agent is doing, e.g. "Matching 251 packages against OSV.dev"
+  status: 'running' | 'done' | 'skipped' | 'failed';
+  startedAt: number; // ms since scan start
+  ms?: number; // duration once finished
+  input?: string; // what went into the tool (no secrets, no source code)
+  output?: string; // what came back, summarised
+  decision?: string; // what the agent decided next, and why
+  sources?: AgentSource[];
+}
+
+export interface RepoRef {
+  owner: string;
+  name: string;
+  ref: string; // branch or commit the files were read from
+  url: string;
+  lockfilePath: string;
+  sourceFiles: number;
 }
 
 export interface SourceFile {
@@ -71,4 +103,5 @@ export interface ScanRequest {
   lockfile?: unknown;
   sources?: SourceFile[];
   sample?: boolean;
+  repoUrl?: string; // public GitHub repository, e.g. https://github.com/owner/name
 }

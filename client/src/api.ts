@@ -1,4 +1,4 @@
-import type { ScanRequest, ScanResult } from './types'
+import type { AgentStep, ScanRequest, ScanResult } from './types'
 
 export interface Health {
   ok: boolean
@@ -53,4 +53,66 @@ export async function postScan(req: ScanRequest): Promise<ScanResult> {
     aiStatus: r.aiStatus ?? 'disabled',
     notes: Array.isArray(r.notes) ? r.notes : [],
   }
+}
+
+function normalise(r: Partial<ScanResult> | null): ScanResult {
+  if (!r || !Array.isArray(r.findings) || !Array.isArray(r.plans)) {
+    throw new Error('The server returned an unexpected response.')
+  }
+  return {
+    scannedAt: r.scannedAt ?? new Date().toISOString(),
+    packageCount: r.packageCount ?? 0,
+    findings: r.findings,
+    plans: r.plans,
+    aiStatus: r.aiStatus ?? 'disabled',
+    notes: Array.isArray(r.notes) ? r.notes : [],
+    ...(Array.isArray(r.agent) ? { agent: r.agent } : {}),
+    ...(r.repo ? { repo: r.repo } : {}),
+  }
+}
+
+/**
+ * POST /api/scan/stream: the server sends one JSON object per line while the agent works
+ * ({type:'step'} as each step starts and finishes, then {type:'result'} or {type:'error'}).
+ */
+export async function streamScan(req: ScanRequest, onStep: (step: AgentStep) => void): Promise<ScanResult> {
+  let res: Response
+  try {
+    res = await fetch('/api/scan/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    })
+  } catch {
+    throw new Error('Could not reach the API. Is the server running?')
+  }
+  if (!res.ok || !res.body) {
+    // Older servers without the streaming route: fall back to the one-shot endpoint.
+    if (res.status === 404) return postScan(req)
+    throw new Error(`Scan failed (HTTP ${res.status}).`)
+  }
+
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
+  let buf = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (value) buf += value
+    let nl: number
+    while ((nl = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, nl).trim()
+      buf = buf.slice(nl + 1)
+      if (!line) continue
+      let msg: { type?: string; step?: AgentStep; result?: ScanResult; error?: string }
+      try {
+        msg = JSON.parse(line)
+      } catch {
+        continue
+      }
+      if (msg.type === 'step' && msg.step) onStep(msg.step)
+      else if (msg.type === 'result') return normalise(msg.result ?? null)
+      else if (msg.type === 'error') throw new Error(msg.error || 'The scan failed.')
+    }
+    if (done) break
+  }
+  throw new Error('The connection closed before the scan finished. Try again.')
 }
