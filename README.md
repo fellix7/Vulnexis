@@ -42,6 +42,8 @@ Indian student teams, two-person startups and small agencies ship Node.js apps t
 
 No network? **Scan the bundled sample** or **Explore demo data** on `/scan`.
 
+**Test it on your own machine:** [`demo/`](demo/README.md) has one-command start scripts (`./demo/start.sh`, `.\demo\start.ps1`), a deliberately vulnerable Indian billing app and a clean app to upload, bad inputs, an automated smoke test (`node demo/smoke-test.mjs`) and a click-through checklist.
+
 ## How it maps to the judging criteria
 
 | Criterion | Where it shows |

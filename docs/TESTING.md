@@ -27,6 +27,10 @@ for f in server/src/pipeline/__checks__/*.check.ts; do npx tsx "$f" || echo "FAI
 
 The two live checks fail without internet access to `api.osv.dev` and `api.first.org`. That is expected in sandboxes.
 
+## 1b. End-to-end smoke test
+
+With the server running, `node demo/smoke-test.mjs` (add `--online` for a GitHub scan) drives the real API through the sample, the demo projects in `demo/projects/`, the bad inputs in `demo/bad-inputs/` and production routing, and prints PASS / FAIL / SKIP. See [demo/README.md](../demo/README.md).
+
 ## 2. Type-check, lint, build
 
 ```bash

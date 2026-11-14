@@ -11,6 +11,7 @@
 | [INDIA_COMPLIANCE.md](INDIA_COMPLIANCE.md) | Engineers, reviewers | Risk categories, verdict rules, CERT-In / DPDP mapping, WhatsApp text, worked example |
 | [USER_GUIDE.md](USER_GUIDE.md) | Users (EN + हिंदी) | How to scan, read results, use the India brief, reports |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Operators | Env vars, local, production, proxy, offline mode, venue checklist, troubleshooting |
+| [../demo/README.md](../demo/README.md) | Anyone testing locally | Start scripts, demo projects, bad inputs, smoke test, click-through checklist |
 | [TESTING.md](TESTING.md) | Engineers | Self-checks, smoke tests, manual end-to-end plan, accessibility checks |
 | [DESIGN.md](DESIGN.md) | Designers, engineers | Design tokens and page contract (inherited from Vulnera) |
 | [UI_AUDIT_HALLMARK.md](UI_AUDIT_HALLMARK.md) | Designers, engineers | Hallmark audit, the polish and restyle applied, what is waived |
