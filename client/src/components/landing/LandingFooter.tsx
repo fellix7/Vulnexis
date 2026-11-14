@@ -69,7 +69,7 @@ export function LandingFooter() {
             <p className="eyebrow">Project</p>
             <ul>
               <li>
-                <External href="https://github.com/fellix7/Vulnera">GitHub repository</External>
+                <External href="https://github.com/fellix7/Vulnexis">GitHub repository</External>
               </li>
             </ul>
           </div>
