@@ -9,7 +9,7 @@ All request bodies are JSON (≤ 10 MB). There is no authentication: the API hol
 | GET | `/api/health` | Server status and capabilities |
 | POST | `/api/scan/stream` | Run the agent and stream its steps (NDJSON) |
 | POST | `/api/scan` | Run the agent and return the result in one response |
-| GET | `/*` | Production only: built client, with SPA fallback to `index.html` |
+| GET | `/*` | Production only: built client; paths without a file extension fall back to `index.html`, missing files (e.g. `/assets/old.js`) return 404 |
 
 ---
 
@@ -65,7 +65,9 @@ Response: `200`, `Content-Type: application/x-ndjson; charset=utf-8`. One JSON o
 {"type":"error","status":400,"error":"No package-lock.json found in this repository. Kavach needs an npm lockfile to know exact versions."}
 ```
 
-Errors are sent in-band (the HTTP status stays 200 because headers are already sent); `status` is the equivalent HTTP status.
+Errors are sent in-band (the HTTP status stays 200 because headers are already sent); `status` is the equivalent HTTP status. The one exception is `429` (server busy), which is returned as a normal JSON error before streaming starts.
+
+If the client disconnects, the server stops the scan before its next step and frees the slot.
 
 ### Reading the stream (browser)
 
@@ -154,6 +156,7 @@ The canonical definitions are in `server/src/types.ts` (copied to `client/src/ty
 | 400 | Repository too large | "This repository is larger than 60 MB…", "…too large to read (over 300 MB unpacked)…" |
 | 404 | Sample missing on this server | "Sample project is not available on this server." |
 | 502 | A data source failed (OSV, npm, GitHub unreachable) | "Scan failed while contacting a data source. Try again." |
+| 429 | Too many scans running at once on this server (`MAX_CONCURRENT_SCANS`, default 4); sent as a normal JSON error before the stream starts | "Kavach is busy with other scans right now. Try again in a minute." |
 | 503 | Offline mode and no snapshot for this project | "Offline mode: this project has no saved snapshot…" |
 
 All messages are safe to show to users as-is.

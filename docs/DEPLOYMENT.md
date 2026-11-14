@@ -16,6 +16,7 @@
 | `GEMINI_RPM` | `4` | Requests per minute (free tier ≈ 5/min per model; raise to ~60 with a paid key) |
 | `PORT` | `8787` | API (and, in production, app) port |
 | `OFFLINE` | `0` | `1` = answer only from `data/snapshots` (demo without network) |
+| `MAX_CONCURRENT_SCANS` | `4` | Scans allowed at once per process; extra requests get a 429 "busy" message |
 
 Never commit `.env`; it is git-ignored.
 

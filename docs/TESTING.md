@@ -82,6 +82,8 @@ curl -sN -X POST localhost:8787/api/scan/stream -H 'content-type: application/js
 | 13 | Paste `not a link` | Inline hint; Run agent stays disabled |
 | 14 | Stop the server and reload `/scan` | "API not reachable" banner, demo data still available |
 | 15 | Start with `OFFLINE=1`, scan the sample | Works; offline banner shown; Gemini step skipped with a reason |
+| 16 | Production build: `curl -i localhost:8787/assets/nope.js` | 404 (not the HTML page); `/india` still returns the app |
+| 17 | Start with `MAX_CONCURRENT_SCANS=1`, start a scan, start a second at once | Second gets 429 "Kavach is busy…"; works again after the first finishes |
 
 ## 5. Accessibility spot checks
 

@@ -60,9 +60,9 @@ async function loadSample(): Promise<{ lockfile: unknown; sources: SourceFile[] 
   return { lockfile, sources };
 }
 
-async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void): Promise<ScanResult> {
+async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal?: AbortSignal): Promise<ScanResult> {
   const notes: string[] = [];
-  const agent = new Agent(onStep);
+  const agent = new Agent(onStep, signal);
   const hasKey = Boolean(process.env.GEMINI_API_KEY);
   const offline = process.env.OFFLINE === '1';
 
@@ -273,28 +273,48 @@ function failure(e: unknown): { status: number; error: string } {
   return { status: 502, error: 'Scan failed while contacting a data source. Try again.' };
 }
 
+// Each scan can hold a repository tarball (up to 300 MB unpacked) in memory, so only a few run at once.
+// shortcut: per-process counter; behind several instances, add rate limiting at the proxy instead.
+const MAX_SCANS = Math.max(1, Number(process.env.MAX_CONCURRENT_SCANS) || 4);
+let running = 0;
+const BUSY = { status: 429, error: 'Kavach is busy with other scans right now. Try again in a minute.' };
+
 // Streams the agent's steps as they happen (one JSON object per line), then the result.
 app.post('/api/scan/stream', async (req, res) => {
+  if (running >= MAX_SCANS) return void res.status(BUSY.status).json({ error: BUSY.error });
+  running++;
+  const abort = new AbortController();
+  res.on('close', () => {
+    if (!res.writableFinished) abort.abort();
+  });
   res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
-  const send = (obj: unknown) => res.write(`${JSON.stringify(obj)}\n`);
+  const send = (obj: unknown) => {
+    if (!abort.signal.aborted) res.write(`${JSON.stringify(obj)}\n`);
+  };
   try {
-    const result = await scan((req.body ?? {}) as ScanRequest, (step) => send({ type: 'step', step }));
+    const result = await scan((req.body ?? {}) as ScanRequest, (step) => send({ type: 'step', step }), abort.signal);
     send({ type: 'result', result });
   } catch (e) {
-    send({ type: 'error', ...failure(e) });
+    if (!abort.signal.aborted) send({ type: 'error', ...failure(e) });
+  } finally {
+    running--;
   }
   res.end();
 });
 
 app.post('/api/scan', async (req, res) => {
+  if (running >= MAX_SCANS) return void res.status(BUSY.status).json({ error: BUSY.error });
+  running++;
   try {
     res.json(await scan((req.body ?? {}) as ScanRequest));
   } catch (e) {
     const f = failure(e);
     res.status(f.status).json({ error: f.error });
+  } finally {
+    running--;
   }
 });
 
@@ -302,7 +322,8 @@ app.post('/api/scan', async (req, res) => {
 const CLIENT_DIST = path.resolve(import.meta.dirname, '../../client/dist');
 if (existsSync(CLIENT_DIST)) {
   app.use(express.static(CLIENT_DIST, { index: false, maxAge: '1h' }));
-  app.get(/^\/(?!api\/).*/, (_req, res) => res.sendFile(path.join(CLIENT_DIST, 'index.html')));
+  // App routes only (no file extension): a missing /assets/x.js must 404, not return the HTML page.
+  app.get(/^\/(?!api\/)[^.]*$/, (_req, res) => res.sendFile(path.join(CLIENT_DIST, 'index.html')));
 }
 
 app.listen(PORT, () => {

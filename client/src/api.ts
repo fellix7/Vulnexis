@@ -89,7 +89,8 @@ export async function streamScan(req: ScanRequest, onStep: (step: AgentStep) => 
   if (!res.ok || !res.body) {
     // Older servers without the streaming route: fall back to the one-shot endpoint.
     if (res.status === 404) return postScan(req)
-    throw new Error(`Scan failed (HTTP ${res.status}).`)
+    const body = (await res.json().catch(() => null)) as { error?: unknown } | null
+    throw new Error(typeof body?.error === 'string' ? body.error : `Scan failed (HTTP ${res.status}).`)
   }
 
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()

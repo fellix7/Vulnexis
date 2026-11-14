@@ -199,7 +199,7 @@ Users must not:
 - automate high-volume requests against the public deployment (each scan downloads a repository and calls public APIs);
 - submit content designed to manipulate the AI or crash the server (prompt injection, decompression bombs, oversized payloads).
 
-The server enforces size, time and host limits (policy 7). A public deployment should add request rate limiting at the proxy.
+The server enforces size, time and host limits (policy 7), runs at most `MAX_CONCURRENT_SCANS` scans at once (429 beyond that), and stops a scan when its browser disconnects. A public deployment should also add per-IP rate limiting at the proxy.
 
 ## 14. Security issues and incident response
 

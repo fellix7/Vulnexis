@@ -134,7 +134,8 @@ One process, one port (`PORT`, default 8787). Put a reverse proxy in front for T
 
 Designed for a hackathon demo and a small public deployment (tens of concurrent users).
 
-- Each GitHub scan holds the compressed (≤ 60 MB) and unpacked (≤ 300 MB) tarball in memory while it runs. A public deployment should cap concurrent scans or add proxy rate limiting.
-- A scan keeps running if the browser disconnects mid-stream; the result is discarded.
+- Each GitHub scan holds the compressed (≤ 60 MB) and unpacked (≤ 300 MB) tarball in memory while it runs, so each process runs at most `MAX_CONCURRENT_SCANS` (default 4) scans at once and answers 429 beyond that. The counter is per process: behind several instances, add proxy rate limiting.
+- If the browser disconnects mid-stream, the agent stops before its next step (an `AbortSignal` checked in `Agent.start`), and the slot is freed.
+- In production, only extensionless paths fall back to `index.html`; a missing asset returns 404 so stale tabs do not load HTML as JavaScript.
 - The Gemini step is rate limited per process (`GEMINI_RPM`); several instances do not share that budget.
 - History is per browser; there is no cross-device sync by design (no personal data on the server).

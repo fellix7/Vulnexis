@@ -19,13 +19,18 @@ export class Agent {
   private readonly t0 = Date.now();
   private seq = 0;
 
-  constructor(private readonly onChange?: (step: AgentStep) => void) {}
+  constructor(
+    private readonly onChange?: (step: AgentStep) => void,
+    private readonly signal?: AbortSignal,
+  ) {}
 
   private emit(step: AgentStep) {
     this.onChange?.({ ...step, sources: step.sources ? [...step.sources] : undefined });
   }
 
   start(tool: AgentTool, title: string, patch: StepPatch = {}): AgentStep {
+    // The browser left: stop before the next tool call instead of finishing a scan nobody reads.
+    this.signal?.throwIfAborted();
     const step: AgentStep = { id: `s${++this.seq}`, tool, title, status: 'running', startedAt: Date.now() - this.t0, ...patch };
     this.steps.push(step);
     this.emit(step);
