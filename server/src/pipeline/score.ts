@@ -1,5 +1,5 @@
 import { findingKey } from '../keys.js';
-import type { Advisory, AiVerdict, Enrichment, Finding, Package, Severity, Tier } from '../types.js';
+import type { Advisory, AiVerdict, Enrichment, Exposure, ExposureVerdict, Finding, Package, Severity, Tier } from '../types.js';
 
 export const TIER_ORDER: Tier[] = ['FIX_NOW', 'FIX_SPRINT', 'PLAN', 'MONITOR'];
 
@@ -38,13 +38,33 @@ function tierFor(pkg: Package, advisory: Advisory, e: Enrichment, ai: AiVerdict 
   return 'MONITOR';
 }
 
+// Architecture context may LOWER a tier, by one step at most and never below Plan, only when the project's own
+// files show the package is behind login, on a private network, offline, or not loaded at all. Known-exploited
+// (KEV) findings and "unknown" exposure are never lowered; dev-only findings are already Monitor.
+const LOWERS: Exposure[] = ['login', 'internal', 'offline', 'unreached'];
+
+export function applyExposure(tier: Tier, e: Enrichment, x: ExposureVerdict | undefined): Tier {
+  if (!x || e.kev === true || !LOWERS.includes(x.level) || tier === 'PLAN' || tier === 'MONITOR') return tier;
+  if (x.level === 'login' && x.openSignup) return tier; // anyone can create an account
+  return TIER_ORDER[TIER_ORDER.indexOf(tier) + 1]!;
+}
+
+export const EXPOSURE_LABEL: Record<Exposure, string> = {
+  public: 'Reachable from the internet',
+  unknown: 'Exposure unknown (treated as internet-facing)',
+  login: 'Behind login',
+  internal: 'Private network only',
+  offline: 'No network entry point',
+  unreached: 'Not loaded by any entry point',
+};
+
 // The verdict carries no function name, so label the first citation by the call in its quoted line.
 function citedSymbol(quote: string): string {
   const m = quote.match(/([A-Za-z_$][\w$.]*)\s*\(/);
   return m ? m[1]! : quote.trim().slice(0, 40);
 }
 
-function reasonsFor(pkg: Package, advisory: Advisory, e: Enrichment, ai: AiVerdict | undefined): string[] {
+function reasonsFor(pkg: Package, advisory: Advisory, e: Enrichment, ai: AiVerdict | undefined, x?: ExposureVerdict): string[] {
   const reasons: string[] = [];
   if (e.kev === true) reasons.push('On CISA KEV (exploited in the wild)');
   reasons.push(e.epss === null ? 'EPSS: no data' : `EPSS ${formatEpss(e.epss)}`);
@@ -63,6 +83,10 @@ function reasonsFor(pkg: Package, advisory: Advisory, e: Enrichment, ai: AiVerdi
   } else if (ai?.verdict === 'UNCERTAIN') {
     reasons.push('AI: uncertain');
   }
+  if (x && !pkg.dev) {
+    const where = x.evidence[0] ? ` (${x.evidence[0].file}:${x.evidence[0].line})` : '';
+    reasons.push(`${EXPOSURE_LABEL[x.level]}${where}${x.lowered ? ': lowered one step' : ''}`);
+  }
   return reasons;
 }
 
@@ -70,20 +94,25 @@ export function scoreFindings(
   matches: { pkg: Package; advisory: Advisory }[],
   enrichments: Map<string, Enrichment>,
   aiVerdicts?: Map<string, AiVerdict>,
-  opts?: { epssThreshold?: number },
+  opts?: { epssThreshold?: number; exposureOf?: (pkg: Package) => ExposureVerdict | undefined },
 ): Finding[] {
   const threshold = opts?.epssThreshold ?? DEFAULT_EPSS_THRESHOLD;
   const findings: Finding[] = matches.map(({ pkg, advisory }) => {
     const enrichment = enrichments.get(advisory.id) ?? { epss: null, kev: null };
     const ai = aiVerdicts?.get(findingKey(pkg, advisory));
+    const base = tierFor(pkg, advisory, enrichment, ai, threshold);
+    const x0 = opts?.exposureOf?.(pkg);
+    const tier = applyExposure(base, enrichment, x0);
+    const exposure = x0 ? { ...x0, lowered: tier !== base } : undefined;
     const finding: Finding = {
       pkg,
       advisory,
       enrichment,
-      tier: tierFor(pkg, advisory, enrichment, ai, threshold),
-      reasons: reasonsFor(pkg, advisory, enrichment, ai),
+      tier,
+      reasons: reasonsFor(pkg, advisory, enrichment, ai, exposure),
     };
     if (ai) finding.ai = ai;
+    if (exposure) finding.exposure = exposure;
     return finding;
   });
 

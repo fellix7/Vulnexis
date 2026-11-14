@@ -517,3 +517,10 @@
     max-width: 45%;
   }
 }
+
+.fd-exposure__lead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  align-items: baseline;
+}

@@ -39,6 +39,9 @@ Exactly one input mode:
 // 2. Uploaded lockfile, optionally with source files for the AI code check
 { "lockfile": { /* package-lock.json contents */ }, "sources": [ { "path": "src/app.js", "content": "…" } ] }
 
+// 2b. …plus architecture files for the exposure check (optional; read on the server, never sent to Gemini)
+{ "lockfile": { }, "sources": [ ], "contextFiles": [ { "path": "docker-compose.yml", "content": "…" } ], "sourcesTruncated": false }
+
 // 3. Bundled sample project (samples/demo-app)
 { "sample": true }
 ```
@@ -120,7 +123,19 @@ interface ScanResult {
   notes: string[];              // non-fatal warnings (e.g. EPSS unreachable)
   agent?: AgentStep[];          // the agent's steps (see AGENT.md)
   repo?: { owner: string; name: string; ref: string; url: string; lockfilePath: string; sourceFiles: number };
+  context?: {                   // architecture context (see ARCHITECTURE_CONTEXT.md)
+    files: { path: string; kind: 'vulnexis' | 'compose' | 'kubernetes' | 'serverless' | 'procfile' | 'dockerfile' | 'openapi' | 'manifest' | 'markdown' }[];
+    entryPoints: { component: string; file: string | null; exposure: Exposure; how: string; evidence: Evidence[] }[];
+    protectedMounts: { file: string; line: number; prefix: string; guard: string }[];
+    conflicts: string[];        // docs/config disagreements; the more exposed reading wins
+    openSignup?: Evidence;      // a public sign-up route: login walls do not lower priority
+    confident: boolean;         // import graph complete enough to claim "not loaded"
+    reachedFiles: number;
+  };
 }
+
+type Exposure = 'public' | 'unknown' | 'login' | 'internal' | 'offline' | 'unreached';
+interface Evidence { file: string; line: number; quote: string }
 
 interface Finding {
   pkg: { name: string; version: string; direct: boolean; dev: boolean; path: string[] };
@@ -134,6 +149,11 @@ interface Finding {
          reasoning: string;
          citations: { file: string; line: number; quote: string }[];   // verified against the file
          vulnerableApis?: string[] };
+  exposure?: { level: Exposure; ssvc: 'open' | 'controlled' | 'small';
+               vex?: 'vulnerable_code_not_in_execute_path';    // only for "unreached"
+               via: string[]; reason: string; evidence: Evidence[];
+               lowered: boolean;                                // moved down one step
+               openSignup?: Evidence };
 }
 
 interface UpgradePlan {

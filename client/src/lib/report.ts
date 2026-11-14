@@ -1,3 +1,4 @@
+import { EXPOSURE_TEXT, SSVC_TEXT } from './exposure'
 import type { Finding, ScanResult } from '../types'
 import { computeFunnel } from './funnel'
 import { formatEpss, safeHttpUrl, depPath } from './format'
@@ -59,6 +60,11 @@ function findingBlock(f: Finding, review: ReviewState, result: ScanResult): stri
   if (f.advisory.aliases.length) lines.push(`- Aliases: ${f.advisory.aliases.map(code).join(', ')}`)
   lines.push(`- Dependency path: ${depPath(f.pkg.path, f.pkg.name).map(code).join(' → ')}`)
   if (isLowered(f, r)) lines.push(`- **Lowered by reviewer** from ${TIER_LABEL[f.tier]}`)
+  if (f.exposure) {
+    lines.push(`- Exposure: **${EXPOSURE_TEXT[f.exposure.level].en}**${f.exposure.lowered ? ' (lowered one step)' : ''} · ${SSVC_TEXT[f.exposure.ssvc]}${f.exposure.vex ? ` · VEX ${code(f.exposure.vex)}` : ''}`)
+    lines.push(`  - ${md(f.exposure.reason)}`)
+    for (const e of f.exposure.evidence) lines.push(`  - ${code(`${e.file}:${e.line}`)} ${code(e.quote)}`)
+  }
   if (f.reasons.length) {
     lines.push('- Why this priority:')
     for (const reason of f.reasons) lines.push(`  - ${md(reason)}`)
@@ -101,8 +107,19 @@ export function buildMarkdown(result: ScanResult, review: ReviewState, source: '
   out.push(`- AI analysis: ${result.aiStatus}`)
   if (source === 'mock') out.push('- **Demo data. Not a real scan.**')
   out.push('')
-  out.push('> AI assessments are advisory and need human confirmation. AI never decides whether a package is vulnerable (that is an exact OSV.dev lookup), and only a person can lower a finding\'s priority. KEV findings can never be lowered.')
+  out.push('> AI assessments are advisory and need human confirmation. AI never decides whether a package is vulnerable (that is an exact OSV.dev lookup), and only a person or quoted architecture facts can lower a finding\'s priority (architecture: one step, never below Plan). KEV findings can never be lowered.')
   out.push('')
+  if (result.context?.entryPoints.length) {
+    out.push('## Architecture')
+    out.push('')
+    out.push('| Entry point | Starts | Exposure | Why |')
+    out.push('|---|---|---|---|')
+    for (const e of result.context.entryPoints) out.push(`| ${md(e.component)} | ${e.file ? code(e.file) : '—'} | ${EXPOSURE_TEXT[e.exposure].en} | ${md(e.how)} |`)
+    out.push('')
+    for (const m of result.context.protectedMounts) out.push(`- ${code(m.prefix)} is behind ${code(m.guard)} (${code(`${m.file}:${m.line}`)})`)
+    for (const c of result.context.conflicts) out.push(`- Docs vs code: ${md(c)}`)
+    out.push('')
+  }
 
   out.push('## Summary')
   out.push('')

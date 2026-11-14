@@ -1,4 +1,5 @@
 // Small display pieces shared by the desktop table and the mobile list.
+import { EXPOSURE_TEXT } from '../../lib/exposure'
 import { TIER_BLURB, TIER_LABEL } from '../../lib/tiers'
 import type { Tier, UpgradePlan } from '../../types'
 import { Link } from '../../router'
@@ -14,6 +15,12 @@ export function PriorityCell({ row }: { row: Row }) {
         <span className="fx-lowered" title={`A reviewer lowered this from ${TIER_LABEL[row.f.tier]}`}>
           <Icon name="arrow-down" size={11} />
           Lowered by reviewer
+        </span>
+      )}
+      {row.f.exposure?.lowered && (
+        <span className="fx-lowered fx-lowered--arch" title={row.f.exposure.reason}>
+          <Icon name="layers" size={11} />
+          {EXPOSURE_TEXT[row.f.exposure.level].short}: one step down
         </span>
       )}
     </div>

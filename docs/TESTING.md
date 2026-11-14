@@ -27,6 +27,8 @@ for f in server/src/pipeline/__checks__/*.check.ts; do npx tsx "$f" || echo "FAI
 
 The two live checks fail without internet access to `api.osv.dev` and `api.first.org`. That is expected in sandboxes.
 
+Architecture context (offline, no network needed): `npx tsx server/src/pipeline/__checks__/context.check.ts` runs 23 cases: the kirana-billing demo (compose + OpenAPI + Markdown + auth mount), Kubernetes Ingress/ClusterIP/CronJob, serverless authorizers and schedules, Procfile with `dist/*.js → src/*.ts`, `vulnexis.yml` vs compose conflicts, README-only claims, "not loaded" with a complete graph, dynamic `require` blocking that claim, transitive inheritance, open sign-up, lockfile-only scans, and the one-step / never-below-Plan / never-KEV policy.
+
 ## 1b. End-to-end smoke test
 
 With the server running, `node demo/smoke-test.mjs` (add `--online` for a GitHub scan) drives the real API through the sample, the demo projects in `demo/projects/`, the bad inputs in `demo/bad-inputs/` and production routing, and prints PASS / FAIL / SKIP. See [demo/README.md](../demo/README.md).

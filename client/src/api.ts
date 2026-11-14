@@ -68,6 +68,7 @@ function normalise(r: Partial<ScanResult> | null): ScanResult {
     notes: Array.isArray(r.notes) ? r.notes : [],
     ...(Array.isArray(r.agent) ? { agent: r.agent } : {}),
     ...(r.repo ? { repo: r.repo } : {}),
+    ...(r.context && typeof r.context === 'object' ? { context: r.context } : {}),
   }
 }
 

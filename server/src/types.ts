@@ -41,6 +41,50 @@ export interface Finding {
   tier: Tier;
   reasons: string[];
   ai?: AiVerdict;
+  exposure?: ExposureVerdict; // architecture context: can an attacker reach this package at all?
+}
+
+// ---------- architecture context ----------
+
+// How reachable a package is for an attacker, from the project's own deployment files and code.
+// Ordered from most to least exposed. Mapped to CISA SSVC "System Exposure" (open / controlled / small).
+export type Exposure = 'public' | 'unknown' | 'login' | 'internal' | 'offline' | 'unreached';
+
+export interface ContextEvidence {
+  file: string;
+  line: number; // 1-based
+  quote: string; // the line, copied from the file
+}
+
+export interface ExposureVerdict {
+  level: Exposure;
+  ssvc: 'open' | 'controlled' | 'small'; // CISA SSVC System Exposure
+  vex?: 'vulnerable_code_not_in_execute_path'; // set only for "unreached"
+  via: string[]; // components / entry points that load the package
+  reason: string; // one plain sentence
+  evidence: ContextEvidence[];
+  lowered: boolean; // true when this verdict moved the finding down one tier
+  openSignup?: ContextEvidence; // "login" that anyone can get: a public sign-up route; never lowers
+}
+
+export type ContextFileKind = 'vulnexis' | 'compose' | 'kubernetes' | 'serverless' | 'procfile' | 'dockerfile' | 'openapi' | 'manifest' | 'markdown';
+
+export interface EntryPoint {
+  component: string; // e.g. "web" (compose service), "supplier-sync", "package.json main"
+  file: string | null; // source file the process starts from, when it is in the scanned code
+  exposure: Exposure;
+  how: string; // e.g. "docker-compose.yml publishes port 8080"
+  evidence: ContextEvidence[];
+}
+
+export interface ArchitectureContext {
+  files: { path: string; kind: ContextFileKind }[];
+  entryPoints: EntryPoint[];
+  protectedMounts: { file: string; line: number; prefix: string; guard: string }[]; // routes mounted behind auth middleware
+  conflicts: string[]; // places where docs and code/config disagree (the more exposed reading wins)
+  openSignup?: ContextEvidence; // public sign-up route: a login wall that anyone can pass
+  confident: boolean; // the import graph is complete enough to say "not loaded by any entry point"
+  reachedFiles: number;
 }
 
 export interface UpgradePlan {
@@ -61,10 +105,11 @@ export interface ScanResult {
   notes: string[]; // non-fatal warnings shown in the UI (e.g. offline cache misses)
   agent?: AgentStep[]; // what the agent did, step by step (tools called, decisions taken, sources)
   repo?: RepoRef; // set when the project was fetched from a public GitHub repository
+  context?: ArchitectureContext; // deployment files and entry points found in the project
 }
 
 // One step of the agent's run. Each step calls one tool (or decides), and says why.
-export type AgentTool = 'plan' | 'github' | 'parse' | 'osv' | 'enrich' | 'rank' | 'gemini' | 'verify' | 'report';
+export type AgentTool = 'plan' | 'github' | 'parse' | 'osv' | 'enrich' | 'context' | 'rank' | 'gemini' | 'verify' | 'report';
 
 export interface AgentSource {
   label: string;
@@ -102,6 +147,8 @@ export interface SourceFile {
 export interface ScanRequest {
   lockfile?: unknown;
   sources?: SourceFile[];
+  contextFiles?: SourceFile[]; // deployment and architecture files: YAML, JSON, Markdown, Dockerfile, Procfile
+  sourcesTruncated?: boolean; // some source files were left out (limits), so "not loaded anywhere" cannot be claimed
   sample?: boolean;
   repoUrl?: string; // public GitHub repository, e.g. https://github.com/owner/name
 }

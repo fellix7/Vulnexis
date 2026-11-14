@@ -79,14 +79,15 @@ Vulnexis is one TypeScript project in npm workspaces: an Express API (`server/`)
 
 | Stage | Module | What it does | External calls |
 | :--- | :--- | :--- | :--- |
-| fetch | `pipeline/github.ts` | Parse link → download `codeload.github.com/<owner>/<repo>/tar.gz/<ref>` → gunzip (≤ 300 MB) → read tar in memory → pick shallowest lockfile → collect JS/TS sources next to it | codeload (1 request) |
+| fetch | `pipeline/github.ts` | Parse link → download `codeload.github.com/<owner>/<repo>/tar.gz/<ref>` → gunzip (≤ 300 MB) → read tar in memory → pick shallowest lockfile → collect JS/TS sources next to it, plus architecture files anywhere in the repo (≤ 60 files, 1.5 MB) | codeload (1 request) |
 | plan | `index.ts` | Decide tools from inputs (lockfile, sources) and capabilities (Gemini key, offline snapshots) | none |
 | parse | `pipeline/parse.ts` | lockfile v2/v3 `packages` map → `{name, version, direct, dev, path[]}` with dependency chains | none |
 | osv | `pipeline/osv.ts`, `match.ts` | Batched `querybatch` (500 per call), then advisory details (8 in parallel); severity from CVSS; fixed versions per range | OSV.dev |
 | enrich | `pipeline/enrich.ts` | EPSS for CVE aliases (50 per call); KEV membership from `data/kev.json` | FIRST, (CISA) |
-| rank | `pipeline/score.ts` | Fixed tier rules + human-readable reasons; sorted by tier, EPSS, severity | none |
+| context | `pipeline/context.ts`, `reach.ts` | Deployment files + docs → entry points with exposure; import graph + auth mounts → exposure per package (CISA SSVC levels); docs-vs-code conflicts. See [ARCHITECTURE_CONTEXT.md](ARCHITECTURE_CONTEXT.md) | none |
+| rank | `pipeline/score.ts` | Fixed tier rules, then `applyExposure` (one step down at most, never KEV, never below Plan) + human-readable reasons; sorted by tier, EPSS, severity | none |
 | gemini | `pipeline/ai.ts` | Top 30 direct findings grouped by package; locate imports; build masked snippets; one call per ≤ 12 advisories; validate citations | Gemini |
-| re-rank | `pipeline/score.ts` | Rescore with verdicts (AI can only raise) | none |
+| re-rank | `pipeline/score.ts` | Rescore with verdicts (AI can only raise) and the same exposure | none |
 | verify | `pipeline/plan.ts` | Candidate = max of the next fixed version per advisory; re-query OSV for the candidate; if still vulnerable, try the next 5 stable releases from npm; build the command | OSV.dev, npm |
 | report | `index.ts` | Summary step; result assembled | none |
 

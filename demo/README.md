@@ -63,6 +63,8 @@ The `--online` form also scans `OWASP/NodeGoat` from GitHub. Expected result, on
 | sample scan streams agent steps | The live agent timeline protocol works end to end |
 | sample scan has findings, tiers, verified upgrades | OSV, EPSS/KEV, ranking and upgrade verification all ran |
 | upload: kirana-billing … | Your own lockfile + source upload path, Fix-now items, dev packages in Monitor |
+| architecture: lodash behind login … | docker-compose.yml, the `/admin` auth mount and ARCHITECTURE.md were read; exposure set per package |
+| architecture: docs/OpenAPI vs code drift | Vulnexis caught the docs claiming `/supplier` needs login when the code does not check |
 | AI code check cites the demo routes | Gemini found the vulnerable calls in `src/routes/*.js`, with verified citations |
 | upload: clean-app has no findings | The "nothing to fix" path |
 | refuses … | Bad input gives a clear message, not a crash |
@@ -83,6 +85,8 @@ Tick each line as you go. **Expected** is what you should see.
 - [ ] **Run scan**. **Expected:** several **Fix now** findings (ejs, lodash, jsonwebtoken, axios…); mocha/minimist in **Monitor**.
 - [ ] Open the ejs finding. **Expected** (with a Gemini key): "Your code calls…" with a citation to `src/routes/invoices.js`, marked as checked against the file.
 - [ ] **Code evidence** page. **Expected:** cited lines in `invoices.js`, `auth.js`, `supplier.js`.
+- [ ] **Architecture** (sidebar). **Expected:** two entry points: `web` (Reachable from the internet, quoting `docker-compose.yml:8`) and `supplier-sync` (Private network only); `/admin` behind `requireOwner`; a yellow box saying the docs and OpenAPI claim `/supplier` needs login but the code does not check; lodash and node-fetch under **Priority changes**, each moved down one step.
+- [ ] Open the lodash finding → **Who can reach it**. **Expected:** "Behind login" with the quoted lines `src/routes/admin.js:4` and `src/server.js:16`.
 - [ ] **Remediation**. **Expected:** exact `npm install …@…` commands, and `overrides` for transitive packages; copy one.
 
 ### C. India brief and Hindi

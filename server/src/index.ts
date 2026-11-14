@@ -13,8 +13,9 @@ import { matchPackages } from './pipeline/match.js';
 import { parseLockfile } from './pipeline/parse.js';
 import { planUpgrades, unverifiedByNetwork } from './pipeline/plan.js';
 import { fetchRepo, RepoError } from './pipeline/github.js';
-import { DEFAULT_EPSS_THRESHOLD, scoreFindings, TIER_ORDER } from './pipeline/score.js';
-import type { AgentStep, Finding, Package, RepoRef, ScanRequest, ScanResult, SourceFile, Tier } from './types.js';
+import { buildContext, isContextPath } from './pipeline/context.js';
+import { DEFAULT_EPSS_THRESHOLD, EXPOSURE_LABEL, scoreFindings, TIER_ORDER } from './pipeline/score.js';
+import type { AgentStep, ExposureVerdict, Finding, Package, RepoRef, ScanRequest, ScanResult, SourceFile, Tier } from './types.js';
 
 const TIER_NAME: Record<Tier, string> = { FIX_NOW: 'fix now', FIX_SPRINT: 'this sprint', PLAN: 'plan', MONITOR: 'monitor' };
 
@@ -44,7 +45,7 @@ class ScanError extends Error {
   }
 }
 
-async function loadSample(): Promise<{ lockfile: unknown; sources: SourceFile[] }> {
+async function loadSample(): Promise<{ lockfile: unknown; sources: SourceFile[]; contextFiles: SourceFile[] }> {
   let lockfile: unknown;
   try {
     lockfile = JSON.parse(await readFile(path.join(SAMPLE_DIR, 'package-lock.json'), 'utf8'));
@@ -53,14 +54,14 @@ async function loadSample(): Promise<{ lockfile: unknown; sources: SourceFile[] 
   }
   const files = await readdir(SAMPLE_DIR, { recursive: true });
   const sources: SourceFile[] = [];
+  const contextFiles: SourceFile[] = [];
   for (const rel of files) {
-    if (!SOURCE_EXT.test(rel) || rel.split(path.sep).includes('node_modules')) continue;
-    sources.push({
-      path: rel.split(path.sep).join('/'),
-      content: await readFile(path.join(SAMPLE_DIR, rel), 'utf8'),
-    });
+    const p = rel.split(path.sep).join('/');
+    if (p.split('/').includes('node_modules')) continue;
+    const list = SOURCE_EXT.test(p) ? sources : isContextPath(p) && p !== 'EXPECTED.md' ? contextFiles : null;
+    list?.push({ path: p, content: await readFile(path.join(SAMPLE_DIR, rel), 'utf8') });
   }
-  return { lockfile, sources };
+  return { lockfile, sources, contextFiles };
 }
 
 async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal?: AbortSignal): Promise<ScanResult> {
@@ -74,14 +75,17 @@ async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal
   // 1. Get the project: bundled sample, a public GitHub repository, or an uploaded lockfile.
   let lockfile: unknown;
   let sources: SourceFile[];
+  let contextFiles: SourceFile[] = [];
+  let base = '';
+  let truncated = false;
   let repo: RepoRef | undefined;
   if (req.sample) {
-    ({ lockfile, sources } = await agent.run(
+    ({ lockfile, sources, contextFiles } = await agent.run(
       'github',
       'Loading the bundled sample project',
       { input: 'samples/demo-app (QuickNotes, a deliberately outdated Express app)' },
       () => loadSample(),
-      (v) => ({ output: `package-lock.json + ${plural(v.sources.length, 'source file')}` }),
+      (v) => ({ output: `package-lock.json + ${plural(v.sources.length, 'source file')} + ${plural(v.contextFiles.length, 'architecture file')}` }),
     ));
   } else if (req.repoUrl) {
     const fetched = await agent.run(
@@ -98,7 +102,7 @@ async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal
       },
       (v) => ({
         title: `Read ${v.repo.owner}/${v.repo.name} @ ${v.repo.ref}`,
-        output: `${v.repo.lockfilePath} + ${plural(v.sources.length, 'source file')} (text only, nothing executed)`,
+        output: `${v.repo.lockfilePath} + ${plural(v.sources.length, 'source file')} + ${plural(v.contextFiles.length, 'architecture file')} (text only, nothing executed)`,
         decision: v.fallback
           ? `The full download failed (${v.fallback}), so I read only the root package-lock.json. The code check will be skipped.`
           : v.skipped > 0
@@ -107,11 +111,14 @@ async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal
         sources: [{ label: `github.com/${v.repo.owner}/${v.repo.name}`, url: v.repo.url }],
       }),
     );
-    ({ lockfile, sources, repo } = fetched);
+    ({ lockfile, sources, repo, contextFiles, base } = fetched);
+    truncated = fetched.skipped > 0;
     if (fetched.fallback) notes.push(`Only the lockfile was read: the repository download failed (${fetched.fallback}). Upload the source folder to enable the code check.`);
   } else {
     lockfile = req.lockfile;
     sources = req.sources ?? [];
+    contextFiles = Array.isArray(req.contextFiles) ? req.contextFiles.filter((f) => f && typeof f.path === 'string' && typeof f.content === 'string').slice(0, 80) : [];
+    truncated = req.sourcesTruncated === true;
   }
   if (!lockfile || typeof lockfile !== 'object') {
     throw new ScanError('Expected { lockfile }, { repoUrl } or { sample: true }.');
@@ -122,11 +129,12 @@ async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal
   const savedAi = offline && existsSync(path.resolve(import.meta.dirname, '../../data/snapshots/gemini-package'));
   const willInvestigate = sources.length > 0 && (hasKey || savedAi);
   agent.note('plan', 'Planning the investigation', {
-    input: `lockfile ✓ · source files: ${sources.length} · Gemini key: ${hasKey ? 'yes' : 'no'} · data: ${offline ? 'saved snapshots' : 'live'}`,
+    input: `lockfile ✓ · source files: ${sources.length} · architecture files: ${contextFiles.length} · Gemini key: ${hasKey ? 'yes' : 'no'} · data: ${offline ? 'saved snapshots' : 'live'}`,
     output: [
       'parse lockfile',
       'match OSV.dev',
       'enrich with EPSS + CISA KEV',
+      contextFiles.length || sources.length ? 'map architecture & entry points' : null,
       'rank by fixed rules',
       willInvestigate ? 'read code with Gemini' : null,
       'verify safe versions',
@@ -192,13 +200,48 @@ async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal
   );
   notes.push(...enriched.warnings);
 
+  // Architecture context: which processes run, where they are exposed, and which code each one loads.
+  let exposureOf: ((pkg: Package) => ExposureVerdict | undefined) | undefined;
+  let context: ScanResult['context'];
+  if (matches.length && (contextFiles.length || sources.length)) {
+    const built = await agent.run(
+      'context',
+      'Mapping the architecture: entry points, exposure and login walls',
+      {
+        input: contextFiles.length
+          ? `${plural(contextFiles.length, 'architecture file')} (${[...new Set(contextFiles.map((f) => f.path.split('/').pop()))].slice(0, 5).join(', ')}${contextFiles.length > 5 ? ', …' : ''}) + import graph of ${plural(sources.length, 'source file')}`
+          : `no deployment files; import graph of ${plural(sources.length, 'source file')} and the servers they start`,
+        sources: [SOURCES.ssvc, SOURCES.vex],
+      },
+      async () => buildContext({ lockfile, sources, contextFiles, base, truncated }),
+      (v) => {
+        if (!v) return { output: 'Nothing to map', decision: 'Ranking uses the published rules only.' };
+        const c = v.context;
+        const eps = c.entryPoints.map((e) => `${e.component} (${EXPOSURE_LABEL[e.exposure].toLowerCase()})`).slice(0, 4).join(' · ');
+        return {
+          title: `Mapped ${plural(c.entryPoints.length, 'entry point')}${c.protectedMounts.length ? ` and ${plural(c.protectedMounts.length, 'route')} behind login` : ''}`,
+          output: `${eps || 'no entry points found'}${c.conflicts.length ? ` · ${plural(c.conflicts.length, 'conflict')} between docs and code` : ''}`,
+          decision: c.entryPoints.length
+            ? 'Packages loaded only behind login, on a private network, offline, or by nothing at all move down one step (never below Plan, never if exploited in the wild). Unknown exposure counts as internet-facing.'
+            : 'No entry point found, so exposure is unknown and no priority changes.',
+        };
+      },
+    );
+    if (built) {
+      exposureOf = built.exposureOf;
+      context = built.context;
+      notes.push(...built.context.conflicts.map((c) => `Architecture: ${c}`));
+    }
+  }
+
   // First pass without AI gives the order Gemini works through (most urgent first).
-  const ranked = scoreFindings(matches, enriched.map);
+  const ranked = scoreFindings(matches, enriched.map, undefined, { exposureOf });
   const tiers = (fs: Finding[]) => TIER_ORDER.map((t) => `${fs.filter((f) => f.tier === t).length} ${TIER_NAME[t]}`).join(' · ');
   const directCount = ranked.filter((f) => f.pkg.direct).length;
+  const lowered = ranked.filter((f) => f.exposure?.lowered).length;
   agent.note('rank', 'Ranking findings with fixed, published rules', {
-    input: 'KEV · EPSS ≥ 10% · severity · production vs dev · direct vs transitive',
-    output: tiers(ranked),
+    input: `KEV · EPSS ≥ 10% · severity · production vs dev · direct vs transitive${exposureOf ? ' · architecture exposure' : ''}`,
+    output: `${tiers(ranked)}${lowered ? ` · ${plural(lowered, 'finding')} lowered by architecture` : ''}`,
     decision: willInvestigate
       ? `Next: read the code for the top ${Math.min(30, directCount)} direct-dependency findings, most urgent first.`
       : 'Ranking is final for this run (no code check).',
@@ -237,7 +280,7 @@ async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal
   }
 
   // AI can only raise a tier, so rescoring with verdicts is safe.
-  const findings = ai.verdicts.size ? scoreFindings(matches, enriched.map, ai.verdicts) : ranked;
+  const findings = ai.verdicts.size ? scoreFindings(matches, enriched.map, ai.verdicts, { exposureOf }) : ranked;
   if (ai.verdicts.size) {
     const raised = findings.filter((f) => f.tier === 'FIX_NOW').length - ranked.filter((f) => f.tier === 'FIX_NOW').length;
     if (raised > 0) agent.note('rank', `Re-ranked: ${plural(raised, 'finding')} raised to Fix now by code evidence`, { output: tiers(findings) });
@@ -286,6 +329,7 @@ async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal
     agent: agent.steps,
   };
   if (repo) result.repo = repo;
+  if (context) result.context = context;
   return result;
 }
 

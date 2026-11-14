@@ -83,8 +83,11 @@ Vulnexis uses Google Gemini for **one job**: reading short snippets of the user'
 | Follow instructions in code or advisories | The system prompt marks advisory text and code as untrusted data and forbids following instructions inside them |
 | Decide the regulatory brief | The India brief is deterministic templates filled from scan data (`client/src/lib/india.ts`); no AI text |
 
+### Architecture context (not AI)
+Exposure from the project's own files (docker-compose, Kubernetes, serverless.yml, Procfile, Dockerfile, OpenAPI, package.json, Markdown docs, `vulnexis.yml`) and the import graph is computed **deterministically**, with every claim quoted from a file and line. It may lower a finding **one step**, never below Plan, never for CISA KEV, and never for "behind login" when anyone can sign up. Docs never override config or code; contradictions are reported. Unknown exposure counts as internet-facing (CISA SSVC default). Architecture files are never sent to Gemini. Details: [ARCHITECTURE_CONTEXT.md](ARCHITECTURE_CONTEXT.md).
+
 ### Human authority
-- Only a person can lower a finding's tier, and never for KEV-listed findings.
+- Apart from the one-step architecture rule above, only a person can lower a finding's tier, and never for KEV-listed findings.
 - A person can confirm or dispute any AI verdict; the review is recorded with the scan and exported in reports.
 
 ### Model and limits
@@ -103,6 +106,7 @@ The agent must be **inspectable**: a user can see what it did, with what, and wh
   - skipping the code check (no source code, or no AI key), and why;
   - sending a KEV-listed vulnerability straight to Fix now;
   - raising findings after code evidence;
+  - moving findings down because of architecture context, with the files read and any docs-vs-code conflicts;
   - refusing to suggest an unverified upgrade version;
   - skipping files to stay within reading limits.
 - A failed tool is shown as **failed**, with its message; the agent continues where the remaining data allows, and says what is missing.

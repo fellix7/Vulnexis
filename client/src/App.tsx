@@ -3,6 +3,7 @@ import { AppShell } from './components/AppShell'
 import { Icon } from './components/ui/Icon'
 import { PageHeader } from './components/ui/Kit'
 import AgentPage from './pages/Agent'
+import ArchitecturePage from './pages/Architecture'
 import EvidencePage from './pages/Evidence'
 import FindingDetailPage from './pages/FindingDetail'
 import FindingsPage from './pages/Findings'
@@ -20,6 +21,7 @@ const APP_ROUTES: Record<string, { page: ComponentType; title: string }> = {
   '/scan': { page: ScanPage, title: 'New scan' },
   '/overview': { page: OverviewPage, title: 'Overview' },
   '/agent': { page: AgentPage, title: 'Agent trace' },
+  '/architecture': { page: ArchitecturePage, title: 'Architecture' },
   '/india': { page: IndiaPage, title: 'India brief' },
   '/findings': { page: FindingsPage, title: 'Findings' },
   '/finding': { page: FindingDetailPage, title: 'Finding' },

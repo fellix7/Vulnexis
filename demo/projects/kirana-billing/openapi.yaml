@@ -1,0 +1,36 @@
+# DEMO ONLY: the HTTP contract of the kirana-billing demo.
+openapi: 3.0.3
+info:
+  title: Kirana billing (demo)
+  version: 1.0.0
+components:
+  securitySchemes:
+    ownerJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+paths:
+  /invoices/{id}:
+    get:
+      summary: GST invoice page, shared with customers by link
+      security: []
+  /auth/me:
+    get:
+      summary: Current owner
+      security: [{ ownerJwt: [] }]
+  /auth/login:
+    post:
+      summary: Owner login
+      security: []
+  /admin/footer:
+    post:
+      summary: Set the receipt footer template
+      security: [{ ownerJwt: [] }]
+  /admin/settings:
+    post:
+      summary: Update shop settings
+      security: [{ ownerJwt: [] }]
+  /supplier/prices:
+    get:
+      summary: Fetch a supplier price list
+      security: [{ ownerJwt: [] }]

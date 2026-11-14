@@ -10,6 +10,8 @@ export const SOURCES = {
   npm: { label: 'npm registry', url: 'https://registry.npmjs.org' },
   gemini: { label: 'Google Gemini (code reading only)', url: 'https://ai.google.dev' },
   github: { label: 'GitHub (public repository)', url: 'https://github.com' },
+  ssvc: { label: 'CISA SSVC: System Exposure (open / controlled / small)', url: 'https://certcc.github.io/SSVC/reference/decision_points/system_exposure/' },
+  vex: { label: 'CISA VEX status justifications', url: 'https://www.cisa.gov/sites/default/files/2023-01/VEX_Status_Justification_Jun22.pdf' },
 } satisfies Record<string, AgentSource>;
 
 export type StepPatch = Partial<Pick<AgentStep, 'title' | 'input' | 'output' | 'decision' | 'sources'>>;

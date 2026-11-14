@@ -1,5 +1,6 @@
 // Narrow-screen layout: each finding is one stacked, fully tappable row.
 import { memo } from 'react'
+import { EXPOSURE_TEXT } from '../../lib/exposure'
 import { Link } from '../../router'
 import { EpssMeter, KevBadge, SeverityBadge, TierBadge, VerdictBadge } from '../ui/Badges'
 import { Icon } from '../ui/Icon'
@@ -14,6 +15,7 @@ const FindingCard = memo(function FindingCard({ row }: { row: Row }) {
         <span className="fx-card__top">
           <TierBadge tier={row.tier} />
           {row.lowered && <span className="fx-lowered">Lowered by reviewer</span>}
+          {f.exposure?.lowered && <span className="fx-lowered fx-lowered--arch">{EXPOSURE_TEXT[f.exposure.level].short}: one step down</span>}
           {f.enrichment.kev === true && <KevBadge />}
         </span>
         <span className="fx-card__pkg">

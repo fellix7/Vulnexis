@@ -21,11 +21,11 @@ const SKIP_LABELS: { key: keyof CollectedSources['skipped']; text: (n: number) =
   { key: 'unreadable', text: (n) => `${n.toLocaleString()} unreadable` },
 ]
 
-/** Optional source folder picker (webkitdirectory). Enables the AI code check. */
+/** Optional source folder picker (webkitdirectory). Enables the AI code check and the architecture map. */
 export function SourceFolder({ collected, collecting, disabled, unavailable, onFiles, onClear }: Props) {
   const inputId = useId()
   const input = useRef<HTMLInputElement>(null)
-  const off = disabled || unavailable !== null
+  const off = disabled // the folder still feeds the architecture map when the AI check is unavailable
 
   function onChange(e: ChangeEvent<HTMLInputElement>) {
     const files = e.target.files
@@ -88,6 +88,14 @@ export function SourceFolder({ collected, collecting, disabled, unavailable, onF
                 <Icon name="check" size={12} />
                 {collected.sources.length.toLocaleString()} source {collected.sources.length === 1 ? 'file' : 'files'}
               </span>{' '}
+              {collected.contextFiles.length > 0 && (
+                <>
+                  <span className="badge badge--info" title={collected.contextFiles.map((c) => c.path).join('\n')}>
+                    <Icon name="layers" size={12} />
+                    {collected.contextFiles.length} architecture {collected.contextFiles.length === 1 ? 'file' : 'files'}
+                  </span>{' '}
+                </>
+              )}
               <span className="muted">
                 {formatBytes(collected.totalBytes)}
                 {collected.folderName ? ` from ${collected.folderName}/` : ''} will be sent to this server with the scan.

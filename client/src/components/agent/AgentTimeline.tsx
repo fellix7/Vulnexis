@@ -10,6 +10,7 @@ export const TOOL_META: Record<AgentTool, { icon: IconName; en: string; hi: stri
   parse: { icon: 'file', en: 'Parse', hi: 'पढ़ना' },
   osv: { icon: 'search', en: 'OSV.dev', hi: 'OSV.dev' },
   enrich: { icon: 'flame', en: 'EPSS · KEV', hi: 'EPSS · KEV' },
+  context: { icon: 'layers', en: 'Architecture', hi: 'आर्किटेक्चर' },
   rank: { icon: 'sort', en: 'Rank', hi: 'प्राथमिकता' },
   gemini: { icon: 'sparkle', en: 'Gemini', hi: 'Gemini' },
   verify: { icon: 'shield-check', en: 'Verify', hi: 'जाँच' },

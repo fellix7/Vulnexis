@@ -1,0 +1,19 @@
+# DEMO ONLY: how the kirana-billing demo would be deployed. Vulnexis reads this file to learn
+# which process is internet-facing and which is not. Never run it.
+services:
+  web:
+    build: .
+    command: node src/server.js
+    ports:
+      - "8080:3000"
+    networks: [frontend, backend]
+
+  supplier-sync:
+    build: .
+    command: node src/jobs/supplier-sync.js
+    networks: [backend]
+
+networks:
+  frontend: {}
+  backend:
+    internal: true

@@ -18,6 +18,7 @@ PS3 asks for an agent that "plans its steps, uses tools or data and decides what
 | `parse` | Parse / पढ़ना | internal (`parse.ts`) | lockfile | packages with direct/dev flags and chains |
 | `osv` | OSV.dev | OSV `querybatch` + `vulns/{id}` | name + version list | advisories, severity, fixed versions |
 | `enrich` | EPSS · KEV | FIRST EPSS API; CISA KEV snapshot | CVE ids | exploit probability, exploited flag |
+| `context` | Architecture / आर्किटेक्चर | internal (`context.ts`, `reach.ts`) | deployment files, docs, import graph | entry points, exposure per package, conflicts |
 | `rank` | Rank / प्राथमिकता | internal (`score.ts`) | matches + enrichment (+ verdicts) | tiers + reasons |
 | `gemini` | Gemini | Google Gemini | masked snippets + advisory text | verdict + verified citations |
 | `verify` | Verify / जाँच | OSV re-query + npm registry | candidate versions | smallest clean version + command |
@@ -26,7 +27,7 @@ PS3 asks for an agent that "plans its steps, uses tools or data and decides what
 ## 3. Run order and decisions
 
 ```
-[github]? ─► [plan] ─► [parse] ─► [osv] ─► [enrich] ─► [rank] ─► [gemini | skipped] ─► [rank: re-ranked]? ─► [verify] ─► [report]
+[github]? ─► [plan] ─► [parse] ─► [osv] ─► [enrich] ─► [context]? ─► [rank] ─► [gemini | skipped] ─► [rank: re-ranked]? ─► [verify] ─► [report]
 ```
 
 ### 3.1 Plan
@@ -44,6 +45,9 @@ Decision: if nothing matched, "Nothing matched, so there is nothing to rank. Sto
 ### 3.3 Enrichment
 Output: count on CISA KEV and count with EPSS ≥ 10%. If any are on KEV: "N vulnerabilities are already exploited in real attacks; these go straight to 'Fix now'."
 
+### 3.3b Architecture context
+Runs when there are matches and the project provided source files or architecture files. Output: each entry point with its exposure, routes behind login, and the number of docs-vs-code conflicts (each also added to the scan notes). Decision: "Packages loaded only behind login, on a private network, offline, or by nothing at all move down one step (never below Plan, never if exploited in the wild). Unknown exposure counts as internet-facing." Sources cited: CISA SSVC (System Exposure) and CISA VEX justifications. Full rules: [ARCHITECTURE_CONTEXT.md](ARCHITECTURE_CONTEXT.md).
+
 ### 3.4 Ranking rules (fixed and published, `pipeline/score.ts`)
 
 | Tier | Rule (first match wins) |
@@ -52,6 +56,8 @@ Output: count on CISA KEV and count with EPSS ≥ 10%. If any are on KEV: "N vul
 | **Fix this sprint** | Production **and** (High/Critical, **or** Moderate/Unknown with EPSS ≥ 10%) |
 | **Plan** | Any other production finding |
 | **Monitor** | Development-only dependency |
+
+Then the **architecture step** (`applyExposure`): exposure *behind login*, *private network only*, *no network entry point* or *not loaded by any entry point* moves Fix now → Fix this sprint and Fix this sprint → Plan. Never below Plan, never for KEV, never for behind-login when sign-up is open.
 
 Sort within tiers: higher EPSS, then severity, then name and id. Each finding carries reasons such as `On CISA KEV`, `EPSS 21%`, `Severity: High`, `Production dependency`, `Via express → body-parser`, `Your code calls template (src/routes/render.js:12)`.
 

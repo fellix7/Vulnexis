@@ -90,7 +90,7 @@ export function HowItWorks() {
           <div className="lp-rules__intro">
             <h3>The tier rules, in full</h3>
             <p className="muted">
-              Fixed and published. AI can raise a finding by confirming that your code calls the vulnerable function. It cannot lower one.
+              Fixed and published. AI can raise a finding by confirming that your code calls the vulnerable function. It cannot lower one. Your own architecture can: code that only runs behind login, on a private network or in a nightly job moves down one step, with the file and line that prove it.
             </p>
           </div>
           <div className="panel lp-rules__panel">

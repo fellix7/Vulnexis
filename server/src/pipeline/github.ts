@@ -1,6 +1,7 @@
 import { gunzipSync } from 'node:zlib';
 import { adviceFor, reasonOf } from '../net.js';
 import type { RepoRef, SourceFile } from '../types.js';
+import { isContextPath, MAX_CONTEXT_FILE_BYTES, MAX_CONTEXT_FILES, MAX_CONTEXT_TOTAL_BYTES } from './context.js';
 
 // Reads a PUBLIC GitHub repository: its package-lock.json and the JavaScript/TypeScript source that the
 // AI code check needs. Files are only downloaded as text; nothing is cloned, installed or executed.
@@ -156,6 +157,8 @@ export interface FetchedRepo {
   repo: RepoRef;
   lockfile: unknown;
   sources: SourceFile[];
+  contextFiles: SourceFile[]; // deployment/architecture files, paths relative to the repository root
+  base: string; // folder of the lockfile ('' at the root, else "app/"); source paths are relative to it
   skipped: number; // source files not read because of the limits above
   sourceFilesFound: number;
   fallback?: string; // set when only the root lockfile could be read, with the reason
@@ -180,6 +183,8 @@ export async function fetchRepo(rawUrl: string): Promise<FetchedRepo> {
       repo: { owner, name, ref: askedRef ?? 'default branch', url: `https://github.com/${owner}/${name}`, lockfilePath: 'package-lock.json', sourceFiles: 0 },
       lockfile,
       sources: [],
+      contextFiles: [],
+      base: '',
       skipped: 0,
       sourceFilesFound: 0,
       fallback: e.reason,
@@ -188,7 +193,8 @@ export async function fetchRepo(rawUrl: string): Promise<FetchedRepo> {
 
   const isLock = (p: string) => /(^|\/)(package-lock|npm-shrinkwrap)\.json$/.test(p) && !SKIP_DIR.test(p);
   const isSource = (p: string, size: number) => SOURCE_EXT.test(p) && !SKIP_DIR.test(p) && !SKIP_FILE.test(p) && size <= MAX_FILE_BYTES;
-  const { files, all } = untar(tar, (p, size) => (isLock(p) && size <= MAX_LOCKFILE_BYTES) || isSource(p, size));
+  const isContext = (p: string, size: number) => isContextPath(p) && size <= MAX_CONTEXT_FILE_BYTES;
+  const { files, all } = untar(tar, (p, size) => (isLock(p) && size <= MAX_LOCKFILE_BYTES) || isSource(p, size) || isContext(p, size));
 
   // Shallowest lockfile wins (monorepos keep it at the root).
   const lockEntry = files.filter((f) => isLock(f.path)).sort((a, b) => a.path.split('/').length - b.path.split('/').length)[0];
@@ -220,7 +226,22 @@ export async function fetchRepo(rawUrl: string): Promise<FetchedRepo> {
     total += c.data.length;
   }
 
+  // Architecture files anywhere in the repository (compose files often sit above the app folder):
+  // deployment files first, then docs, shallow paths first.
+  const docRank = (p: string) => (/\.md$/i.test(p) ? 1 : 0);
+  const contextFiles: SourceFile[] = [];
+  let contextBytes = 0;
+  for (const c of files
+    .filter((f) => isContext(f.path, f.data.length) && !isLock(f.path))
+    .sort((a, b) => docRank(a.path) - docRank(b.path) || a.path.split('/').length - b.path.split('/').length || a.path.localeCompare(b.path))) {
+    if (contextFiles.length >= MAX_CONTEXT_FILES || contextBytes + c.data.length > MAX_CONTEXT_TOTAL_BYTES) break;
+    contextFiles.push({ path: c.path, content: c.data.toString('utf8') });
+    contextBytes += c.data.length;
+  }
+
   return {
+    contextFiles,
+    base,
     repo: {
       owner,
       name,

@@ -45,6 +45,14 @@ async function stream(body) {
   return { status: res.status, steps: lines.filter((l) => l.type === 'step'), end: lines.at(-1) };
 }
 
+/** Architecture files (compose, OpenAPI, Markdown, package.json) next to a demo project's code. */
+function contextFiles(dir) {
+  const root = path.join(HERE, dir);
+  return readdirSync(root)
+    .filter((n) => /\.(ya?ml|md)$|^package\.json$/.test(n))
+    .map((n) => ({ path: n, content: readFileSync(path.join(root, n), 'utf8') }));
+}
+
 const tiers = (fs) => ['FIX_NOW', 'FIX_SPRINT', 'PLAN', 'MONITOR'].map((t) => fs.filter((f) => f.tier === t).length).join('/');
 
 async function main() {
@@ -93,10 +101,25 @@ async function main() {
     ok('upload: kirana-billing', null, 'server is in OFFLINE mode; restart without OFFLINE=1 to test uploads');
     ok('upload: clean-app', null, 'same');
   } else {
-    const k = await post({ lockfile: readJson('projects/kirana-billing/package-lock.json'), sources: sources('projects/kirana-billing') });
+    const k = await post({
+      lockfile: readJson('projects/kirana-billing/package-lock.json'),
+      sources: sources('projects/kirana-billing'),
+      contextFiles: contextFiles('projects/kirana-billing'),
+    });
     const kf = k.body?.findings ?? [];
     ok('upload: kirana-billing finds vulnerabilities', k.status === 200 && kf.length > 0, k.status === 200 ? `${kf.length} findings, tiers ${tiers(kf)}, AI ${k.body.aiStatus}` : k.body?.error);
     ok('upload: kirana-billing has Fix now items', kf.some((f) => f.tier === 'FIX_NOW'), `${kf.filter((f) => f.tier === 'FIX_NOW').length} fix now`);
+    const level = (name) => kf.find((f) => f.pkg.name === name)?.exposure?.level;
+    ok(
+      'architecture: lodash behind login, node-fetch internal, axios public',
+      k.status === 200 ? level('lodash') === 'login' && level('node-fetch') === 'internal' && level('axios') === 'public' : null,
+      k.status === 200 ? `lodash ${level('lodash')}, node-fetch ${level('node-fetch')}, axios ${level('axios')}` : 'upload failed, see above',
+    );
+    ok(
+      'architecture: docs/OpenAPI vs code drift on /supplier is flagged',
+      k.status === 200 ? (k.body.context?.conflicts ?? []).filter((c) => c.includes('/supplier')).length === 2 : null,
+      k.status === 200 ? `${k.body.context?.conflicts?.length ?? 0} conflicts, ${kf.filter((f) => f.exposure?.lowered).length} findings moved down` : '',
+    );
     ok('upload: dev-only packages land in Monitor', k.status === 200 ? kf.filter((f) => f.pkg.dev).every((f) => f.tier === 'MONITOR') : null, k.status === 200 ? `${kf.filter((f) => f.pkg.dev).length} dev findings` : 'upload failed, see above');
     if (health.gemini) {
       const cited = kf.filter((f) => f.ai?.verdict === 'USES_VULNERABLE_API');

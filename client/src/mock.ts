@@ -1,6 +1,6 @@
 // Illustrative demo data for UI development (open the page with ?mock=1).
 // Values are realistic but NOT live: do not treat them as real scan output.
-import type { Advisory, AgentStep, AiVerdict, Enrichment, Finding, Package, ScanResult, Tier, UpgradePlan } from './types'
+import type { Advisory, AgentStep, AiVerdict, ArchitectureContext, Enrichment, ExposureVerdict, Finding, Package, ScanResult, Tier, UpgradePlan } from './types'
 
 const pkg = (name: string, version: string, direct: boolean, dev: boolean, path: string[]): Package => ({
   name,
@@ -318,6 +318,65 @@ const findings: Finding[] = [
   ),
 ]
 
+// Illustrative architecture context for the demo data: a public web app, an internal worker, an owner-only area.
+const webEv = [
+  { file: 'docker-compose.yml', line: 7, quote: '- "8080:3000"' },
+  { file: 'docker-compose.yml', line: 5, quote: 'command: node src/server.js' },
+]
+const exposureFor = (name: string): ExposureVerdict | undefined =>
+  name === 'node-uuid'
+    ? {
+        level: 'unreached',
+        ssvc: 'small',
+        vex: 'vulnerable_code_not_in_execute_path',
+        via: [],
+        reason: 'No deployed entry point loads this package. It is only imported by scripts/seed-demo.js, which no entry point runs.',
+        evidence: [{ file: 'scripts/seed-demo.js', line: 2, quote: "const uuid = require('node-uuid');" }],
+        lowered: true,
+      }
+    : {
+        level: 'public',
+        ssvc: 'open',
+        via: ['web'],
+        reason: 'Loaded by "web", which is reachable from the internet (docker-compose.yml: "web" publishes port 8080:3000).',
+        evidence: webEv,
+        lowered: false,
+      }
+for (const x of findings) {
+  if (x.pkg.dev) continue
+  const e = exposureFor(x.pkg.name)
+  if (e) {
+    x.exposure = e
+    x.reasons.push(e.lowered ? 'Not loaded by any entry point (scripts/seed-demo.js:2): lowered one step' : 'Reachable from the internet (docker-compose.yml:7)')
+  }
+}
+
+const context: ArchitectureContext = {
+  files: [
+    { path: 'docker-compose.yml', kind: 'compose' },
+    { path: 'openapi.yaml', kind: 'openapi' },
+    { path: 'docs/ARCHITECTURE.md', kind: 'markdown' },
+    { path: 'package.json', kind: 'manifest' },
+  ],
+  entryPoints: [
+    { component: 'web', file: 'src/server.js', exposure: 'public', how: 'docker-compose.yml: "web" publishes port 8080:3000', evidence: webEv },
+    {
+      component: 'reports-worker',
+      file: 'src/jobs/reports.js',
+      exposure: 'internal',
+      how: 'docker-compose.yml: "reports-worker" is only on internal networks (backend)',
+      evidence: [
+        { file: 'docker-compose.yml', line: 13, quote: 'networks: [backend]' },
+        { file: 'docker-compose.yml', line: 18, quote: 'internal: true' },
+      ],
+    },
+  ],
+  protectedMounts: [{ file: 'src/server.js', line: 21, prefix: '/admin', guard: 'requireOwner' }],
+  conflicts: ['docs/ARCHITECTURE.md:14 says /reports needs a login, but src/server.js:19 mounts it with no auth middleware. Treated as public until the code checks a token.'],
+  confident: true,
+  reachedFiles: 58,
+}
+
 const plans: UpgradePlan[] = [
   { name: 'ejs', from: '3.1.6', to: '3.1.7', jump: 'patch', command: 'npm install ejs@3.1.7' },
   { name: 'lodash', from: '4.17.15', to: '4.17.21', jump: 'patch', command: 'npm install lodash@4.17.21' },
@@ -380,6 +439,7 @@ const agent: AgentStep[] = [
   { id: 's2', tool: 'parse', title: 'Read 412 installed packages', status: 'done', startedAt: 3, ms: 41, input: 'package-lock.json (lockfileVersion 2/3)', output: '18 direct · 394 transitive · 231 dev-only' },
   { id: 's3', tool: 'osv', title: 'Matching 412 packages against OSV.dev', status: 'done', startedAt: 45, ms: 2310, input: 'exact name + version lookups (batched)', output: '15 known vulnerabilities in 10 packages', decision: 'Facts come from this lookup only. AI never adds or removes a finding.', sources: [S.osv] },
   { id: 's4', tool: 'enrich', title: 'Checking 15 advisories for real-world exploitation', status: 'done', startedAt: 2360, ms: 1180, input: 'CVE ids → EPSS score, CISA KEV membership', output: '1 advisory on CISA KEV · 3 with EPSS ≥ 10%', decision: '1 vulnerability is already exploited in real attacks; it goes straight to "Fix now".', sources: [S.epss, S.kev] },
+  { id: 's4b', tool: 'context', title: 'Mapped 2 entry points and 1 route behind login', status: 'done', startedAt: 3541, ms: 3, input: '4 architecture files (docker-compose.yml, openapi.yaml, ARCHITECTURE.md, package.json) + import graph of 64 source files', output: 'web (reachable from the internet) · reports-worker (private network only) · 1 conflict between docs and code', decision: 'Packages loaded only behind login, on a private network, offline, or by nothing at all move down one step (never below Plan, never if exploited in the wild). Unknown exposure counts as internet-facing.' },
   { id: 's5', tool: 'rank', title: 'Ranking findings with fixed, published rules', status: 'done', startedAt: 3545, ms: 3, input: 'KEV · EPSS ≥ 10% · severity · production vs dev · direct vs transitive', output: '1 fix now · 5 this sprint · 5 plan · 4 monitor', decision: 'Next: read the code for the top 8 direct-dependency findings, most urgent first.' },
   { id: 's6', tool: 'gemini', title: 'Reading your code for calls to the vulnerable functions', status: 'done', startedAt: 3550, ms: 9840, input: '64 source files scanned locally; only short snippets around imports of vulnerable packages go to Gemini, secrets masked', output: '2 used · 3 not used · 3 uncertain · 4 citations re-checked against the real files', decision: 'Your code reaches 2 vulnerable functions. AI may only raise a priority, never lower it.', sources: [S.gemini] },
   { id: 's7', tool: 'rank', title: 'Re-ranked: 1 finding raised to Fix now by code evidence', status: 'done', startedAt: 13392, ms: 1, output: '2 fix now · 4 this sprint · 5 plan · 4 monitor' },
@@ -394,6 +454,7 @@ export const MOCK_RESULT: ScanResult = {
   findings,
   plans,
   aiStatus: 'ok',
+  context,
   notes: [
     'EPSS has no score for 2 advisories; shown as "no data", not zero.',
     'No fixed version of node-uuid exists; consider replacing it with the uuid package.',

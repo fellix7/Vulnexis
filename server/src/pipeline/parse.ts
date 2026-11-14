@@ -44,6 +44,77 @@ interface Acc {
   path: string[];
 }
 
+const edgeFields = ['dependencies', 'optionalDependencies', 'peerDependencies'] as const;
+
+/** Node's lookup: the installed location `dep` resolves to when required from `from`. */
+function resolver(entries: Map<string, Obj>) {
+  return (from: string, dep: string): string | null => {
+    let loc = from;
+    for (;;) {
+      const cand = loc === '' ? NM + dep : `${loc}/${NM}${dep}`;
+      const e = entries.get(cand);
+      if (e && e.link !== true) return cand;
+      if (loc === '') return null;
+      loc = parentLocation(loc);
+    }
+  };
+}
+
+/**
+ * For each installed `name@version`, every direct dependency whose dependency tree contains it
+ * (a package can be pulled in by several). Used to ask "does the code that imports X run in production?".
+ * Call after parseLockfile has validated the lockfile.
+ */
+export function packageRoots(lock: unknown): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>();
+  if (!isObj(lock) || !isObj(lock.packages)) return out;
+  const entries = new Map<string, Obj>();
+  for (const [key, val] of Object.entries(lock.packages)) if (isObj(val)) entries.set(key, val);
+  const resolve = resolver(entries);
+  const idOf = (loc: string) => {
+    const e = entries.get(loc)!;
+    const name = typeof e.name === 'string' && e.name ? e.name : nameFromKey(loc);
+    return `${name}@${String(e.version)}`;
+  };
+  // Direct dependencies of the root project and of each workspace member.
+  const roots: [from: string, name: string][] = [];
+  for (const [key, e] of entries) {
+    if (key === '' || (e.link !== true && nameFromKey(key) === null)) {
+      for (const n of depNames(e, ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'])) roots.push([key, n]);
+    }
+  }
+  for (const [from, root] of roots) {
+    const start = resolve(from, root);
+    if (!start) continue;
+    const seen = new Set([start]);
+    const queue = [start];
+    for (let i = 0; i < queue.length; i++) {
+      const loc = queue[i]!;
+      const id = idOf(loc);
+      (out.get(id) ?? out.set(id, new Set()).get(id)!).add(root);
+      for (const dep of depNames(entries.get(loc)!, edgeFields)) {
+        const t = resolve(loc, dep);
+        if (t && !seen.has(t)) {
+          seen.add(t);
+          queue.push(t);
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/** Workspace members of a monorepo: package name → folder (e.g. "@acme/shared" → "packages/shared"). */
+export function workspaceDirs(lock: unknown): Map<string, string> {
+  const out = new Map<string, string>();
+  if (!isObj(lock) || !isObj(lock.packages)) return out;
+  for (const [key, e] of Object.entries(lock.packages)) {
+    const name = nameFromKey(key);
+    if (name && isObj(e) && e.link === true && typeof e.resolved === 'string') out.set(name, e.resolved);
+  }
+  return out;
+}
+
 /**
  * Parse an npm lockfile (v2/v3) into a flat, de-duplicated package inventory.
  * Throws an Error with a user-facing message on unsupported or malformed input.
@@ -84,17 +155,7 @@ export function parseLockfile(lock: unknown): Package[] {
     }
   }
 
-  const edgeFields = ['dependencies', 'optionalDependencies', 'peerDependencies'] as const;
-  const resolve = (from: string, dep: string): string | null => {
-    let loc = from;
-    for (;;) {
-      const cand = loc === '' ? NM + dep : `${loc}/${NM}${dep}`;
-      const e = entries.get(cand);
-      if (e && e.link !== true) return cand;
-      if (loc === '') return null;
-      loc = parentLocation(loc);
-    }
-  };
+  const resolve = resolver(entries);
 
   // BFS from all direct deps over installed locations; first visit = shortest chain.
   const pathOf = new Map<string, string[]>();

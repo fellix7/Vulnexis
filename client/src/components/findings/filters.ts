@@ -4,7 +4,8 @@ import { depPath } from '../../lib/format'
 import { effectiveTier, findingKey, isLowered, type ReviewState } from '../../lib/review'
 import { AI_STATE_LABEL, aiState, byPriority, cveOf, findingHref, planFor, SEVERITY_ORDER, type AiState } from '../../lib/selectors'
 import { SEVERITY_LABEL, TIER_LABEL, TIER_ORDER } from '../../lib/tiers'
-import type { Finding, ScanResult, Severity, Tier, UpgradePlan } from '../../types'
+import { EXPOSURE_ORDER, EXPOSURE_TEXT } from '../../lib/exposure'
+import type { Exposure, Finding, ScanResult, Severity, Tier, UpgradePlan } from '../../types'
 
 export const SORT_KEYS = ['priority', 'severity', 'epss', 'package'] as const
 export type SortKey = (typeof SORT_KEYS)[number]
@@ -48,18 +49,20 @@ export interface Filters {
   dep: Dep | null
   ai: AiFilter | null
   kev: boolean
+  exposure: Exposure | null
   q: string
   sort: SortKey
   dir: SortDir
 }
 
-export const EMPTY_FILTERS: Pick<Filters, 'tier' | 'severity' | 'scope' | 'dep' | 'ai' | 'kev' | 'q'> = {
+export const EMPTY_FILTERS: Pick<Filters, 'tier' | 'severity' | 'scope' | 'dep' | 'ai' | 'kev' | 'exposure' | 'q'> = {
   tier: [],
   severity: [],
   scope: null,
   dep: null,
   ai: null,
   kev: false,
+  exposure: null,
   q: '',
 }
 
@@ -87,13 +90,14 @@ export function parseFilters(p: URLSearchParams): Filters {
     dep: pickOne(p.get('dep'), DEPS),
     ai: pickOne(p.get('ai'), AI_FILTERS),
     kev: ['1', 'true', 'yes'].includes((p.get('kev') ?? '').toLowerCase()),
+    exposure: pickOne(p.get('exposure'), EXPOSURE_ORDER),
     q: (p.get('q') ?? '').trim(),
     sort,
     dir: sort !== 'priority' && dirRaw ? dirRaw : NATURAL_DIR[sort],
   }
 }
 
-const OWN_KEYS = ['tier', 'severity', 'scope', 'dep', 'ai', 'kev', 'q', 'sort', 'dir']
+const OWN_KEYS = ['tier', 'severity', 'scope', 'dep', 'ai', 'kev', 'exposure', 'q', 'sort', 'dir']
 
 /** Write filters over a copy of `base`, leaving unrelated params alone. Defaults are omitted to keep URLs short. */
 export function filtersToParams(f: Filters, base?: URLSearchParams): URLSearchParams {
@@ -105,6 +109,7 @@ export function filtersToParams(f: Filters, base?: URLSearchParams): URLSearchPa
   if (f.dep) p.set('dep', f.dep)
   if (f.ai) p.set('ai', f.ai)
   if (f.kev) p.set('kev', '1')
+  if (f.exposure) p.set('exposure', f.exposure)
   if (f.q.trim()) p.set('q', f.q.trim())
   if (f.sort !== 'priority') {
     p.set('sort', f.sort)
@@ -114,7 +119,7 @@ export function filtersToParams(f: Filters, base?: URLSearchParams): URLSearchPa
 }
 
 export function hasActiveFilters(f: Filters): boolean {
-  return f.tier.length > 0 || f.severity.length > 0 || !!f.scope || !!f.dep || !!f.ai || f.kev || f.q !== ''
+  return f.tier.length > 0 || f.severity.length > 0 || !!f.scope || !!f.dep || !!f.ai || f.kev || !!f.exposure || f.q !== ''
 }
 
 export interface FilterChip {
@@ -133,6 +138,7 @@ export function filterChips(f: Filters): FilterChip[] {
   if (f.dep) chips.push({ id: 'dep', label: `Dependency: ${DEP_LABEL[f.dep]}`, patch: { dep: null } })
   if (f.ai) chips.push({ id: 'ai', label: `AI: ${AI_FILTER_LABEL[f.ai]}`, patch: { ai: null } })
   if (f.kev) chips.push({ id: 'kev', label: 'KEV only', patch: { kev: false } })
+  if (f.exposure) chips.push({ id: 'exposure', label: `Exposure: ${EXPOSURE_TEXT[f.exposure].en}`, patch: { exposure: null } })
   if (f.q) chips.push({ id: 'q', label: `Search: "${f.q.length > 24 ? `${f.q.slice(0, 23)}…` : f.q}"`, patch: { q: '' } })
   return chips
 }
@@ -207,6 +213,7 @@ function matchesBase(r: Row, f: Filters, tokens: string[], sev: Set<Severity>): 
   if (f.dep && (f.dep === 'direct') !== r.f.pkg.direct) return false
   if (f.ai && r.ai !== AI_FILTER_STATE[f.ai]) return false
   if (f.kev && r.f.enrichment.kev !== true) return false
+  if (f.exposure && r.f.exposure?.level !== f.exposure) return false
   for (const t of tokens) if (!r.haystack.includes(t)) return false
   return true
 }

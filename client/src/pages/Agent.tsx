@@ -110,7 +110,8 @@ export default function AgentPage() {
               <h3>{tr('Rules the agent cannot break', 'एजेंट के पक्के नियम')}</h3>
               <ul>
                 <li>{tr('Facts come from OSV.dev. AI never adds or removes a vulnerability.', 'तथ्य OSV.dev से आते हैं। AI कोई कमज़ोरी न जोड़ता है, न हटाता है।')}</li>
-                <li>{tr('AI may raise a priority, never lower it. Only a person can.', 'AI प्राथमिकता बढ़ा सकता है, घटा नहीं सकता। यह सिर्फ़ इंसान कर सकता है।')}</li>
+                <li>{tr('AI may raise a priority, never lower it.', 'AI प्राथमिकता बढ़ा सकता है, घटा नहीं सकता।')}</li>
+                <li>{tr('Only quoted architecture facts (login wall, private network, offline, not loaded) or a person can lower one: one step, never below Plan, never for KEV.', 'सिर्फ़ उद्धृत आर्किटेक्चर तथ्य (लॉगिन, निजी नेटवर्क, ऑफ़लाइन, लोड नहीं) या इंसान प्राथमिकता घटा सकते हैं: एक कदम, Plan से नीचे नहीं, KEV पर कभी नहीं।')}</li>
                 <li>{tr('Every code citation is re-checked against the real file.', 'हर कोड-उद्धरण असली फ़ाइल से दोबारा मिलाया जाता है।')}</li>
                 <li>{tr('When it does not know, it says "uncertain" instead of guessing.', 'जब पता न हो, तो अंदाज़ा नहीं, "पक्का नहीं" कहता है।')}</li>
                 <li>{tr('No personal data is asked for. Code is read, never run.', 'कोई निजी जानकारी नहीं माँगी जाती। कोड सिर्फ़ पढ़ा जाता है, चलाया नहीं।')}</li>

@@ -22,11 +22,20 @@ interface Counts {
   fixNow: number
   ai: number
   plans: number
+  moved: number
 }
 
 const WORKSPACE: NavItem[] = [
   { to: '/overview', label: 'Overview', hi: 'सारांश', icon: 'grid', match: (p) => p === '/overview' },
   { to: '/agent', label: 'Agent trace', hi: 'एजेंट का काम', icon: 'bot', match: (p) => p === '/agent' },
+  {
+    to: '/architecture',
+    label: 'Architecture',
+    hi: 'आर्किटेक्चर',
+    icon: 'layers',
+    match: (p) => p === '/architecture',
+    count: (n) => n.moved,
+  },
   { to: '/india', label: 'India brief', hi: 'भारत रिपोर्ट', icon: 'scale', match: (p) => p === '/india' },
   {
     to: '/findings',
@@ -65,6 +74,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           return r.findings.length - c.NOT_ASSESSED
         })(),
         plans: r.plans.filter((p) => p.to).length,
+        moved: r.findings.filter((f) => f.exposure?.lowered).length,
       }
     : null
 

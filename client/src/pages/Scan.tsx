@@ -113,8 +113,15 @@ export default function ScanPage() {
 
   function runUpload() {
     if (!info) return
-    const sources = aiUnavailable ? [] : (collected?.sources ?? [])
-    const request = sources.length ? { lockfile: info.lockfile, sources } : { lockfile: info.lockfile }
+    // Source files are sent even without a Gemini key: the architecture map follows their imports locally on the server.
+    const sources = collected?.sources ?? []
+    const contextFiles = collected?.contextFiles ?? []
+    const request = {
+      lockfile: info.lockfile,
+      ...(sources.length ? { sources } : {}),
+      ...(contextFiles.length ? { contextFiles } : {}),
+      ...(collected?.truncated ? { sourcesTruncated: true } : {}),
+    }
 
     // Lockfile plus source files must fit the server's JSON body limit.
     if (info.size + (collected?.totalBytes ?? 0) > MAX_REQUEST_BYTES * 0.8) {
@@ -267,10 +274,18 @@ export default function ScanPage() {
                   <Icon name="sparkle" size={12} />
                   Enables the AI code check
                 </span>
+                <span className="badge badge--info">
+                  <Icon name="layers" size={12} />
+                  {tr('and the architecture map', 'और आर्किटेक्चर मैप')}
+                </span>
               </div>
               <p className="scan-step__lede">
                 With your code, Vulnexis can check whether it actually calls the vulnerable function. Only files that import a vulnerable package are analysed, and only short
                 snippets around those uses go to Gemini. Nothing is installed or executed. Up to 300 files and 3 MB are read; without a folder, findings show “Not assessed”.
+              </p>
+              <p className="scan-step__lede">
+                Vulnexis also reads docker-compose.yml, Kubernetes and serverless files, Procfile, Dockerfile, OpenAPI specs, ARCHITECTURE.md / SECURITY.md and an optional
+                vulnexis.yml to learn which code is internet-facing, behind login, on a private network or never loaded. These stay on the server; none go to Gemini.
               </p>
               <SourceFolder
                 collected={collected}

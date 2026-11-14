@@ -84,6 +84,13 @@ npm install ejs@3.1.10
 
 For packages you did not install directly, Vulnexis names the parent package to upgrade, or gives an npm `overrides` command.
 
+### Architecture · आर्किटेक्चर (`/architecture`)
+Vulnexis reads your deployment files (docker-compose.yml, Kubernetes, serverless.yml, Procfile, Dockerfile, OpenAPI), your docs (ARCHITECTURE.md, SECURITY.md, README) and your code to see **who can reach each vulnerable package**: anyone on the internet, only logged-in users, only your private network, nobody (a nightly job), or no running code at all. A package that an attacker cannot easily reach moves down **one step**, with the exact file and line that shows it. Known-exploited bugs never move. If your docs say a route needs login but the code does not check, you get a yellow warning.
+
+Vulnexis आपकी डिप्लॉयमेंट फ़ाइलें, डॉक्स और कोड पढ़कर देखता है कि **हर कमज़ोर पैकेज तक कौन पहुँच सकता है**: इंटरनेट पर कोई भी, सिर्फ़ लॉगिन किए लोग, सिर्फ़ आपका निजी नेटवर्क, या कोई नहीं। जिस तक हमलावर आसानी से नहीं पहुँच सकता, वह **एक कदम** नीचे जाता है, फ़ाइल और पंक्ति के सबूत के साथ। असल हमलों वाली कमज़ोरियाँ कभी नहीं घटतीं। अगर डॉक्स कहें कि रूट पर लॉगिन ज़रूरी है पर कोड जाँच न करे, तो पीली चेतावनी दिखती है।
+
+To give the upload this context, choose the **project folder** (step 2 on `/scan`): the YAML, Markdown and Dockerfile files in it are read automatically. Optional: add a `vulnexis.yml` ([format](ARCHITECTURE_CONTEXT.md#6-declaring-it-yourself-vulnexisyml)).
+
 ## 5. India brief · भारत रिपोर्ट (`/india`)
 
 - **Verdict · नतीजा:** Act today / Fix this week / Plan the fixes / In good shape.

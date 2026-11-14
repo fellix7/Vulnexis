@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { EvidenceList, ExposureBadge } from '../components/context/Exposure'
+import { LOWERING, SSVC_TEXT } from '../lib/exposure'
 import { CodeRelevance } from '../components/evidence/CodeEvidence'
 import { hostAndPath } from '../components/evidence/evidence-lib'
 import { DepBadge, EpssMeter, JumpBadge, KevBadge, ScopeBadge, SeverityBadge, TierBadge, VerifiedTag } from '../components/ui/Badges'
@@ -182,6 +184,7 @@ function FindingView({ record, finding: f }: { record: ScanRecord; finding: Find
       <div className="fd-grid">
         <div className="fd-main">
           <WhySection f={f} lowered={lowered} tier={tier} />
+          <ExposureSection f={f} />
           <AdvisorySection key={key} f={f} />
 
           <section className="fd-sec" aria-labelledby="fd-code">
@@ -253,7 +256,7 @@ function WhySection({ f, lowered, tier }: { f: Finding; lowered: boolean; tier: 
         </p>
       )}
       <p className="fd-fine">
-        Tiers come from fixed, published rules. The AI can only raise a tier; only a person can lower one.{' '}
+        Tiers come from fixed, published rules. The AI can only raise a tier; quoted architecture facts can lower one step, and a person can lower one.{' '}
         <Link to="/#how-it-works" className="link">
           How tiers work
         </Link>
@@ -263,6 +266,49 @@ function WhySection({ f, lowered, tier }: { f: Finding; lowered: boolean; tier: 
 }
 
 const COLLAPSE_AT = 600
+
+function ExposureSection({ f }: { f: Finding }) {
+  const x = f.exposure
+  if (f.pkg.dev) return null
+  return (
+    <section className="fd-sec" aria-labelledby="fd-exposure">
+      <h2 id="fd-exposure">Who can reach it</h2>
+      {!x ? (
+        <p className="fd-fine">
+          No architecture context in this scan: exposure was not assessed and the priority is unchanged. Upload the project folder or scan by GitHub link so
+          Vulnexis can read your deployment files.{' '}
+          <Link to="/architecture" className="link">
+            Architecture
+          </Link>
+        </p>
+      ) : (
+        <>
+          <p className="fd-lead fd-exposure__lead">
+            <ExposureBadge level={x.level} />
+            <span>{x.reason}</span>
+          </p>
+          <EvidenceList evidence={x.evidence} label="Lines from your own files that support this" />
+          <p className="fd-fine">
+            {x.lowered
+              ? 'This moved the finding down one step. '
+              : LOWERING.includes(x.level)
+                ? x.openSignup
+                  ? 'Not lowered: anyone can sign up, so the login wall does not keep attackers out. '
+                  : f.enrichment.kev === true
+                    ? 'Not lowered: known-exploited vulnerabilities are never lowered. '
+                    : 'Not lowered further: architecture never moves a finding below Plan. '
+                : 'An attacker can reach this code, so the priority stands. '}
+            {SSVC_TEXT[x.ssvc]}
+            {x.vex ? ` · VEX: ${x.vex.replaceAll('_', ' ')}` : ''}.{' '}
+            <Link to="/architecture" className="link">
+              See the architecture map
+            </Link>
+          </p>
+        </>
+      )}
+    </section>
+  )
+}
 
 function collapsed(text: string): string {
   const cut = text.slice(0, COLLAPSE_AT)

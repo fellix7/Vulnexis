@@ -1,3 +1,4 @@
+import { EXPOSURE_TEXT } from './exposure'
 // Derived views over a ScanResult, shared by every page so numbers agree everywhere.
 import type { Advisory, AiVerdict, Finding, ScanResult, Severity, Tier, UpgradePlan } from '../types'
 import { effectiveTier, findingKey, type ReviewState } from './review'
@@ -67,6 +68,9 @@ export function explainTier(f: Finding): TierExplanation {
     { label: 'Production dependency', met: prod },
     { label: `EPSS at or above ${EPSS_THRESHOLD * 100}%`, met: epssHigh },
     { label: 'AI found your code calling the vulnerable API (verified citation)', met: usesApi },
+    ...(f.exposure && prod
+      ? [{ label: 'Reachable by an attacker (architecture: internet-facing or unknown)', met: f.exposure.level === 'public' || f.exposure.level === 'unknown' }]
+      : []),
   ]
 
   let rule: string
@@ -77,6 +81,7 @@ export function explainTier(f: Finding): TierExplanation {
   else if (prod && moderateLike && epssHigh) rule = 'Moderate severity in production with elevated exploitation likelihood.'
   else if (prod) rule = 'Production dependency with lower severity and no exploitation signals.'
   else rule = 'Only used during development, so it does not ship to production.'
+  if (f.exposure?.lowered) rule += ` Then moved down one step by architecture context: ${EXPOSURE_TEXT[f.exposure.level].en.toLowerCase()}.`
 
   return { rule, conditions }
 }

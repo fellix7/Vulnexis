@@ -6,6 +6,7 @@
 | [PITCH.md](PITCH.md) | Presenter | 3-minute demo script, fallbacks, judge Q&A, ML.ai usage log |
 | [SYSTEM_POLICIES.md](SYSTEM_POLICIES.md) | Everyone | Personal data, retention, AI usage, agent transparency, sources, input safety, secrets, regulatory info, accessibility, failure, third parties, acceptable use, incidents |
 | [AGENT.md](AGENT.md) | Engineers, judges | Tools, run order, every decision rule, tier rules, step record, example trace |
+| [ARCHITECTURE_CONTEXT.md](ARCHITECTURE_CONTEXT.md) | Engineers, judges, mentors | Exploitability from architecture: research (SSVC, VEX), files read, how exposure is decided, the one-step policy, `vulnexis.yml`, worked example, limits |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Engineers | Layout, request lifecycle, pipeline stages, caching/offline, client, production topology, limits |
 | [API.md](API.md) | Integrators | `/api/health`, `/api/scan/stream` (NDJSON), `/api/scan`, schemas, errors |
 | [INDIA_COMPLIANCE.md](INDIA_COMPLIANCE.md) | Engineers, reviewers | Risk categories, verdict rules, CERT-In / DPDP mapping, WhatsApp text, worked example |

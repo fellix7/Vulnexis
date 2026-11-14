@@ -121,6 +121,11 @@
   border-color: var(--accent-line);
   background: var(--accent-soft);
 }
+.agent-tool--context {
+  color: var(--info);
+  border-color: var(--info-line);
+  background: var(--info-soft);
+}
 .agent-tool--enrich {
   color: var(--high);
   border-color: var(--high-line);
