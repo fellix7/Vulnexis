@@ -44,14 +44,13 @@ export default function ReportsPage() {
       <PageHeader
         eyebrow="Reports & history"
         title="Reports"
-        description="Export the current scan, reopen earlier scans from this browser, and compare two scans to see what an upgrade resolved."
+        description="Export, reopen or compare scans."
       />
 
       <div className="stack rep-page">
         {current?.source === 'demo' && (
           <Callout tone="demo">
-            <strong>Demo data.</strong> This report is illustrative. Exports are watermarked "Demo data. Not a real scan." and demo scans are never added to your
-            history.
+            <strong>Demo data,</strong> exports are watermarked.
           </Callout>
         )}
 

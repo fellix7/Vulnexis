@@ -34,8 +34,8 @@ export function RepoInput({ disabled, onScan, offline }: { disabled: boolean; on
           <h2 id="repo-h">{tr('Scan a public GitHub repository', 'पब्लिक GitHub रिपॉज़िटरी स्कैन करें')}</h2>
           <p>
             {tr(
-              'Fastest way, and it works on a phone. The agent downloads the repo as text, reads package-lock.json and your JS/TS code. Nothing is installed or run.',
-              'सबसे आसान तरीका, फ़ोन पर भी चलता है। एजेंट रिपॉज़िटरी को सिर्फ़ टेक्स्ट की तरह पढ़ता है: package-lock.json और आपका JS/TS कोड। कुछ भी इंस्टॉल या रन नहीं होता।',
+              'Works on a phone. Read as text, never run.',
+              'फ़ोन पर भी चलता है। सिर्फ़ पढ़ा जाता है, चलाया नहीं।',
             )}
           </p>
         </div>
@@ -70,7 +70,7 @@ export function RepoInput({ disabled, onScan, offline }: { disabled: boolean; on
           ? tr('Paste a link like https://github.com/owner/repo', 'ऐसा लिंक डालें: https://github.com/owner/repo')
           : offline
             ? tr('This server is offline (saved snapshots), so new repositories may be refused. The sample project always works.', 'यह सर्वर ऑफ़लाइन है, इसलिए नई रिपॉज़िटरी शायद न चलें। सैंपल प्रोजेक्ट हमेशा चलता है।')
-            : tr('Needs an npm package-lock.json in the repo. Public repositories only.', 'रिपॉज़िटरी में npm package-lock.json होना चाहिए। सिर्फ़ पब्लिक रिपॉज़िटरी।')}
+            : tr('Public repos with a package-lock.json.', 'रिपॉज़िटरी में npm package-lock.json होना चाहिए। सिर्फ़ पब्लिक रिपॉज़िटरी।')}
       </p>
       <div className="repo-examples">
         <span className="subtle">{tr('Try one:', 'आज़माएँ:')}</span>

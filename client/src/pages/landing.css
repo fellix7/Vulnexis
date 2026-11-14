@@ -706,16 +706,20 @@ html:has(.lp) {
   padding-top: clamp(32px, 5vw, 56px);
   border-top: 1px solid var(--line);
 }
+.lp-head + .lp-rules {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
 .lp-rules__intro {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.lp-rules__intro h3 {
-  font-size: var(--fs-xl);
-}
-.lp-rules__intro p {
+  margin: 0;
   max-width: 44ch;
+}
+.lp-example__label {
+  margin: var(--s-3) 0 var(--s-1);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text-3);
 }
 .lp-rules .dtable th,
 .lp-rules .dtable td {

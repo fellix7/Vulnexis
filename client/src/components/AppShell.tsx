@@ -50,6 +50,14 @@ const WORKSPACE: NavItem[] = [
   { to: '/reports', label: 'Reports & history', hi: 'रिपोर्ट व इतिहास', icon: 'history', match: (p) => p === '/reports' },
 ]
 
+/** Live service state in the sidebar footer: an icon per state, not a decorative dot. */
+function StatusIcon({ tone }: { tone: string }) {
+  const kind = tone.replace('dot--', '') || 'pending'
+  return (
+    <Icon name={kind === 'ok' ? 'check' : kind === 'pending' ? 'clock' : 'alert'} size={12} className={`status-icon status-icon--${kind}`} />
+  )
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { path } = useLocation()
   const { current, health, healthFailed, status } = useScan()
@@ -116,18 +124,18 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
         <div className="sidebar__foot" aria-label="Service status">
           <span className="status-row">
-            <span className={`dot ${healthFailed ? 'dot--bad' : health ? 'dot--ok' : ''}`} />
+            <StatusIcon tone={healthFailed ? 'dot--bad' : health ? 'dot--ok' : ''} />
             {healthFailed ? 'API not reachable' : health ? 'Scan API connected' : 'Checking API…'}
           </span>
           {health && (
             <>
               <span className="status-row">
-                <span className={`dot ${health.gemini ? 'dot--ok' : 'dot--warn'}`} />
+                <StatusIcon tone={health.gemini ? 'dot--ok' : 'dot--warn'} />
                 {health.gemini ? 'Gemini code check available' : 'Gemini key not configured'}
               </span>
               <span className="status-row">
-                <span className={`dot ${health.offline ? 'dot--warn' : 'dot--ok'}`} />
-                {health.offline ? 'Offline: saved snapshots' : 'Live OSV · EPSS · KEV data'}
+                <StatusIcon tone={health.offline ? 'dot--warn' : 'dot--ok'} />
+                {health.offline ? 'Offline: saved snapshots' : 'Live OSV, EPSS and KEV data'}
               </span>
             </>
           )}
@@ -153,7 +161,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <strong className="truncate">{current.projectName}</strong>
               {current.source === 'demo' && <span className="badge badge--accent show-sm">Demo</span>}
               <span className="subtle hide-sm num">
-                {current.result.packageCount} packages · {formatScanTime(current.result.scannedAt)}
+                {current.result.packageCount} packages, {formatScanTime(current.result.scannedAt)}
               </span>
             </div>
           ) : (

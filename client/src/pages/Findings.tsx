@@ -49,7 +49,7 @@ function Explorer({ record }: { record: ScanRecord }) {
   const searchRef = useRef<HTMLInputElement | null>(null)
   const onSort = useCallback((col: SortableCol) => sortByColumn(col), [])
 
-  const stats = `${record.projectName} · ${result.findings.length} ${result.findings.length === 1 ? 'finding' : 'findings'} in ${result.packageCount} packages · scanned ${formatScanTime(result.scannedAt)}`
+  const stats = `${result.findings.length} ${result.findings.length === 1 ? 'finding' : 'findings'} in ${result.packageCount} packages, scanned ${formatScanTime(result.scannedAt)}`
 
   return (
     <>
@@ -58,7 +58,6 @@ function Explorer({ record }: { record: ScanRecord }) {
         title="Findings"
         description={
           <>
-            Every vulnerability the scan found, ranked by why it matters. Search, filter and sort freely; nothing is hidden.
             <span className="fx-stats">{stats}</span>
           </>
         }
@@ -67,7 +66,7 @@ function Explorer({ record }: { record: ScanRecord }) {
       <div className="fx">
         {record.source === 'demo' && (
           <Callout tone="demo">
-            <strong>Demo data.</strong> These findings are illustrative and were not produced by scanning your project.
+            <strong>Demo data,</strong> not a real scan.
           </Callout>
         )}
         {result.aiStatus === 'error' && (
@@ -117,7 +116,7 @@ export default function FindingsPage() {
   if (!current)
     return (
       <>
-        <PageHeader eyebrow="Findings explorer" title="Findings" description="Search, filter and sort every vulnerability a scan found." />
+        <PageHeader eyebrow="Findings explorer" title="Findings" description="Every vulnerability, ranked." />
         <NoScan what="the findings explorer" />
       </>
     )

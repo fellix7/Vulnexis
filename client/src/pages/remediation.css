@@ -409,3 +409,9 @@
     justify-self: end;
   }
 }
+
+.rem-summary {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-4);
+}

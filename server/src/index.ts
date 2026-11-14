@@ -101,7 +101,7 @@ async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal
         }
       },
       (v) => ({
-        title: `Read ${v.repo.owner}/${v.repo.name} @ ${v.repo.ref}`,
+        title: `Read ${v.repo.owner}/${v.repo.name} @ ${v.repo.ref}${v.repo.stars !== undefined ? ` (${v.repo.stars.toLocaleString('en-IN')} stars, ${v.repo.contributors !== undefined ? `${v.repo.contributors >= 500 ? '500+' : v.repo.contributors.toLocaleString('en-IN')} contributors` : 'contributors unknown'})` : ''}`,
         output: `${v.repo.lockfilePath} + ${plural(v.sources.length, 'source file')} + ${plural(v.contextFiles.length, 'architecture file')} (text only, nothing executed)`,
         decision: v.fallback
           ? `The full download failed (${v.fallback}), so I read only the root package-lock.json. The code check will be skipped.`

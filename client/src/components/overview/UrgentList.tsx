@@ -1,5 +1,5 @@
 import { effectiveTier, findingKey, isLowered, type ReviewState } from '../../lib/review'
-import { aiState, byPriority, cveOf, explainTier, findingHref } from '../../lib/selectors'
+import { aiState, byPriority, cveOf, findingHref } from '../../lib/selectors'
 import { Link } from '../../router'
 import type { Finding } from '../../types'
 import { EpssMeter, KevBadge, SeverityBadge, TierBadge, VerdictBadge } from '../ui/Badges'
@@ -39,12 +39,9 @@ export function UrgentList({ findings, review, limit = 5 }: { findings: Finding[
                       </span>
                       <span className="ov-row__id mono subtle truncate">
                         {f.advisory.id}
-                        {cve && cve !== f.advisory.id ? ` · ${cve}` : ''}
+                        {cve && cve !== f.advisory.id ? `, ${cve}` : ''}
                       </span>
-                      <span className="ov-row__why">
-                        {explainTier(f).rule}
-                        {isLowered(f, review[key]) && <span className="subtle"> Lowered by your review.</span>}
-                      </span>
+                      {isLowered(f, review[key]) && <span className="ov-row__why subtle">Lowered by your review.</span>}
                       <span className="ov-row__meta">
                         <SeverityBadge severity={f.advisory.severity} />
                         <EpssMeter epss={f.enrichment.epss} />
@@ -58,9 +55,9 @@ export function UrgentList({ findings, review, limit = 5 }: { findings: Finding[
               )
             })}
           </ol>
-          <p className="ov-urgent__foot subtle">
-            Ranked by tier, then known exploited, EPSS, and severity. {findings.length > top.length ? `${(findings.length - top.length).toLocaleString()} more in the explorer.` : ''}
-          </p>
+          {findings.length > top.length && (
+            <p className="ov-urgent__foot subtle">{(findings.length - top.length).toLocaleString()} more in the explorer.</p>
+          )}
         </>
       )}
     </section>

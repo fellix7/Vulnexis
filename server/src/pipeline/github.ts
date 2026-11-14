@@ -164,9 +164,36 @@ export interface FetchedRepo {
   fallback?: string; // set when only the root lockfile could be read, with the reason
 }
 
+/**
+ * Stars and contributor count from the GitHub API (one small request each, in parallel with the download).
+ * Optional: unauthenticated calls allow 60 an hour per IP (GITHUB_TOKEN raises that); any failure just leaves them out.
+ */
+export async function fetchRepoStats(owner: string, name: string): Promise<{ stars?: number; contributors?: number }> {
+  const headers: Record<string, string> = { 'User-Agent': 'vulnexis-scanner', Accept: 'application/vnd.github+json' };
+  if (process.env.GITHUB_TOKEN?.trim()) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN.trim()}`;
+  const base = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+  const get = (url: string) => fetch(url, { headers, signal: AbortSignal.timeout(8000) });
+  const [repo, people] = await Promise.allSettled([
+    get(base).then(async (r) => (r.ok ? ((await r.json()) as { stargazers_count?: unknown }).stargazers_count : undefined)),
+    get(`${base}/contributors?per_page=1&anon=1`).then(async (r) => {
+      if (!r.ok) return undefined;
+      // With per_page=1 the page number of rel="last" is the contributor count.
+      const last = r.headers.get('link')?.match(/[?&]page=(\d+)>;\s*rel="last"/);
+      if (last) return Number(last[1]);
+      const list = (await r.json()) as unknown[];
+      return Array.isArray(list) ? list.length : undefined;
+    }),
+  ]);
+  const out: { stars?: number; contributors?: number } = {};
+  if (repo.status === 'fulfilled' && typeof repo.value === 'number') out.stars = repo.value;
+  if (people.status === 'fulfilled' && typeof people.value === 'number' && Number.isFinite(people.value)) out.contributors = people.value;
+  return out;
+}
+
 export async function fetchRepo(rawUrl: string): Promise<FetchedRepo> {
   const { owner, name, ref: askedRef } = parseRepoUrl(rawUrl);
   const ref = askedRef ?? 'HEAD';
+  const statsPromise = fetchRepoStats(owner, name).catch(() => ({}));
   let tar: Buffer;
   try {
     tar = await download(owner, name, ref);
@@ -180,7 +207,7 @@ export async function fetchRepo(rawUrl: string): Promise<FetchedRepo> {
       throw new RepoError(`${e.message.replace(/ Try again.*$/, '')} The fallback found no package-lock.json at the repository root either. Upload the lockfile instead.`);
     }
     return {
-      repo: { owner, name, ref: askedRef ?? 'default branch', url: `https://github.com/${owner}/${name}`, lockfilePath: 'package-lock.json', sourceFiles: 0 },
+      repo: { owner, name, ref: askedRef ?? 'default branch', url: `https://github.com/${owner}/${name}`, lockfilePath: 'package-lock.json', sourceFiles: 0, ...(await statsPromise) },
       lockfile,
       sources: [],
       contextFiles: [],
@@ -249,6 +276,7 @@ export async function fetchRepo(rawUrl: string): Promise<FetchedRepo> {
       url: `https://github.com/${owner}/${name}${askedRef ? `/tree/${askedRef}` : ''}`,
       lockfilePath: lockEntry.path,
       sourceFiles: sources.length,
+      ...(await statsPromise),
     },
     lockfile,
     sources,

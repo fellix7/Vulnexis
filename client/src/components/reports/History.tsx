@@ -84,8 +84,7 @@ export function History({ scans, currentId, picked, onTogglePick, onCompareSelec
       </div>
 
       <p className="rep-note subtle">
-        Saved only in this browser (local storage); nothing is uploaded. Findings, including quoted code snippets from AI citations, are stored locally. The source
-        files you upload are not. Only recent scans are kept, and demo data is never saved.
+        Saved in this browser only.
       </p>
       <span className="sr-only" role="status" aria-live="polite">
         {confirm ? 'Press the confirm button to delete, or Escape to cancel.' : ''}
@@ -102,7 +101,7 @@ export function History({ scans, currentId, picked, onTogglePick, onCompareSelec
             </Link>
           }
         >
-          Each scan you run is saved here, in this browser only, so you can reopen it or compare it with a later scan.
+          Your scans appear here.
         </EmptyState>
       ) : (
         <>

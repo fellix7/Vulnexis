@@ -20,8 +20,7 @@ export function EvidenceLog({ current }: { current: ScanRecord }) {
         </h2>
       </div>
       <p className="rep-note subtle">
-        Decisions a reviewer made on this scan. They are saved with the scan in this browser and written to the Markdown and JSON exports. No name or timestamp is
-        recorded, and the AI never makes these decisions.
+        Decisions a person made on this scan. Included in exports.
       </p>
       {decisions.length === 0 ? (
         <div className="rep-evidence-empty">
@@ -33,7 +32,7 @@ export function EvidenceLog({ current }: { current: ScanRecord }) {
               <strong>No reviewer decisions yet</strong>
             </p>
             <p className="muted">
-              Open a finding to confirm or dispute an AI verdict, or to lower its priority by one tier. Known exploited (KEV) findings cannot be lowered.
+              Open a finding to confirm an AI verdict or lower a priority.
             </p>
             <p>
               <Link to="/findings" className="btn btn--sm">

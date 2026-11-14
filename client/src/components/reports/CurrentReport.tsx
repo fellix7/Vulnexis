@@ -111,8 +111,7 @@ export function CurrentReport({ current }: { current: ScanRecord }) {
             </span>
           </div>
           <p className="subtle rep-fine">
-            The report lists every finding, the upgrade commands and your reviewer decisions. AI assessments are labelled as advisory.
-            {demo && ' Demo exports carry a "Demo data. Not a real scan." watermark.'}
+            Every finding, command and review decision.{demo && ' Watermarked as demo data.'}
           </p>
         </div>
 

@@ -7,12 +7,12 @@ import { useOpenDemo } from './useOpenDemo'
 // Landing sections added for Vulnexis: the agent loop, why it is built for India, and pricing in rupees.
 
 const LOOP: { icon: IconName; en: string; hi: string; dEn: string; dHi: string; ai?: boolean }[] = [
-  { icon: 'github', en: 'Take a real input', hi: 'असली इनपुट', dEn: 'A GitHub link or a lockfile. No login.', dHi: 'पब्लिक GitHub लिंक या package-lock.json। न लॉग-इन, न निजी जानकारी।' },
-  { icon: 'bot', en: 'Plan', hi: 'योजना', dEn: 'Picks the tools this run needs, and says why.', dHi: 'आपके दिए इनपुट से तय करता है कि कौन-से टूल चाहिए, और क्यों।' },
-  { icon: 'search', en: 'Call tools', hi: 'टूल चलाना', dEn: 'OSV.dev, EPSS, CISA KEV and npm.', dHi: 'तथ्यों के लिए OSV.dev, असली हमलों के लिए EPSS और CISA KEV, वर्ज़न के लिए npm।' },
-  { icon: 'sparkle', en: 'Read your code', hi: 'कोड पढ़ना', dEn: 'Does your code call the vulnerable function?', dHi: 'Gemini देखता है कि आपका कोड कमज़ोर फ़ंक्शन चलाता है या नहीं। हर उद्धरण दोबारा जाँचा जाता है।', ai: true },
-  { icon: 'shield-check', en: 'Verify the fix', hi: 'सुधार पक्का करना', dEn: 'Every upgrade target is re-checked.', dHi: 'हर अपग्रेड वर्ज़न को दोबारा जाँचता है ताकि नया वर्ज़न भी कमज़ोर न निकले।' },
-  { icon: 'message', en: 'Answer in your language', hi: 'आपकी भाषा में जवाब', dEn: 'Commands, a CERT-In/DPDP brief, WhatsApp in Hindi.', dHi: 'सुधार का क्रम, सटीक कमांड, CERT-In / DPDP रिपोर्ट और हिंदी या अंग्रेज़ी में WhatsApp सारांश।' },
+  { icon: 'github', en: 'Take a real input', hi: 'असली इनपुट', dEn: 'A GitHub link or a lockfile. No login.', dHi: 'GitHub लिंक या लॉकफ़ाइल। लॉग-इन नहीं।' },
+  { icon: 'bot', en: 'Plan', hi: 'योजना', dEn: 'Picks the tools this run needs.', dHi: 'तय करता है कि कौन-से टूल चाहिए।' },
+  { icon: 'search', en: 'Call tools', hi: 'टूल चलाना', dEn: 'OSV.dev, EPSS, CISA KEV and npm.', dHi: 'OSV.dev, EPSS, CISA KEV और npm।' },
+  { icon: 'sparkle', en: 'Read your code', hi: 'कोड पढ़ना', dEn: 'Does your code call the vulnerable function?', dHi: 'क्या आपका कोड कमज़ोर फ़ंक्शन चलाता है?', ai: true },
+  { icon: 'shield-check', en: 'Verify the fix', hi: 'सुधार पक्का करना', dEn: 'Every upgrade is re-checked.', dHi: 'हर अपग्रेड दोबारा जाँचा जाता है।' },
+  { icon: 'message', en: 'Answer in your language', hi: 'आपकी भाषा में जवाब', dEn: 'Commands, a CERT-In brief, Hindi on WhatsApp.', dHi: 'कमांड, CERT-In रिपोर्ट, WhatsApp पर हिंदी।' },
 ]
 
 export function AgentSection() {
@@ -24,10 +24,6 @@ export function AgentSection() {
           id="agent-title"
           eyebrow={tr('An agent, not a chatbot', 'एजेंट, चैटबॉट नहीं')}
           title={tr('It plans, calls tools, decides, and shows its work.', 'यह योजना बनाता है, टूल चलाता है, फ़ैसला लेता है, और सब दिखाता है।')}
-          lede={tr(
-            'Every step streams live to your screen: the tool it called, what went in, what came back, the decision it took and the source behind it. When it does not know, it says so.',
-            'हर कदम लाइव दिखता है: कौन-सा टूल चला, क्या गया, क्या मिला, क्या फ़ैसला हुआ और उसका स्रोत। जब पता न हो, तो साफ़ कहता है।',
-          )}
         />
         <div className="kv-agent">
           <ol className="kv-loop">
@@ -77,31 +73,31 @@ export function IndiaSection() {
       icon: 'scale',
       en: 'DPDP Act: up to ₹250 crore',
       hi: 'DPDP अधिनियम: ₹250 करोड़ तक',
-      dEn: 'Section 8(5): reasonable safeguards for personal data. Known, unpatched bugs are hard to defend.',
-      dHi: 'भारतीयों का निजी डेटा रखने वाले ऐप को उचित सुरक्षा उपाय करने होते हैं (धारा 8(5))। जानी-पहचानी कमज़ोरियाँ छोड़ना मुश्किल में डाल सकता है।',
+      dEn: 'Section 8(5) asks for reasonable safeguards.',
+      dHi: 'धारा 8(5): उचित सुरक्षा उपाय ज़रूरी।',
       src: 'https://www.meity.gov.in/data-protection-framework',
     },
     {
       icon: 'clock',
       en: 'CERT-In: report within 6 hours',
       hi: 'CERT-In: 6 घंटे में रिपोर्ट',
-      dEn: 'Report attacks within 6 hours; keep logs 180 days in India.',
-      dHi: 'सर्वर या ऐप पर हमले की सूचना 6 घंटे में CERT-In को देनी होती है, और लॉग 180 दिन भारत में रखने होते हैं। Vulnexis बताता है कि किस पर नज़र रखें।',
+      dEn: 'Keep logs for 180 days in India.',
+      dHi: 'लॉग 180 दिन भारत में रखें।',
       src: 'https://www.cert-in.org.in/PDF/CERT-In_Directions_70B_28.04.2022.pdf',
     },
     {
       icon: 'message',
       en: 'Hindi for the founder, commands for the dev',
       hi: 'फ़ाउंडर के लिए हिंदी, डेवलपर के लिए कमांड',
-      dEn: 'Commands for the developer; a plain summary on WhatsApp for the founder.',
-      dHi: 'डेवलपर को सटीक अपग्रेड कमांड मिलते हैं। फ़ाउंडर या क्लाइंट को एक टैप में WhatsApp पर आसान हिंदी या अंग्रेज़ी सारांश।',
+      dEn: 'A plain summary on WhatsApp.',
+      dHi: 'WhatsApp पर आसान सारांश।',
     },
     {
       icon: 'globe',
       en: 'Works on a ₹8,000 phone',
       hi: '₹8,000 के फ़ोन पर भी चलता है',
-      dEn: 'Paste a link in a phone browser. No install, no account.',
-      dHi: 'फ़ोन ब्राउज़र से GitHub लिंक डालें। न इंस्टॉल, न अकाउंट, न अपलोड। हल्का UI, बड़े बटन।',
+      dEn: 'No install, no account.',
+      dHi: 'न इंस्टॉल, न अकाउंट।',
     },
   ]
   return (
@@ -110,14 +106,7 @@ export function IndiaSection() {
         <SectionHead
           id="india-title"
           eyebrow={tr('Built for India', 'भारत के लिए बना')}
-          title={tr(
-            'Indian startups ship fast on open source. Almost none have a security team.',
-            'भारतीय स्टार्टअप ओपन-सोर्स पर तेज़ी से बनाते हैं। सुरक्षा टीम लगभग किसी के पास नहीं।',
-          )}
-          lede={tr(
-            'Student teams, two-person startups and small agencies building for clients run hundreds of npm packages. Since the DPDP Act and CERT-In’s 2022 directions, "we did not know" is no longer a safe answer.',
-            'कॉलेज टीमें, दो लोगों के स्टार्टअप और क्लाइंट के लिए काम करने वाली एजेंसियाँ सैकड़ों npm पैकेज चलाती हैं। DPDP अधिनियम और CERT-In निर्देशों के बाद "हमें पता नहीं था" अब सुरक्षित जवाब नहीं है।',
-          )}
+          title={tr('Built for Indian teams without a security team.', 'बिना सुरक्षा टीम वाली भारतीय टीमों के लिए।')}
         />
         <ul className="kv-cards">
           {cards.map((c) => (
@@ -198,10 +187,6 @@ export function Pricing() {
           id="pricing-title"
           eyebrow={tr('Pricing in rupees', 'क़ीमत रुपये में')}
           title={tr('Cheaper than one hour of a security consultant.', 'एक घंटे के सिक्योरिटी कंसल्टेंट से भी सस्ता।')}
-          lede={tr(
-            'Who pays: Indian startups and the dev agencies that build for Indian SMEs. What they renew for: the weekly re-scan that pings them on WhatsApp the day a package they use starts being exploited.',
-            'कौन देगा: भारतीय स्टार्टअप और SME के लिए ऐप बनाने वाली एजेंसियाँ। किस लिए रिन्यू करेंगे: हर हफ़्ते का स्कैन, जो उसी दिन WhatsApp करता है जिस दिन उनके किसी पैकेज पर हमले शुरू हों।',
-          )}
         />
         <ul className="kv-plans">
           {PLANS.map((p) => (
@@ -224,14 +209,7 @@ export function Pricing() {
           ))}
         </ul>
         <div className="kv-gtm">
-          <div>
-            <h3>{tr('First 100 users, for almost ₹0', 'पहले 100 यूज़र, लगभग ₹0 में')}</h3>
-            <ol>
-              <li>{tr('College tech clubs and hackathons (Geek Room, GDG chapters): free tier + "Scanned by Vulnexis" README badge.', 'कॉलेज टेक क्लब और हैकाथॉन (Geek Room, GDG): फ़्री प्लान + README पर "Scanned by Vulnexis" बैज।')}</li>
-              <li>{tr('Open a helpful PR on popular Indian open-source repos with their fix plan.', 'लोकप्रिय भारतीय ओपन-सोर्स रिपॉज़िटरी पर उनकी सुधार योजना के साथ PR।')}</li>
-              <li>{tr('Dev agencies on LinkedIn: one free client report, then the Agency plan.', 'LinkedIn पर डेव एजेंसियाँ: एक फ़्री क्लाइंट रिपोर्ट, फिर एजेंसी प्लान।')}</li>
-            </ol>
-          </div>
+          <h3>{tr('Free for college clubs and hackathons.', 'कॉलेज क्लब और हैकाथॉन के लिए फ़्री।')}</h3>
           <div className="kv-gtm__cta">
             <Link to="/scan" className="btn btn--primary">
               <Icon name="github" size={14} />

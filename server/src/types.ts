@@ -136,6 +136,8 @@ export interface RepoRef {
   url: string;
   lockfilePath: string;
   sourceFiles: number;
+  stars?: number; // GitHub stargazers, when the GitHub API answered
+  contributors?: number; // GitHub contributors (incl. anonymous); GitHub stops counting at 500
 }
 
 export interface SourceFile {

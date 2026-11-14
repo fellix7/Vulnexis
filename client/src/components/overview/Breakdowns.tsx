@@ -50,8 +50,8 @@ export function Breakdowns({ findings, aiStatus }: { findings: Finding[]; aiStat
         segments={coverage}
         note={
           aiStatus === 'ok'
-            ? 'AI reviews at most the top 30 direct-dependency findings. “Not assessed” does not mean safe.'
-            : 'The AI code check did not run, so every finding is “Not assessed”. That does not mean safe.'
+            ? '“Not assessed” does not mean safe.'
+            : 'Code check did not run. “Not assessed” does not mean safe.'
         }
       />
     </div>

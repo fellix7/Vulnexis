@@ -1,3 +1,4 @@
+import { RepoStats } from '../components/ui/RepoStats'
 import { ActionTiers } from '../components/overview/ActionTiers'
 import { Breakdowns } from '../components/overview/Breakdowns'
 import { FixPlanGlance } from '../components/overview/FixPlanGlance'
@@ -20,7 +21,7 @@ export default function OverviewPage() {
   if (!current) {
     return (
       <div className="ov-page">
-        <PageHeader eyebrow="Overview" title="Risk overview" description="Where your dependencies stand: what is exploitable, what your code actually uses, and what to fix first." />
+        <PageHeader eyebrow="Overview" title="Risk overview" description="What to fix first." />
         <NoScan what="the risk overview" />
       </div>
     )
@@ -36,8 +37,7 @@ export default function OverviewPage() {
           tone: 'ai' as const,
           body: (
             <>
-              <strong>AI code check ran.</strong> It adds context only: a verdict, short reasoning and code citations. Every citation is re-checked against your source, and the AI
-              can raise a tier but never lower one. It reviews at most the top 30 direct-dependency findings; the rest are shown as “Not assessed”.
+              <strong>AI code check ran.</strong> Every citation was re-checked; AI can only raise a tier.
             </>
           ),
         }
@@ -46,7 +46,7 @@ export default function OverviewPage() {
             tone: 'warn' as const,
             body: (
               <>
-                <strong>The AI code check failed.</strong> Tiers here come from OSV severity, EPSS, CISA KEV and scope only. Findings show “Not assessed”, which is not the same as safe.
+                <strong>The AI code check failed.</strong> Tiers use OSV, EPSS and KEV only.
               </>
             ),
           }
@@ -54,12 +54,10 @@ export default function OverviewPage() {
             tone: 'info' as const,
             body: (
               <>
-                <strong>The AI code check did not run</strong> (no source folder was provided, or no Gemini API key is configured). Tiers come from OSV severity, EPSS, CISA KEV and
-                scope only. Findings show “Not assessed”, which is not the same as safe.{' '}
+                <strong>The AI code check did not run.</strong>{' '}
                 <Link to="/scan" className="link">
-                  Scan again with a source folder
+                  Add a source folder
                 </Link>
-                .
               </>
             ),
           }
@@ -74,6 +72,7 @@ export default function OverviewPage() {
             <SourceBadge source={current.source} />
             <span>Scanned {formatScanTime(r.scannedAt)}</span>
             <span className="num">{r.packageCount.toLocaleString()} packages inspected</span>
+            {current.source === 'repo' && r.repo && <RepoStats repo={r.repo} />}
           </span>
         }
         actions={
@@ -97,11 +96,10 @@ export default function OverviewPage() {
       {current.source === 'demo' && (
         <div className="ov-demo">
           <Callout tone="demo">
-            <strong>Demo data.</strong> These findings are illustrative example data, not a real scan, and are not saved to your history.{' '}
+            <strong>Demo data,</strong> not a real scan.{' '}
             <Link to="/scan" className="link">
               Scan a project
-            </Link>{' '}
-            to see real results.
+            </Link>
           </Callout>
         </div>
       )}

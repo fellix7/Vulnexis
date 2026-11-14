@@ -55,11 +55,10 @@ export default function ScanPage() {
   const aiOff = health !== null && !health.gemini
   const aiUnavailable = aiOff && !health.offline
   const aiUnavailableText = aiUnavailable
-    ? 'The AI code check is unavailable on this server (no Gemini API key is configured). The scan still works; findings will show “Not assessed” for code usage.'
+    ? 'No Gemini key on this server: code usage will show “Not assessed”.'
     : null
 
   const sourceCount = collected?.sources.length ?? 0
-  const willUseAi = sourceCount > 0 && !aiUnavailable
 
   const onLockfile = useCallback(async (file: File) => {
     const seq = ++readSeq.current
@@ -177,8 +176,8 @@ export default function ScanPage() {
         eyebrow={tr('New scan', 'नया स्कैन')}
         title={tr('Give the agent a project', 'एजेंट को प्रोजेक्ट दें')}
         description={tr(
-          'Paste a public GitHub link or upload a package-lock.json. The agent finds which known vulnerabilities deserve attention first, checks whether your code really uses them, and gives the smallest safe upgrade for each.',
-          'पब्लिक GitHub लिंक डालें या package-lock.json अपलोड करें। एजेंट बताएगा कि कौन-सी कमज़ोरियाँ पहले ठीक करनी हैं, क्या आपका कोड सच में उन्हें इस्तेमाल करता है, और हर एक के लिए सबसे छोटा सुरक्षित अपग्रेड।',
+          'Paste a GitHub link or upload a lockfile.',
+          'GitHub लिंक डालें या लॉकफ़ाइल अपलोड करें।',
         )}
       />
 
@@ -207,7 +206,7 @@ export default function ScanPage() {
           )}
           {health?.offline && (
             <Callout tone="info">
-              <strong>This server is in offline mode.</strong> It answers from saved snapshots, so the bundled sample project works but an arbitrary lockfile may be refused.
+              <strong>Offline mode.</strong> Only the sample and saved projects will scan.
             </Callout>
           )}
 
@@ -257,7 +256,6 @@ export default function ScanPage() {
                 <h2 id="scan-s1">Lockfile</h2>
                 <span className="badge">{tr('Required for upload', 'अपलोड के लिए ज़रूरी')}</span>
               </div>
-              <p className="scan-step__lede">The package-lock.json from the root of your project. It lists every package and version that npm installed.</p>
               <LockfileDrop info={info} error={lockError} reading={reading} disabled={scanning} onFile={onLockfile} onClear={clearLockfile} />
             </div>
           </section>
@@ -280,12 +278,7 @@ export default function ScanPage() {
                 </span>
               </div>
               <p className="scan-step__lede">
-                With your code, Vulnexis can check whether it actually calls the vulnerable function. Only files that import a vulnerable package are analysed, and only short
-                snippets around those uses go to Gemini. Nothing is installed or executed. Up to 300 files and 3 MB are read; without a folder, findings show “Not assessed”.
-              </p>
-              <p className="scan-step__lede">
-                Vulnexis also reads docker-compose.yml, Kubernetes and serverless files, Procfile, Dockerfile, OpenAPI specs, ARCHITECTURE.md / SECURITY.md and an optional
-                vulnexis.yml to learn which code is internet-facing, behind login, on a private network or never loaded. These stay on the server; none go to Gemini.
+                {tr('Lets the agent check code usage and map your architecture. Read, never run.', 'एजेंट कोड इस्तेमाल और आर्किटेक्चर जाँचता है। सिर्फ़ पढ़ता है।')}
               </p>
               <SourceFolder
                 collected={collected}
@@ -305,10 +298,10 @@ export default function ScanPage() {
             </button>
             <p id="scan-run-note" className="scan-run__note">
               {!info
-                ? 'Add a package-lock.json to enable the scan.'
-                : willUseAi
-                  ? `Ready: ${info.fileName} plus ${sourceCount.toLocaleString()} source ${sourceCount === 1 ? 'file' : 'files'}. The AI code check will run.`
-                  : `Ready: ${info.fileName}. Without source files the AI code check will not run and findings show “Not assessed”.`}
+                ? 'Add a package-lock.json first.'
+                : sourceCount > 0
+                  ? `Ready: ${info.fileName} and ${sourceCount.toLocaleString()} ${sourceCount === 1 ? 'file' : 'files'}.`
+                  : `Ready: ${info.fileName}.`}
             </p>
           </div>
           {sizeError && (
@@ -322,23 +315,16 @@ export default function ScanPage() {
             <h2 id="scan-alt-h">{tr('No project handy?', 'कोई प्रोजेक्ट नहीं है?')}</h2>
             <div className="scan-alt__grid">
               <div className="scan-alt__item">
-                <h3>Scan the bundled sample project</h3>
-                <p>
-                  A real pipeline run on QuickNotes, a deliberately outdated demo app in <code>samples/demo-app</code> (lockfile and source code). Live data lookups
-                  {aiUnavailable ? '' : ', plus the AI step when a Gemini key is set,'} can take up to a minute.
-                </p>
-                {aiUnavailable && <p className="subtle">The AI code check is unavailable on this server, so sample findings show “Not assessed”.</p>}
+                <h3>Sample project</h3>
+                <p>A real scan of a deliberately outdated app.</p>
                 <button type="button" className="btn" onClick={runSample} disabled={scanning}>
                   <Icon name="package" size={14} />
                   Scan the sample project
                 </button>
               </div>
               <div className="scan-alt__item">
-                <h3>Explore demo data</h3>
-                <p>
-                  Illustrative example findings, shown instantly. It is <strong>not a real scan</strong>, is labelled “Demo data” wherever it appears, and is never saved to
-                  your history.
-                </p>
+                <h3>Demo data</h3>
+                <p>Instant example results, not a real scan.</p>
                 <button type="button" className="btn" onClick={exploreDemo} disabled={scanning}>
                   <Icon name="beaker" size={14} />
                   Explore demo data

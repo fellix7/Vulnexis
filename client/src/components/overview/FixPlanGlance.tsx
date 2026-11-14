@@ -11,7 +11,6 @@ export function FixPlanGlance({ plans }: { plans: UpgradePlan[] }) {
   const minor = fixable.filter((p) => p.jump === 'minor').length
   const major = fixable.filter((p) => p.jump === 'major').length
   const other = fixable.length - patch - minor - major
-  const viaParent = fixable.filter((p) => p.viaParent).length
 
   const segments: Segment[] = [
     { key: 'patch', label: 'Patch', count: patch, color: 'var(--ok)', hint: 'Bug-fix release' },
@@ -41,12 +40,6 @@ export function FixPlanGlance({ plans }: { plans: UpgradePlan[] }) {
             <p className="ov-plan__text">
               vulnerable {plans.length === 1 ? 'package has' : 'packages have'} a verified safe upgrade
               {noFix > 0 ? `; ${noFix.toLocaleString()} ${noFix === 1 ? 'has' : 'have'} no verified fix` : ''}.
-            </p>
-            <p className="ov-plan__sub subtle">
-              Each target is the smallest version that clears every advisory for that package and was re-checked against OSV.
-              {viaParent > 0
-                ? ` ${viaParent.toLocaleString()} ${viaParent === 1 ? 'is' : 'are'} transitive: fixed by upgrading a parent or adding an override, which is a suggestion that needs testing.`
-                : ''}
             </p>
           </div>
           <StackedBar title="Upgrade jump size" segments={segments} unit="packages" />

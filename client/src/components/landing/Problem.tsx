@@ -1,6 +1,5 @@
 import { MOCK_RESULT } from '../../mock'
 import { SeverityBadge, TierBadge, VerdictBadge } from '../ui/Badges'
-import { Icon } from '../ui/Icon'
 import { SectionHead } from './SectionHead'
 
 // Source: samples/demo-app/EXPECTED.md (QuickNotes sample). 251 packages matched to OSV.dev give 76 advisories
@@ -17,19 +16,6 @@ const FLAT_LIST: [string, number][] = [
 ]
 const FLAT_REST = 21 - FLAT_LIST.length
 
-const TYPICAL = [
-  'Ordered by a severity score alone',
-  'Dev-only and production packages in one list',
-  'No view of whether your code calls the vulnerable function',
-  'For transitive findings, which dependency to upgrade is left to you',
-]
-const APPROACH = [
-  'Four tiers from fixed rules, every one with stated reasons',
-  'Dev-only findings stay visible, but separated',
-  'The line your code calls, with the quote checked against your file',
-  'The smallest verified upgrade, with the exact command',
-]
-
 const EXAMPLE =
   MOCK_RESULT.findings.find((f) => f.advisory.id === 'GHSA-35jh-r3h4-6jhm') ?? MOCK_RESULT.findings[0]!
 const EXAMPLE_PLAN = MOCK_RESULT.plans.find((p) => p.name === EXAMPLE.pkg.name && p.from === EXAMPLE.pkg.version)
@@ -42,7 +28,6 @@ export function Problem() {
           id="problem-title"
           eyebrow="The problem"
           title="A longer list is not a plan."
-          lede="Finding known-vulnerable packages is a solved problem. Knowing which of them deserve your next hour is not."
         />
 
         <div className="lp-compare">
@@ -54,7 +39,7 @@ export function Problem() {
             <p className="lp-stat">
               <span className="lp-stat__n num">76</span>
               <span className="lp-stat__l">
-                advisories across 251 packages, matching OSV-Scanner 2.7.0 exactly
+                advisories in 251 packages, in no useful order
               </span>
             </p>
             <ul className="lp-flat" aria-label="Vulnerable packages and their advisory counts, flat list">
@@ -68,14 +53,6 @@ export function Problem() {
               ))}
               <li className="lp-flat__rest subtle">+ {FLAT_REST} more vulnerable packages</li>
             </ul>
-            <ul className="lp-points">
-              {TYPICAL.map((t) => (
-                <li key={t}>
-                  <Icon name="minus" size={14} />
-                  {t}
-                </li>
-              ))}
-            </ul>
           </div>
 
           <div className="lp-compare__col">
@@ -84,7 +61,7 @@ export function Problem() {
               <span className="badge badge--accent">Demo data</span>
             </div>
             <p className="lp-stat">
-              <span className="lp-stat__l">Same matches, turned into a decision.</span>
+              <span className="lp-stat__l">The same matches, as a decision.</span>
             </p>
             <div className="lp-example">
               <div className="lp-example__head">
@@ -95,7 +72,7 @@ export function Problem() {
                 <SeverityBadge severity={EXAMPLE.advisory.severity} />
                 <VerdictBadge verdict={EXAMPLE.ai?.verdict ?? 'NOT_ASSESSED'} />
               </div>
-              <p className="eyebrow">Why this tier</p>
+              <h4 className="lp-example__label">Why this tier</h4>
               <ul className="lp-reasons">
                 {EXAMPLE.reasons.map((r) => (
                   <li key={r}>{r}</li>
@@ -103,9 +80,9 @@ export function Problem() {
               </ul>
               {EXAMPLE_PLAN?.command && EXAMPLE_PLAN.to && (
                 <>
-                  <p className="eyebrow">
-                    Fix: {EXAMPLE_PLAN.from} to {EXAMPLE_PLAN.to}, {EXAMPLE_PLAN.jump} upgrade
-                  </p>
+                  <h4 className="lp-example__label">
+                    Fix: {EXAMPLE_PLAN.from} to {EXAMPLE_PLAN.to}
+                  </h4>
                   <div className="cmd">
                     <span className="cmd__prompt" aria-hidden="true">
                       $
@@ -117,14 +94,6 @@ export function Problem() {
                 </>
               )}
             </div>
-            <ul className="lp-points lp-points--yes">
-              {APPROACH.map((t) => (
-                <li key={t}>
-                  <Icon name="check" size={14} />
-                  {t}
-                </li>
-              ))}
-            </ul>
           </div>
         </div>
       </div>

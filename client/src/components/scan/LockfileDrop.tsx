@@ -172,7 +172,7 @@ export function LockfileDrop({ info, error, reading, disabled, onFile, onClear }
       </div>
 
       <p id={hintId} className={info ? 'sr-only' : 'scan-hint'}>
-        JSON file up to 10 MB, written by npm 7 or newer (lockfileVersion 2 or 3). It is parsed in your browser first.
+        npm 7+ lockfile, up to 10 MB.
       </p>
 
       {error && (

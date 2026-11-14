@@ -23,7 +23,7 @@ export default function RemediationPage() {
   if (!current) {
     return (
       <>
-        <PageHeader eyebrow="Remediation" title="Fix plan" description="The smallest upgrade that clears each package's advisories, with the exact command to run." />
+        <PageHeader eyebrow="Remediation" title="Fix plan" description="The smallest safe upgrade, with the command." />
         <NoScan what="the fix plan" />
       </>
     )
@@ -95,9 +95,18 @@ function Plan({ current }: { current: ScanRecord }) {
             'No upgrade plans were produced for this scan.'
           ) : (
             <span className="rem-summary num">
-              <strong>{summary.total}</strong> {summary.total === 1 ? 'package' : 'packages'} to upgrade · <strong>{summary.verified}</strong> verified{' '}
-              {summary.verified === 1 ? 'fix' : 'fixes'} · <strong>{summary.major}</strong> {summary.major === 1 ? 'needs' : 'need'} a major version ·{' '}
-              <strong>{summary.none}</strong> {summary.none === 1 ? 'has' : 'have'} no verified fix
+              <span>
+                <strong>{summary.total}</strong> to upgrade
+              </span>
+              <span>
+                <strong>{summary.verified}</strong> verified
+              </span>
+              <span>
+                <strong>{summary.major}</strong> major
+              </span>
+              <span>
+                <strong>{summary.none}</strong> no fix
+              </span>
             </span>
           )
         }
@@ -172,9 +181,7 @@ function Plan({ current }: { current: ScanRecord }) {
                   </summary>
                   <div className="rem-snip__body">
                     <CommandBlock command={snippet} prompt={false} />
-                    <p className="subtle">
-                      Suggested: run your tests after applying. If two installed versions of a package need different targets, the highest one is used.
-                    </p>
+                    <p className="subtle">Run your tests after applying.</p>
                   </div>
                 </details>
               )}
@@ -184,7 +191,6 @@ function Plan({ current }: { current: ScanRecord }) {
               <div className="rem-list-head">
                 <div>
                   <h2 id="rem-list-h">Upgrade plan</h2>
-                  <p className="subtle">Most urgent first: highest priority tier, then known-exploited, then advisories cleared, then name.</p>
                 </div>
                 <div className="cluster">
                   <button

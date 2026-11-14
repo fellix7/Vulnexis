@@ -1,3 +1,4 @@
+/* Hallmark · stamp and fields in src/index.css (one system for the whole app) */
 /* Agent timeline: one row per tool call. Rail + dot on the left, body on the right. */
 .agent-tl {
   list-style: none;

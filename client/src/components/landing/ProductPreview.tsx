@@ -60,7 +60,7 @@ export function ProductPreview() {
         <p className="lp-preview__title">
           <span className="eyebrow">Risk funnel</span>
           <span className="subtle num">
-            {MOCK_RESULT.packageCount} packages · {FUNNEL.total} findings
+            {MOCK_RESULT.packageCount} packages, {FUNNEL.total} findings
           </span>
         </p>
         <span className="badge badge--accent">
@@ -141,8 +141,7 @@ export function ProductPreview() {
 
       <figcaption className="lp-preview__foot" id="preview-caption">
         <p>
-          <strong>Nothing is hidden: lower tiers stay one click away.</strong>{' '}
-          <span className="muted">Showing {ROWS.length} of {FUNNEL.total} findings from illustrative demo data, not a real scan.</span>
+          <span className="muted">Demo data: {ROWS.length} of {FUNNEL.total} findings shown.</span>
         </p>
         <button type="button" className="btn btn--sm" onClick={openFindings}>
           Open all {FUNNEL.total} findings

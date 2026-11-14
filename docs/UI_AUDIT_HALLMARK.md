@@ -117,3 +117,25 @@ Requested by the team after the polish. Content and wiring kept; the type system
 - **39b** `lp-stage` card selectors and **64** repository names in example chips: **waived**.
 
 **Known gap:** in Hindi mode the agent's step titles and decisions stay in English, because the server writes them. Translating them means adding Hindi strings to `server/src/index.ts`.
+
+
+---
+
+## Round 3: less text (mentor feedback, Nov 2026)
+
+Feedback: the UI read as wordy and congested. A Hallmark redesign pass focused on copy density, keeping the brand (dark surfaces, lime accent, Inter) and every route, link and handler.
+
+| Screen | Words before | Words after | What changed |
+| :--- | ---: | ---: | :--- |
+| Landing | 1,403 | 870 | Section ledes cut; the "four steps" and the four feature cards removed (they repeated the agent loop and the product preview); comparison bullet lists removed; tier rules and the go-to-market block shortened |
+| Scan | 602 | 190 | One-line header and step hints; "what happens to your files" reduced to four one-liners; supported formats folded into a disclosure |
+| Overview | 619 | 395 | Funnel captions and side notes removed; the repeated tier rule under each urgent finding removed; notes shortened |
+| India brief | 709 | 589 | The full text of each law folded behind "What the law says" |
+| Reports | 487 | 317 | Notes and empty states cut to one sentence |
+| Agent, Architecture, Evidence, Remediation, Finding | | | One-line headers; rule boxes cut to short lines; fine print removed or shortened |
+
+Remaining words on Agent and Findings are the product's own data (trace steps, table rows).
+
+Floor fixes in this pass: the eyebrow above the finding title removed; status dots replaced with state icons; middle-dot meta strings replaced with commas; one em dash removed; the inert sticky table header removed; stamp restored in `client/src/index.css`.
+
+Linter: `sloplint client/src --genre modern-minimal`: 1 FAIL (gate 56, sidebar and top bar both `sticky; top: 0`; a false positive, they are in separate grid columns), 91 REFLEX (mostly 6px and 10px gaps off the 4px scale, and mono figure labels; unchanged from before, left for a later polish), 11 WARN.

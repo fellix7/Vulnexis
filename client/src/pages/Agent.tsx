@@ -14,10 +14,10 @@ export default function AgentPage() {
   const header = (
     <PageHeader
       eyebrow={tr('Agent trace', 'एजेंट का काम')}
-      title={tr('How the agent reached this answer', 'एजेंट इस नतीजे तक कैसे पहुँचा')}
+      title={tr('Agent trace', 'एजेंट का काम')}
       description={tr(
-        'Every tool the agent called, what went in, what came back and what it decided next, with links to each data source. Nothing is hidden, nothing is invented.',
-        'एजेंट ने कौन-सा टूल चलाया, उसमें क्या गया, क्या मिला, और आगे क्या फ़ैसला लिया: हर डेटा स्रोत के लिंक के साथ। कुछ छिपा नहीं, कुछ गढ़ा नहीं।',
+        'Every tool it called, what it found and what it decided.',
+        'हर टूल, क्या मिला और क्या फ़ैसला हुआ।',
       )}
     />
   )
@@ -107,14 +107,14 @@ export default function AgentPage() {
             </section>
 
             <section className="agent-box agent-box--rules">
-              <h3>{tr('Rules the agent cannot break', 'एजेंट के पक्के नियम')}</h3>
+              <h3>{tr('Rules it cannot break', 'पक्के नियम')}</h3>
               <ul>
-                <li>{tr('Facts come from OSV.dev. AI never adds or removes a vulnerability.', 'तथ्य OSV.dev से आते हैं। AI कोई कमज़ोरी न जोड़ता है, न हटाता है।')}</li>
-                <li>{tr('AI may raise a priority, never lower it.', 'AI प्राथमिकता बढ़ा सकता है, घटा नहीं सकता।')}</li>
-                <li>{tr('Only quoted architecture facts (login wall, private network, offline, not loaded) or a person can lower one: one step, never below Plan, never for KEV.', 'सिर्फ़ उद्धृत आर्किटेक्चर तथ्य (लॉगिन, निजी नेटवर्क, ऑफ़लाइन, लोड नहीं) या इंसान प्राथमिकता घटा सकते हैं: एक कदम, Plan से नीचे नहीं, KEV पर कभी नहीं।')}</li>
-                <li>{tr('Every code citation is re-checked against the real file.', 'हर कोड-उद्धरण असली फ़ाइल से दोबारा मिलाया जाता है।')}</li>
-                <li>{tr('When it does not know, it says "uncertain" instead of guessing.', 'जब पता न हो, तो अंदाज़ा नहीं, "पक्का नहीं" कहता है।')}</li>
-                <li>{tr('No personal data is asked for. Code is read, never run.', 'कोई निजी जानकारी नहीं माँगी जाती। कोड सिर्फ़ पढ़ा जाता है, चलाया नहीं।')}</li>
+                <li>{tr('Facts only from OSV.dev.', 'तथ्य सिर्फ़ OSV.dev से।')}</li>
+                <li>{tr('AI can raise a priority, never lower it.', 'AI प्राथमिकता बढ़ा सकता है, घटा नहीं सकता।')}</li>
+                <li>{tr('Architecture can lower one step, with a quoted line.', 'आर्किटेक्चर एक कदम घटा सकता है, सबूत के साथ।')}</li>
+                <li>{tr('Every citation is re-checked.', 'हर उद्धरण दोबारा जाँचा जाता है।')}</li>
+                <li>{tr('Unsure means "uncertain", never a guess.', 'पक्का नहीं तो "अनिश्चित", अंदाज़ा नहीं।')}</li>
+                <li>{tr('Code is read, never run.', 'कोड पढ़ा जाता है, चलाया नहीं।')}</li>
               </ul>
             </section>
           </aside>

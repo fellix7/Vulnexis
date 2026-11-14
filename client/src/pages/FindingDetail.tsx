@@ -23,7 +23,7 @@ export default function FindingDetailPage() {
   if (!current) {
     return (
       <>
-        <PageHeader title="Finding" description="Why a finding has its priority, what the advisory says, and where your code touches it." />
+        <PageHeader title="Finding" />
         <NoScan what="finding details" />
       </>
     )
@@ -114,7 +114,6 @@ function FindingView({ record, finding: f }: { record: ScanRecord; finding: Find
 
       <header className="fd-head">
         <div className="fd-head__main">
-          <span className="eyebrow">Finding</span>
           <h1 ref={heading} tabIndex={-1} className="fd-title">
             {f.pkg.name}
             <span className="fd-ver">@{f.pkg.version}</span>
@@ -251,12 +250,10 @@ function WhySection({ f, lowered, tier }: { f: Finding; lowered: boolean; tier: 
 
       {lowered && (
         <p className="fd-fine">
-          The rule above describes the original tier ({TIER_LABEL[f.tier]}). A reviewer lowered this finding one step to{' '}
-          {TIER_LABEL[tier]}.
+          A reviewer lowered this from {TIER_LABEL[f.tier]} to {TIER_LABEL[tier]}.
         </p>
       )}
       <p className="fd-fine">
-        Tiers come from fixed, published rules. The AI can only raise a tier; quoted architecture facts can lower one step, and a person can lower one.{' '}
         <Link to="/#how-it-works" className="link">
           How tiers work
         </Link>
@@ -275,8 +272,7 @@ function ExposureSection({ f }: { f: Finding }) {
       <h2 id="fd-exposure">Who can reach it</h2>
       {!x ? (
         <p className="fd-fine">
-          No architecture context in this scan: exposure was not assessed and the priority is unchanged. Upload the project folder or scan by GitHub link so
-          Vulnexis can read your deployment files.{' '}
+          Not assessed: no architecture files in this scan.{' '}
           <Link to="/architecture" className="link">
             Architecture
           </Link>
@@ -339,7 +335,7 @@ function AdvisorySection({ f }: { f: Finding }) {
       ) : (
         <p className="muted">No further details were published.</p>
       )}
-      <p className="fd-fine">Advisory text from OSV.dev, shown as untrusted plain text.</p>
+      <p className="fd-fine">From OSV.dev.</p>
     </section>
   )
 }
@@ -368,8 +364,8 @@ function ReviewSection({ f, review, tier, demo }: { f: Finding; review: Review |
     <section className="fd-sec" aria-labelledby="fd-review">
       <h2 id="fd-review">Human review</h2>
       <p className="muted fd-lead-sm">
-        Your decisions are saved with this scan in this browser and included in JSON and Markdown exports.
-        {demo && ' Demo data is not saved, so decisions on it last only until you reload.'}
+        Saved with this scan and included in exports.
+        {demo && ' Not saved for demo data.'}
       </p>
 
       <div className="fd-review">
@@ -387,7 +383,7 @@ function ReviewSection({ f, review, tier, demo }: { f: Finding; review: Review |
               </button>
             </div>
             <p className="fd-fine">
-              Confirming or disputing records your judgement in exports. It does not change the tier; use the priority control for that.
+              This does not change the tier.
             </p>
           </div>
         )}
@@ -454,7 +450,6 @@ function ReferencesSection({ f }: { f: Finding }) {
           })}
         </ul>
       )}
-      <p className="fd-fine">Links come from the advisory and are untrusted; only http(s) links are clickable.</p>
     </section>
   )
 }
@@ -489,7 +484,7 @@ function ExploitationBox({ f, demo }: { f: Finding; demo: boolean }) {
               <EpssMeter epss={epss} />
             )}
             <p className="fd-fine">
-              Estimated probability of exploitation in the next 30 days (FIRST.org).
+              Chance of exploitation in 30 days (FIRST.org).
               {epss !== null &&
                 (isEpssHigh(epss)
                   ? ` At or above the ${EPSS_THRESHOLD * 100}% line used for ranking.`
@@ -584,8 +579,7 @@ function RemediationBox({ result, f, demo }: { result: ScanResult; f: Finding; d
           {plan.viaParent &&
             (isOverride ? (
               <p className="fd-fine">
-                Transitive, pulled in via <strong className="mono">{plan.viaParent}</strong>. The command pins the fixed
-                version with an override: a suggestion that needs testing. Upgrading {plan.viaParent} may also resolve it.
+                Via <strong className="mono">{plan.viaParent}</strong>: pinned with an override. Test before shipping.
               </p>
             ) : (
               <p className="fd-fine">

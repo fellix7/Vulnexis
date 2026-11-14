@@ -1,3 +1,7 @@
+/* Hallmark · checked: 2026-11-14 · genre: modern-minimal (inferred) · brand kept (dark, lime accent, Inter)
+ * redesign: full (copy density) · landing: 3 duplicate sections cut, ~1,400 to ~870 words · app screens: one-line headers, long notes folded into disclosures
+ * built: the project · v2.0.0 */
+/* Hallmark · dismissed 56 · the sidebar and the topbar sit in separate grid columns (.sidebar left, .topbar inside .main), so they never stack or overlap */
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/jetbrains-mono';
 
@@ -868,9 +872,6 @@ kbd,
   border-bottom: 1px solid var(--line);
 }
 .dtable thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
   background: var(--surface-1);
   font-size: var(--fs-xs);
   font-weight: 500;
@@ -1244,4 +1245,43 @@ html:lang(hi) dd {
 }
 html:lang(hi) .eyebrow {
   letter-spacing: 0.02em;
+}
+
+.repo-stats {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+.repo-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  text-decoration: none;
+}
+.repo-stat:hover {
+  color: var(--text);
+  border-color: var(--line-hover);
+}
+.repo-stat:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.status-icon {
+  flex: none;
+  color: var(--text-3);
+}
+.status-icon--ok {
+  color: var(--ok);
+}
+.status-icon--warn {
+  color: var(--warn);
+}
+.status-icon--bad {
+  color: var(--critical);
 }

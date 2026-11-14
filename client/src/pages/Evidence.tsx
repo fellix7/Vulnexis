@@ -26,19 +26,19 @@ const GROUPS: { bucket: Bucket; verdict: Verdict; title: string; blurb: string }
     bucket: 'uses',
     verdict: 'USES_VULNERABLE_API',
     title: 'Uses vulnerable code',
-    blurb: 'Your code calls the function the advisory describes, and a cited line was checked against your source. For high or critical findings in production code this sets the tier to Fix now.',
+    blurb: 'A cited line in your code calls it, checked against the file.',
   },
   {
     bucket: 'uncertain',
     verdict: 'UNCERTAIN',
     title: 'Uncertain',
-    blurb: 'The model could not decide from the code provided. Treat these as possibly affected.',
+    blurb: 'Could not decide. Treat as possibly affected.',
   },
   {
     bucket: 'none',
     verdict: 'NO_VULNERABLE_USAGE_FOUND',
     title: 'No usage found',
-    blurb: 'No vulnerable usage was found in the files provided. This does not lower the priority; only a reviewer can.',
+    blurb: 'Nothing found in the files given. The priority stays.',
   },
 ]
 
@@ -63,7 +63,7 @@ function Header() {
   return (
     <PageHeader
       title="Code evidence"
-      description="Where AI found your code reaching a vulnerable function, with every citation checked against your source."
+      description="Where your code calls a vulnerable function."
     />
   )
 }

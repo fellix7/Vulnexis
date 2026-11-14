@@ -122,7 +122,8 @@ interface ScanResult {
   aiStatus: 'ok' | 'disabled' | 'error';
   notes: string[];              // non-fatal warnings (e.g. EPSS unreachable)
   agent?: AgentStep[];          // the agent's steps (see AGENT.md)
-  repo?: { owner: string; name: string; ref: string; url: string; lockfilePath: string; sourceFiles: number };
+  repo?: { owner: string; name: string; ref: string; url: string; lockfilePath: string; sourceFiles: number;
+          stars?: number; contributors?: number };   // from the GitHub API; left out if it is unreachable or rate limited (GITHUB_TOKEN raises the limit)
   context?: {                   // architecture context (see ARCHITECTURE_CONTEXT.md)
     files: { path: string; kind: 'vulnexis' | 'compose' | 'kubernetes' | 'serverless' | 'procfile' | 'dockerfile' | 'openapi' | 'manifest' | 'markdown' }[];
     entryPoints: { component: string; file: string | null; exposure: Exposure; how: string; evidence: Evidence[] }[];

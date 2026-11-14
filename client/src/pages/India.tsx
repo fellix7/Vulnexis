@@ -35,10 +35,7 @@ export default function IndiaPage() {
     <PageHeader
       eyebrow={tr('India brief', 'भारत रिपोर्ट')}
       title={tr('What this means for your business', 'आपके बिज़नेस के लिए इसका मतलब')}
-      description={tr(
-        'The scan in plain Hindi and English, mapped to CERT-In and the DPDP Act, with a summary you can send to your founder or client on WhatsApp.',
-        'स्कैन का नतीजा आसान हिंदी और अंग्रेज़ी में, CERT-In और DPDP अधिनियम के हिसाब से, और WhatsApp पर भेजने लायक सारांश।',
-      )}
+      description={tr('In Hindi or English, ready for WhatsApp.', 'हिंदी या अंग्रेज़ी में, WhatsApp के लिए तैयार।')}
     />
   )
   if (!current || !brief) {
@@ -180,11 +177,14 @@ export default function IndiaPage() {
                   <h3>{tr(o.lawEn, o.lawHi)}</h3>
                   <span className={`ib-applies ${a.cls}`}>{tr(a.en, a.hi)}</span>
                 </div>
-                <p className="ib-law__rule">{tr(o.ruleEn, o.ruleHi)}</p>
                 <p className="ib-law__why">
                   <strong>{tr('For this scan: ', 'इस स्कैन के लिए: ')}</strong>
                   {tr(o.whyEn, o.whyHi)}
                 </p>
+                <details className="ib-law__more">
+                  <summary>{tr('What the law says', 'क़ानून क्या कहता है')}</summary>
+                  <p className="ib-law__rule">{tr(o.ruleEn, o.ruleHi)}</p>
+                </details>
                 <a className="ib-law__src" href={o.source.url} target="_blank" rel="noreferrer noopener">
                   <Icon name="external" size={11} />
                   {o.source.label}
@@ -201,12 +201,6 @@ export default function IndiaPage() {
             <Icon name="message" size={16} />
             {tr('In plain words', 'आसान शब्दों में')}
           </h2>
-          <p className="subtle">
-            {tr(
-              `The ${plain.length} most urgent production findings, explained without jargon.`,
-              `प्रोडक्शन की ${plain.length} सबसे ज़रूरी कमज़ोरियाँ, बिना तकनीकी शब्दों के।`,
-            )}
-          </p>
         </div>
         <ul className="ib-plain">
           {plain.map((f) => {
@@ -224,7 +218,7 @@ export default function IndiaPage() {
                   <p>{tr(c.plainEn, c.plainHi)}</p>
                   <span className="ib-plain__src subtle">
                     {tr('Source', 'स्रोत')}: {f.advisory.id}
-                    {f.advisory.aliases[0] ? ` · ${f.advisory.aliases[0]}` : ''}
+                    {f.advisory.aliases[0] ? `, ${f.advisory.aliases[0]}` : ''}
                     <Icon name="chevron-right" size={12} />
                   </span>
                 </Link>

@@ -39,8 +39,8 @@ export default function ArchitecturePage() {
     <PageHeader
       title={tr('Architecture', 'आर्किटेक्चर')}
       description={tr(
-        'Where each part of your project runs, who can reach it, and how that changed priorities. Read from your own deployment files, docs and code: every line is quoted.',
-        'आपके प्रोजेक्ट का हर हिस्सा कहाँ चलता है, उस तक कौन पहुँच सकता है, और इससे प्राथमिकता कैसे बदली। आपकी अपनी डिप्लॉयमेंट फ़ाइलों, डॉक्स और कोड से: हर पंक्ति का हवाला।',
+        'Who can reach each vulnerable package, from your own files.',
+        'हर कमज़ोर पैकेज तक कौन पहुँच सकता है, आपकी फ़ाइलों से।',
       )}
     />
   )
@@ -119,8 +119,7 @@ export default function ArchitecturePage() {
           <section className="panel" aria-labelledby="arch-entries">
             <div className="panel__head">
               <h2 id="arch-entries">{tr('Entry points', 'एंट्री पॉइंट')}</h2>
-              <span className="subtle">{tr('processes that run, and who can reach them', 'चलने वाले प्रोसेस और उन तक पहुँच')}</span>
-            </div>
+                          </div>
             <ul className="arch-entries">
               {context.entryPoints.map((e) => (
                 <li key={e.component} className="arch-entry">
@@ -138,7 +137,7 @@ export default function ArchitecturePage() {
                     )}
                     {e.how}
                   </p>
-                  <EvidenceList evidence={e.evidence.slice(0, 4)} />
+                  <EvidenceList evidence={e.evidence.slice(0, 2)} />
                 </li>
               ))}
             </ul>
@@ -183,10 +182,7 @@ export default function ArchitecturePage() {
             {lowered.length === 0 ? (
               <div className="panel__body">
                 <p className="subtle">
-                  {tr(
-                    'No finding moved: every vulnerable package is loaded by internet-facing code, is already Plan or Monitor, or is known exploited.',
-                    'कोई बदलाव नहीं: हर कमज़ोर पैकेज इंटरनेट से जुड़े कोड में है, पहले से Plan/Monitor है, या असल हमलों में इस्तेमाल हो चुका है।',
-                  )}
+                  {tr('No finding moved.', 'कोई बदलाव नहीं।')}
                 </p>
               </div>
             ) : (
@@ -228,13 +224,12 @@ export default function ArchitecturePage() {
           </section>
 
           <section className="agent-box agent-box--rules">
-            <h3>{tr('How exposure changes a priority', 'पहुँच से प्राथमिकता कैसे बदलती है')}</h3>
+            <h3>{tr('The rules', 'नियम')}</h3>
             <ul>
-              <li>{tr('Behind login, private network, offline, or not loaded at all: down one step.', 'लॉगिन के पीछे, निजी नेटवर्क, ऑफ़लाइन, या कहीं लोड नहीं: एक कदम नीचे।')}</li>
-              <li>{tr('Never below Plan. Never for vulnerabilities exploited in the wild (CISA KEV).', 'Plan से नीचे कभी नहीं। असल हमलों वाली (CISA KEV) कमज़ोरी पर कभी नहीं।')}</li>
-              <li>{tr('Unknown counts as internet-facing. When files disagree, the more exposed reading wins.', 'अज्ञात = इंटरनेट से जुड़ा। फ़ाइलों में मतभेद हो तो ज़्यादा जोखिम वाला मानते हैं।')}</li>
-              <li>{tr('Docs never override config or code; a mismatch is reported above.', 'डॉक्स कभी कॉन्फ़िग या कोड से ऊपर नहीं; फ़र्क़ ऊपर दिखाया जाता है।')}</li>
-              <li>{tr('"Not loaded" is only claimed when the whole import graph could be followed.', '"लोड नहीं" तभी कहा जाता है जब पूरा इम्पोर्ट ग्राफ़ पढ़ा जा सका।')}</li>
+              <li>{tr('Behind login, internal, offline or unused: one step down.', 'लॉगिन, निजी, ऑफ़लाइन या अनुपयोगी: एक कदम नीचे।')}</li>
+              <li>{tr('Never below Plan, never for KEV.', 'Plan से नीचे या KEV पर कभी नहीं।')}</li>
+              <li>{tr('Unknown counts as internet-facing.', 'अज्ञात = इंटरनेट से जुड़ा।')}</li>
+              <li>{tr('Docs never override code.', 'डॉक्स कोड से ऊपर नहीं।')}</li>
             </ul>
             <p className="arch-std">
               <a href="https://certcc.github.io/SSVC/reference/decision_points/system_exposure/" target="_blank" rel="noreferrer noopener">
@@ -246,10 +241,7 @@ export default function ArchitecturePage() {
             </p>
             {!context.confident && (
               <p className="subtle arch-std">
-                {tr(
-                  'This project could not be followed completely (dynamic imports, file-based routing or skipped files), so nothing is marked "not loaded".',
-                  'यह प्रोजेक्ट पूरी तरह नहीं पढ़ा जा सका, इसलिए किसी को "लोड नहीं" नहीं कहा गया।',
-                )}
+                {tr('Imports could not be fully followed, so nothing is marked unused.', 'इम्पोर्ट पूरे नहीं पढ़े जा सके।')}
               </p>
             )}
           </section>

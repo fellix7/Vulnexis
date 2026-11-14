@@ -19,7 +19,7 @@ interface Props {
   onSwap: (baselineId: string, latestId: string) => void
 }
 
-const label = (r: ScanRecord) => `${r.projectName} · ${formatScanTime(r.result.scannedAt)} · ${r.result.findings.length} findings`
+const label = (r: ScanRecord) => `${r.projectName}, ${formatScanTime(r.result.scannedAt)}, ${r.result.findings.length} findings`
 
 export function Compare({ scans, current, baselineId, latestId, onBaseline, onLatest, onSwap }: Props) {
   const enough = scans.length >= 2
@@ -48,8 +48,7 @@ export function Compare({ scans, current, baselineId, latestId, onBaseline, onLa
                 <strong>Run another scan after upgrading to see what was resolved.</strong>
               </p>
               <p className="muted">
-                Comparing needs two saved scans of the same project. {scans.length === 1 ? 'You have one so far.' : 'You have none yet.'} After you apply the
-                fix plan, scan again and the findings that went away show up here as resolved.
+                Needs two saved scans of the same project.
               </p>
               <p>
                 <Link to="/scan" className="btn btn--primary btn--sm">

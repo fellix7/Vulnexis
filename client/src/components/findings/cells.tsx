@@ -88,7 +88,7 @@ export function KevCell({ kev }: { kev: boolean | null }) {
     )
   return (
     <span className="subtle">
-      <span aria-hidden="true">—</span>
+      <span aria-hidden="true">No</span>
       <span className="sr-only">Not listed in KEV</span>
     </span>
   )

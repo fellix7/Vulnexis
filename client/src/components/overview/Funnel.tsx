@@ -55,7 +55,7 @@ function stages(findings: Finding[], review: ReviewState, aiStatus: ScanResult['
         ? 'AI code check failed'
         : 'AI code check did not run (no source folder or no API key)'
   const aiDetail = aiRan
-    ? `${ai.NO_VULNERABLE_USAGE_FOUND.toLocaleString()} no usage found · ${ai.UNCERTAIN.toLocaleString()} uncertain · ${ai.NOT_ASSESSED.toLocaleString()} not assessed`
+    ? `${ai.NO_VULNERABLE_USAGE_FOUND.toLocaleString()} no usage found, ${ai.UNCERTAIN.toLocaleString()} uncertain, ${ai.NOT_ASSESSED.toLocaleString()} not assessed`
     : c.total === 0
       ? 'No findings to assess.'
       : `All ${c.total.toLocaleString()} ${plural(c.total, 'finding is', 'findings are')} not assessed (this is not the same as safe)`
@@ -64,7 +64,7 @@ function stages(findings: Finding[], review: ReviewState, aiStatus: ScanResult['
   const lowerDetail =
     lower === 0
       ? 'Every finding is in Fix now.'
-      : `${lower.toLocaleString()} ${plural(lower, 'finding sits', 'findings sit')} in lower tiers (${tiers.FIX_SPRINT} sprint · ${tiers.PLAN} plan · ${tiers.MONITOR} monitor)`
+      : `${lower.toLocaleString()} ${plural(lower, 'finding sits', 'findings sit')} in lower tiers (${tiers.FIX_SPRINT} sprint, ${tiers.PLAN} plan, ${tiers.MONITOR} monitor)`
 
   return [
     {
@@ -123,11 +123,7 @@ export function Funnel({ findings, review, aiStatus }: { findings: Finding[]; re
   return (
     <section className="ov-funnel" aria-labelledby="ov-funnel-h">
       <div className="ov-section-head">
-        <div>
-          <span className="eyebrow">The funnel</span>
-          <h2 id="ov-funnel-h">From every alert to what to fix now</h2>
-        </div>
-        <p className="ov-section-head__aside">Each stage opens the matching findings. Findings move between tiers; none are deleted.</p>
+        <h2 id="ov-funnel-h">From every alert to what to fix now</h2>
       </div>
       <ol className="ov-funnel__list">
         {list.map((s) => {
@@ -141,7 +137,6 @@ export function Funnel({ findings, review, aiStatus }: { findings: Finding[]; re
                 </span>
                 <span className={`ov-stage__num num${s.key === 'now' && s.count > 0 ? ' is-hot' : ''}`}>{s.value}</span>
                 <span className="ov-stage__title">{s.title}</span>
-                <span className="ov-stage__caption">{s.caption}</span>
                 <span className="ov-stage__foot">
                   <span className={`ov-stage__bar${s.ai ? ' is-ai' : ''}`} aria-hidden="true">
                     <span style={{ transform: `scaleX(${pct / 100})` }} />
@@ -159,7 +154,6 @@ export function Funnel({ findings, review, aiStatus }: { findings: Finding[]; re
           )
         })}
       </ol>
-      <p className="ov-funnel__note">Nothing is hidden — every finding stays in the explorer.</p>
     </section>
   )
 }

@@ -36,10 +36,7 @@ export function LandingFooter() {
             <a href="#top" aria-label="Vulnexis, back to top" onClick={(e) => goToSection(e, 'top')}>
               <Logo />
             </a>
-            <p className="muted">
-              Dependency risk triage for Node.js. Reads a package-lock.json, checks whether your code reaches the vulnerable function, and
-              produces an evidence-backed, verified upgrade plan.
-            </p>
+            <p className="muted">Which vulnerable packages to fix first, and why. Built for Indian teams.</p>
           </div>
 
           <nav aria-label="App" className="lp-foot__col">
@@ -76,8 +73,8 @@ export function LandingFooter() {
         </div>
 
         <div className="lp-foot__base">
-          <p>Built for Tech Yuva × GDG Gurugram Build-a-thon 2026 (PS-09)</p>
-          <p className="subtle">Demo data shown on this page is illustrative, not a real scan.</p>
+          <p>Built for the Infra Shift Hackathon 2026 (PS3), on Vulnera</p>
+          <p className="subtle">Demo data on this page is illustrative.</p>
         </div>
       </div>
     </footer>
