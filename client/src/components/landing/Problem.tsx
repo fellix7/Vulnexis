@@ -57,7 +57,7 @@ export function Problem() {
 
           <div className="lp-compare__col">
             <div className="lp-compare__head">
-              <h3>Vulnexis</h3>
+              <h3>Vulnera</h3>
               <span className="badge badge--accent">Demo data</span>
             </div>
             <p className="lp-stat">

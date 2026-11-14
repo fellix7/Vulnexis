@@ -14,7 +14,7 @@ export function Logo({ size = 20 }: { size?: number }) {
   return (
     <span className="logo" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, color: 'var(--text)' }}>
       <LogoMark size={size} />
-      <span style={{ fontWeight: 650, fontSize: size * 0.82, letterSpacing: '-0.03em', lineHeight: 1 }}>vulnexis</span>
+      <span style={{ fontWeight: 650, fontSize: size * 0.82, letterSpacing: '-0.03em', lineHeight: 1 }}>vulnera</span>
     </span>
   )
 }

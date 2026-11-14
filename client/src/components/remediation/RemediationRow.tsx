@@ -188,7 +188,7 @@ function TargetDetail({ item, review }: { item: RemediationItem; review: ReviewS
           <ol className="rem-opts">
             {item.parent && (
               <li>
-                <strong>Option A.</strong> Upgrade <code>{item.parent}</code> to a version that depends on a fixed <code>{plan.name}</code>. Vulnexis has not
+                <strong>Option A.</strong> Upgrade <code>{item.parent}</code> to a version that depends on a fixed <code>{plan.name}</code>. Vulnera has not
                 verified this: check the parent&apos;s changelog and lockfile after upgrading.
                 {parentCommand && (
                   <div className="rem__optcmd">

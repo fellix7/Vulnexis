@@ -125,7 +125,7 @@ export function IndiaSection() {
             </li>
           ))}
         </ul>
-        <p className="kv-fine">{tr('Vulnexis gives information, not legal advice.', 'Vulnexis जानकारी देता है, क़ानूनी सलाह नहीं।')}</p>
+        <p className="kv-fine">{tr('Vulnera gives information, not legal advice.', 'Vulnera जानकारी देता है, क़ानूनी सलाह नहीं।')}</p>
       </div>
     </section>
   )

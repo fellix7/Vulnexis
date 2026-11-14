@@ -229,8 +229,8 @@ export async function fetchRepo(rawUrl: string): Promise<FetchedRepo> {
     const hasYarn = all.some((b) => /(^|\/)(yarn\.lock|pnpm-lock\.yaml)$/.test(b.path));
     throw new RepoError(
       hasYarn
-        ? 'This repository uses Yarn or pnpm. Vulnexis currently reads npm lockfiles (package-lock.json) only.'
-        : 'No package-lock.json found in this repository. Vulnexis needs an npm lockfile to know exact versions.',
+        ? 'This repository uses Yarn or pnpm. Vulnera currently reads npm lockfiles (package-lock.json) only.'
+        : 'No package-lock.json found in this repository. Vulnera needs an npm lockfile to know exact versions.',
     );
   }
   let lockfile: unknown;

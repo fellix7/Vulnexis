@@ -44,7 +44,7 @@ function Routes() {
 
   const route = APP_ROUTES[path]
   useEffect(() => {
-    document.title = path === '/' ? 'Vulnexis · Security agent for Indian builders' : `${route?.title ?? 'Not found'} · Vulnexis`
+    document.title = path === '/' ? 'Vulnera · Security agent for Indian builders' : `${route?.title ?? 'Not found'} · Vulnera`
   }, [path, route])
 
   if (path === '/') return <LandingPage />

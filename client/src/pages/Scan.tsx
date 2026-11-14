@@ -197,7 +197,7 @@ export default function ScanPage() {
         <div className="scan-main">
           {healthFailed && (
             <Callout tone="warn" role="status">
-              <strong>The scan API is not reachable.</strong> Scanning needs the Vulnexis server. From the project root, run <code>npm run dev</code> to start it. You can still{' '}
+              <strong>The scan API is not reachable.</strong> Scanning needs the Vulnera server. From the project root, run <code>npm run dev</code> to start it. You can still{' '}
               <button type="button" className="link-btn" onClick={exploreDemo} disabled={scanning}>
                 explore the demo data
               </button>

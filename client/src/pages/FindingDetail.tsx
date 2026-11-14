@@ -564,7 +564,7 @@ function RemediationBox({ result, f, demo }: { result: ScanResult; f: Finding; d
         <p className="muted">No upgrade plan was returned for this package.</p>
       ) : plan.to === null ? (
         <Callout tone="warn">
-          <strong>No verified fix available</strong> for {plan.name}@{plan.from}. Vulnexis only recommends versions that were
+          <strong>No verified fix available</strong> for {plan.name}@{plan.from}. Vulnera only recommends versions that were
           re-checked against OSV.dev; consider replacing or removing this package.
         </Callout>
       ) : (

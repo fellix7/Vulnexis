@@ -250,8 +250,8 @@ export function buildIndiaBrief(result: ScanResult, review: ReviewState = {}): I
 export function whatsappText(brief: IndiaBrief, project: string, lang: 'en' | 'hi'): string {
   const lines =
     lang === 'hi'
-      ? [`*Vulnexis सुरक्षा रिपोर्ट: ${project}*`, '', brief.summaryHi, '', '*अगले कदम*', ...brief.steps.map((s, i) => `${i + 1}. ${s.hi}`)]
-      : [`*Vulnexis security report: ${project}*`, '', brief.summaryEn, '', '*Next steps*', ...brief.steps.map((s, i) => `${i + 1}. ${s.en}`)]
+      ? [`*Vulnera सुरक्षा रिपोर्ट: ${project}*`, '', brief.summaryHi, '', '*अगले कदम*', ...brief.steps.map((s, i) => `${i + 1}. ${s.hi}`)]
+      : [`*Vulnera security report: ${project}*`, '', brief.summaryEn, '', '*Next steps*', ...brief.steps.map((s, i) => `${i + 1}. ${s.en}`)]
   lines.push('', lang === 'hi' ? '_सूचना के लिए, क़ानूनी सलाह नहीं।_' : '_For information, not legal advice._')
   return lines.join('\n')
 }
