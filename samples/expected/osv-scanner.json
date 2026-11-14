@@ -2,7 +2,7 @@
   "results": [
     {
       "source": {
-        "path": "/Users/rishit/Desktop/ABC Hackathon/.claude/worktrees/agent-ad39c986fc8cccef2/samples/demo-app/package-lock.json",
+        "path": "samples/demo-app/package-lock.json",
         "type": "lockfile"
       },
       "packages": [

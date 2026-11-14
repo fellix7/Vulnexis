@@ -18,7 +18,3 @@
 | [UI_AUDIT_HALLMARK.md](UI_AUDIT_HALLMARK.md) | Designers, engineers | Hallmark audit, the polish and restyle applied, what is waived |
 
 **Background (Vulnera, Build-a-thon, 24 Oct 2026):** [PROJECT.md](PROJECT.md), [PLAN.md](PLAN.md), [TEAM.md](TEAM.md), [tasks/](tasks/). These describe the original pipeline Vulnexis is built on. Where they disagree with the documents above, the documents above are current.
-
-**Claude Code skills** in `.claude/skills/` (load automatically when the repo is opened in Claude Code; sources in `.claude/skills/SOURCES.md`):
-- [ponytail](https://github.com/DietrichGebert/ponytail) (MIT, SKILL.md files only, no hooks): `/ponytail-review` on a change, `/ponytail-audit` on the repo.
-- [Hallmark](https://github.com/Nutlope/hallmark) (MIT): `/hallmark audit <path>`. Its browser checks need `puppeteer-core` and Chrome (`npm i -g puppeteer-core`).

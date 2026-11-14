@@ -4,7 +4,7 @@ Deadline: **feature freeze 16:00 IST**, demo before 17:00. Repo: https://github.
 
 | System | Who/what | Owns | Why this one |
 |---|---|---|---|
-| **1: Mac** | Rishit + Claude Code (parallel agents) | `main`, `server/src/index.ts`, `server/src/types.ts`, `server/src/pipeline/**`, `samples/`, `data/`, `docs/DEMO.md` | Only system with Claude. Does the integration, the Gemini work and all merging, which are the hardest and most conflict-prone parts |
+| **1: Mac** | Rishit | `main`, `server/src/index.ts`, `server/src/types.ts`, `server/src/pipeline/**`, `samples/`, `data/`, `docs/DEMO.md` | Does the integration, the Gemini work and all merging, which are the hardest and most conflict-prone parts |
 | **2: opencode** | Verify & Harden (backend, new files only) | `server/src/verify/**`, `server/src/security/**`, `server/src/report/**` | Self-contained modules with exact signatures; no edits to shared files |
 | **3: opencode** | Frontend + pitch | `client/**`, `docs/PITCH.md` | Starts when the dashboard lands on `main`; the UI is the part judges see |
 

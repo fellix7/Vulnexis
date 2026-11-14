@@ -102,7 +102,7 @@ docs/     PLAN.md, TEAM.md, task briefs, this file
 ```
 
 ### Team and process
-Three systems work in parallel (see [TEAM.md](TEAM.md)): the Mac (Claude Code: integration, Gemini layer, merging), and two opencode machines (backend hardening and verify-fix; frontend and pitch). Each owns separate files and works on its own branch; the Mac merges into `main`.
+Three systems work in parallel (see [TEAM.md](TEAM.md)): the Mac (integration, Gemini layer, merging), and two opencode machines (backend hardening and verify-fix; frontend and pitch). Each owns separate files and works on its own branch; the Mac merges into `main`.
 
 ## 5. Where AI is used (Gemini)
 
