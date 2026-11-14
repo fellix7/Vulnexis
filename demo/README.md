@@ -125,6 +125,7 @@ If OSV.dev is blocked, the bundled sample still works (it uses saved data and sa
 
 | Problem | Fix |
 | :--- | :--- |
+| `git pull`: "local changes to package-lock.json would be overwritten" | That file was rewritten by `npm install`. Run `git checkout -- package-lock.json && git pull && npm ci` (`.env` is not touched) |
 | `Vulnexis needs Node.js 22 or newer` | Install the current LTS from https://nodejs.org |
 | Port 8787 already in use | Set `PORT=8790` in `.env`, then run the smoke test with `BASE=http://localhost:8790 node demo/smoke-test.mjs` |
 | "Not assessed" everywhere | No `GEMINI_API_KEY` in `.env`, or no source folder chosen |

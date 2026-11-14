@@ -10,7 +10,7 @@ if (-not $have -or [int]($have.Split('.')[0]) -lt 22) {
   Write-Error "Vulnexis needs Node.js 22 or newer (found: $have). Install it from https://nodejs.org"
 }
 
-if (-not (Test-Path node_modules)) { npm install --no-audit --no-fund }
+if (-not (Test-Path node_modules)) { npm ci --no-audit --no-fund }
 if (-not (Test-Path .env)) {
   Copy-Item .env.example .env
   Write-Host "Created .env. Add GEMINI_API_KEY=... to it to turn on the AI code check (free key: https://aistudio.google.com/apikey)."

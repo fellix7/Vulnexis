@@ -12,7 +12,7 @@ if [ "${have%%.*}" -lt "$need_major" ]; then
   exit 1
 fi
 
-[ -d node_modules ] || npm install --no-audit --no-fund
+[ -d node_modules ] || npm ci --no-audit --no-fund
 if [ ! -f .env ]; then
   cp .env.example .env
   echo "Created .env. Add GEMINI_API_KEY=... to it to turn on the AI code check (free key: https://aistudio.google.com/apikey)."

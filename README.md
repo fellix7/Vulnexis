@@ -86,8 +86,10 @@ The original pipeline is unchanged; Vulnexis wraps it in an agent that records a
 ## Run it
 
 ```bash
-npm install
+npm ci
 ```
+
+(`npm ci` installs the exact versions in `package-lock.json` without rewriting it, so `git pull` never conflicts on the lockfile.)
 
 ```bash
 cp .env.example .env

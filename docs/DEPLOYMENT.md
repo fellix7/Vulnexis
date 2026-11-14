@@ -25,8 +25,10 @@ Never commit `.env`; it is git-ignored.
 ## 3. Local development
 
 ```bash
-npm install
+npm ci
 ```
+
+(`npm ci` installs the exact versions in `package-lock.json` without rewriting it, so `git pull` never conflicts on the lockfile.)
 
 ```bash
 cp .env.example .env
