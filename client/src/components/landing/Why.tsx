@@ -42,7 +42,7 @@ export function Why() {
           <div className="lp-feature__text">
             <h3 id="why-feature-title">Does your code actually call the vulnerable function?</h3>
             <p className="muted">
-              Gemini names the line it relied on; Kavach re-checks that line in your file. Unreviewed findings say <strong>Not assessed</strong>,
+              Gemini names the line it relied on; Vulnexis re-checks that line in your file. Unreviewed findings say <strong>Not assessed</strong>,
               never “safe”.
             </p>
             <ul className="lp-verdicts" aria-label="The three possible verdicts">

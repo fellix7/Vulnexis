@@ -1,12 +1,10 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=rect&height=200&color=0:09090B,50:14210A,100:0B1F12&text=KAVACH&fontSize=72&fontColor=FFFFFF&fontAlignY=42&desc=AI%20SECURITY%20AGENT%20FOR%20INDIA%E2%80%99S%20BUILDERS&descSize=15&descAlignY=64&animation=fadeIn&stroke=C6F432&strokeWidth=1" width="100%" alt="Kavach: AI security agent for India's builders"/>
+<img src="https://capsule-render.vercel.app/api?type=rect&height=200&color=0:09090B,50:14210A,100:0B1F12&text=VULNEXIS&fontSize=72&fontColor=FFFFFF&fontAlignY=42&desc=AI%20SECURITY%20AGENT%20FOR%20INDIA%E2%80%99S%20BUILDERS&descSize=15&descAlignY=64&animation=fadeIn&stroke=C6F432&strokeWidth=1" width="100%" alt="Vulnexis: AI security agent for India's builders"/>
 
 ### Paste a GitHub link. Get a fix order, in Hindi or English, mapped to Indian law.
 
 **Infra Shift Hackathon 2026** · ML.ai × Infrasity × Geek Room · **Problem Statement 3: Open Innovation**
-
-`कवच` (*kavach*) means armour.
 
 </div>
 
@@ -16,7 +14,7 @@
 
 Indian student teams, two-person startups and small agencies ship Node.js apps that pull in hundreds of open-source packages. Most have no security person. `npm audit` gives them a wall of 70+ alerts in English security jargon, with no idea which ones matter. Meanwhile the **DPDP Act 2023** makes them responsible for "reasonable security safeguards" (Section 8(5), penalties up to ₹250 crore), and **CERT-In's 2022 directions** require reporting attacks within 6 hours. The founder, often non-technical, needs a decision; the developer needs a command.
 
-## What Kavach does
+## What Vulnexis does
 
 **Target user:** a developer at an Indian startup or agency with no security team, and the founder or client they answer to.
 
@@ -61,7 +59,7 @@ No network? **Scan the bundled sample** or **Explore demo data** on `/scan`.
 | :--- | :--- |
 | **Who pays** | Indian seed-stage startups (₹999/month) and dev agencies maintaining client apps (₹4,999/month, 25 projects, white-label report). Free for students and open source |
 | **What they renew for** | Weekly re-scan + WhatsApp alert the day a package they use appears on the exploited list |
-| **First 100 users** | College tech clubs and hackathons (free tier + "Scanned by Kavach" README badge), helpful PRs to popular Indian OSS repos, one free client report for agencies on LinkedIn |
+| **First 100 users** | College tech clubs and hackathons (free tier + "Scanned by Vulnexis" README badge), helpful PRs to popular Indian OSS repos, one free client report for agencies on LinkedIn |
 
 ## Architecture
 
@@ -81,7 +79,7 @@ Express + TypeScript agent                         server/src/index.ts, agent.ts
    8. report   → client builds India brief (CERT-In / DPDP, Hindi/English)  client/src/lib/india.ts
 ```
 
-The original pipeline is unchanged; Kavach wraps it in an agent that records and streams each step.
+The original pipeline is unchanged; Vulnexis wraps it in an agent that records and streams each step.
 
 ## Run it
 

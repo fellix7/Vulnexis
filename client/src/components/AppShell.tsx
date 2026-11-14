@@ -71,7 +71,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="shell">
       <aside className="sidebar" data-open={open} aria-label="Primary">
-        <Link to="/" className="sidebar__brand" aria-label="Kavach home">
+        <Link to="/" className="sidebar__brand" aria-label="Vulnexis home">
           <Logo />
         </Link>
         <div className="sidebar__cta">

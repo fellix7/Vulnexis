@@ -277,7 +277,7 @@ function failure(e: unknown): { status: number; error: string } {
 // shortcut: per-process counter; behind several instances, add rate limiting at the proxy instead.
 const MAX_SCANS = Math.max(1, Number(process.env.MAX_CONCURRENT_SCANS) || 4);
 let running = 0;
-const BUSY = { status: 429, error: 'Kavach is busy with other scans right now. Try again in a minute.' };
+const BUSY = { status: 429, error: 'Vulnexis is busy with other scans right now. Try again in a minute.' };
 
 // Streams the agent's steps as they happen (one JSON object per line), then the result.
 app.post('/api/scan/stream', async (req, res) => {
@@ -327,5 +327,5 @@ if (existsSync(CLIENT_DIST)) {
 }
 
 app.listen(PORT, () => {
-  console.log(`Kavach API listening on http://localhost:${PORT}`);
+  console.log(`Vulnexis API listening on http://localhost:${PORT}`);
 });

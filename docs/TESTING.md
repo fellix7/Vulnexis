@@ -1,6 +1,6 @@
-# Testing Kavach
+# Testing Vulnexis
 
-Kavach is tested with small offline self-checks for the risky logic, a type-check and build, and a manual end-to-end run before every demo.
+Vulnexis is tested with small offline self-checks for the risky logic, a type-check and build, and a manual end-to-end run before every demo.
 
 ## 1. Automated checks
 
@@ -74,7 +74,7 @@ curl -sN -X POST localhost:8787/api/scan/stream -H 'content-type: application/js
 | 5 | Open a Fix-now finding | Reasons, advisory, chain, code evidence with file:line (if the key is set), verified fix |
 | 6 | `/agent` | Same steps, tool list, sources cited, the five rules |
 | 7 | `/india` | Verdict, summary, next steps, 4 obligations with working source links, plain-words list |
-| 8 | **Share on WhatsApp** | WhatsApp (or web.whatsapp.com) opens with the summary; no number asked by Kavach |
+| 8 | **Share on WhatsApp** | WhatsApp (or web.whatsapp.com) opens with the summary; no number asked by Vulnexis |
 | 9 | Switch to हिंदी on `/india` | Verdict, summary, steps, obligations and plain words in Hindi; package names unchanged |
 | 10 | `/remediation` → copy a command | Clipboard has the exact command |
 | 11 | `/reports` → download Markdown and JSON | Files download; history lists the scan |
@@ -83,7 +83,7 @@ curl -sN -X POST localhost:8787/api/scan/stream -H 'content-type: application/js
 | 14 | Stop the server and reload `/scan` | "API not reachable" banner, demo data still available |
 | 15 | Start with `OFFLINE=1`, scan the sample | Works; offline banner shown; Gemini step skipped with a reason |
 | 16 | Production build: `curl -i localhost:8787/assets/nope.js` | 404 (not the HTML page); `/india` still returns the app |
-| 17 | Start with `MAX_CONCURRENT_SCANS=1`, start a scan, start a second at once | Second gets 429 "Kavach is busy…"; works again after the first finishes |
+| 17 | Start with `MAX_CONCURRENT_SCANS=1`, start a scan, start a second at once | Second gets 429 "Vulnexis is busy…"; works again after the first finishes |
 
 ## 5. Accessibility spot checks
 

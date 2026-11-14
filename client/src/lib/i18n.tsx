@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 // Technical names (package names, CVE ids, commands) are never translated.
 
 export type Lang = 'en' | 'hi'
-const KEY = 'kavach:lang:v1'
+const KEY = 'vulnexis:lang:v1'
 
 interface LangCtx {
   lang: Lang

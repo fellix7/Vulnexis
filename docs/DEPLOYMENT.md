@@ -1,4 +1,4 @@
-# Running and deploying Kavach
+# Running and deploying Vulnexis
 
 ## 1. Requirements
 

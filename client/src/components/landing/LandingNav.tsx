@@ -44,7 +44,7 @@ export function LandingNav() {
   return (
     <header className="lp-nav">
       <nav className="lp-wrap lp-nav__inner" aria-label="Primary">
-        <a href="#top" className="lp-nav__brand" aria-label="Kavach, back to top" onClick={(e) => goToSection(e, 'top')}>
+        <a href="#top" className="lp-nav__brand" aria-label="Vulnexis, back to top" onClick={(e) => goToSection(e, 'top')}>
           <Logo />
         </a>
         <ul className="lp-nav__links">

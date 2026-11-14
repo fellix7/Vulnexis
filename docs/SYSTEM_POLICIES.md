@@ -1,9 +1,9 @@
-# Kavach system policies
+# Vulnexis system policies
 
-These policies describe how Kavach behaves: what it collects, what the AI is allowed to do, how facts are sourced, how input is handled, and what users may use it for. Each policy names the code that enforces it, so it can be checked rather than trusted.
+These policies describe how Vulnexis behaves: what it collects, what the AI is allowed to do, how facts are sourced, how input is handled, and what users may use it for. Each policy names the code that enforces it, so it can be checked rather than trusted.
 
-**Applies to:** the Kavach web app and API in this repository (MVP, November 2026).
-**Owner:** the Kavach team. **Review:** whenever a data source, AI model, or data flow changes.
+**Applies to:** the Vulnexis web app and API in this repository (MVP, November 2026).
+**Owner:** the Vulnexis team. **Review:** whenever a data source, AI model, or data flow changes.
 
 | # | Policy | One-line rule |
 | :--- | :--- | :--- |
@@ -19,7 +19,7 @@ These policies describe how Kavach behaves: what it collects, what the AI is all
 | 10 | [Language and accessibility](#10-language-and-accessibility-policy) | Hindi and English, simple words, phone-first, colour never alone |
 | 11 | [Availability and failure](#11-availability-and-failure-policy) | Fail visibly and honestly; degrade to rules, never to guesses |
 | 12 | [Third-party services](#12-third-party-services) | What leaves the server, to whom, and why |
-| 13 | [Acceptable use](#13-acceptable-use) | What users must not do with Kavach |
+| 13 | [Acceptable use](#13-acceptable-use) | What users must not do with Vulnexis |
 | 14 | [Security issues and incidents](#14-security-issues-and-incident-response) | How to report a problem and how we respond |
 | 15 | [Change control](#15-change-control) | How these policies and the rules behind them change |
 
@@ -27,15 +27,15 @@ These policies describe how Kavach behaves: what it collects, what the AI is all
 
 ## 1. Scope and intended use
 
-**Kavach is a defensive tool.** It reads a project's dependency list and source code and tells the owner which known, published vulnerabilities to fix first and how.
+**Vulnexis is a defensive tool.** It reads a project's dependency list and source code and tells the owner which known, published vulnerabilities to fix first and how.
 
 - Intended users: developers and teams triaging **their own projects**, or **public open-source projects** they depend on or contribute to.
-- Kavach does **not** discover new vulnerabilities, produce exploits, attack, probe or scan any running system, or test networks.
-- Kavach only reports vulnerabilities already published in OSV.dev. It does not claim a project is secure.
+- Vulnexis does **not** discover new vulnerabilities, produce exploits, attack, probe or scan any running system, or test networks.
+- Vulnexis only reports vulnerabilities already published in OSV.dev. It does not claim a project is secure.
 
 ## 2. Personal data policy
 
-Kavach is designed so that it never needs personal data.
+Vulnexis is designed so that it never needs personal data.
 
 | Rule | How it is enforced |
 | :--- | :--- |
@@ -43,9 +43,9 @@ Kavach is designed so that it never needs personal data.
 | Never ask for Aadhaar, PAN, OTPs, bank or card details, passwords, phone numbers or addresses | No field exists for them; the agent never prompts the user for anything |
 | WhatsApp sharing collects nothing | The share button opens `https://wa.me/?text=…` with the summary only; no phone number is entered or stored (`client/src/pages/India.tsx`) |
 | No analytics, tracking pixels or third-party cookies | None are included in `client/` |
-| The language choice is a preference, not personal data | Stored only in the user's own browser (`localStorage` key `kavach:lang:v1`) |
+| The language choice is a preference, not personal data | Stored only in the user's own browser (`localStorage` key `vulnexis:lang:v1`) |
 
-If a scanned repository itself contains personal data (for example in fixtures), Kavach does not extract, display or store it. Only short code snippets around imports of vulnerable packages can reach the AI, after secret masking (policy 8).
+If a scanned repository itself contains personal data (for example in fixtures), Vulnexis does not extract, display or store it. Only short code snippets around imports of vulnerable packages can reach the AI, after secret masking (policy 8).
 
 ## 3. Data handling and retention
 
@@ -65,7 +65,7 @@ If a scanned repository itself contains personal data (for example in fixtures),
 
 ## 4. AI usage policy
 
-Kavach uses Google Gemini for **one job**: reading short snippets of the user's code to judge whether it calls the vulnerable function named in an advisory.
+Vulnexis uses Google Gemini for **one job**: reading short snippets of the user's code to judge whether it calls the vulnerable function named in an advisory.
 
 ### What the AI may do
 - Return one verdict per advisory: `USES_VULNERABLE_API`, `NO_VULNERABLE_USAGE_FOUND` or `UNCERTAIN`, with up to two sentences of reasoning and line citations.
@@ -189,13 +189,13 @@ The rule: **degrade to deterministic rules, never to guesses**, and always tell 
 | Google Gemini | Masked code snippets around imports of vulnerable packages, advisory text | Code-usage verdicts |
 | WhatsApp (`wa.me`) | Only when the user taps Share: the summary text, in the user's own browser | Let the user send the summary |
 
-No other services are contacted. The server sends `User-Agent: kavach-scanner` and no user identifiers.
+No other services are contacted. The server sends `User-Agent: vulnexis-scanner` and no user identifiers.
 
 ## 13. Acceptable use
 
 Users must not:
-- scan repositories they are not allowed to read, or try to use Kavach to reach private code;
-- use Kavach to find targets to attack, or to support exploitation of third-party systems;
+- scan repositories they are not allowed to read, or try to use Vulnexis to reach private code;
+- use Vulnexis to find targets to attack, or to support exploitation of third-party systems;
 - automate high-volume requests against the public deployment (each scan downloads a repository and calls public APIs);
 - submit content designed to manipulate the AI or crash the server (prompt injection, decompression bombs, oversized payloads).
 
@@ -203,10 +203,10 @@ The server enforces size, time and host limits (policy 7), runs at most `MAX_CON
 
 ## 14. Security issues and incident response
 
-- **Report a problem** with Kavach itself (for example a way to make it read private data or execute code) by opening a private security advisory on the GitHub repository, or by contacting the maintainers directly. Please do not open a public issue for security bugs.
+- **Report a problem** with Vulnexis itself (for example a way to make it read private data or execute code) by opening a private security advisory on the GitHub repository, or by contacting the maintainers directly. Please do not open a public issue for security bugs.
 - **Our response:** acknowledge within 2 working days; fix or mitigate critical issues first; credit reporters who want it.
-- **If Kavach's own server is compromised**, the team will take the deployment offline, rotate the Gemini keys, review logs, and, where the CERT-In directions apply to the operator, report within 6 hours of noticing. The server stores no personal data and no user projects, which limits impact.
-- **Dependencies of Kavach itself** are scanned with Kavach before each release.
+- **If Vulnexis's own server is compromised**, the team will take the deployment offline, rotate the Gemini keys, review logs, and, where the CERT-In directions apply to the operator, report within 6 hours of noticing. The server stores no personal data and no user projects, which limits impact.
+- **Dependencies of Vulnexis itself** are scanned with Vulnexis before each release.
 
 ## 15. Change control
 

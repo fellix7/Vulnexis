@@ -1,7 +1,7 @@
-# Kavach user guide · उपयोग गाइड
+# Vulnexis user guide · उपयोग गाइड
 
-Kavach tells you which vulnerable open-source packages in your Node.js project to fix first, why, and how, in Hindi or English.
-Kavach बताता है कि आपके Node.js प्रोजेक्ट के कौन-से कमज़ोर ओपन-सोर्स पैकेज पहले ठीक करने हैं, क्यों, और कैसे, हिंदी या अंग्रेज़ी में।
+Vulnexis tells you which vulnerable open-source packages in your Node.js project to fix first, why, and how, in Hindi or English.
+Vulnexis बताता है कि आपके Node.js प्रोजेक्ट के कौन-से कमज़ोर ओपन-सोर्स पैकेज पहले ठीक करने हैं, क्यों, और कैसे, हिंदी या अंग्रेज़ी में।
 
 **You never need to give personal information.** No login, no phone number, no Aadhaar or PAN.
 **आपको कोई निजी जानकारी नहीं देनी है।** न लॉग-इन, न फ़ोन नंबर, न आधार या PAN।
@@ -10,7 +10,7 @@ Kavach बताता है कि आपके Node.js प्रोजेक�
 
 ## 1. Choose your language · भाषा चुनें
 
-Use the **EN | हिंदी** switch at the top right of every page. Kavach remembers your choice in this browser.
+Use the **EN | हिंदी** switch at the top right of every page. Vulnexis remembers your choice in this browser.
 हर पेज पर ऊपर दाईं ओर **EN | हिंदी** बटन से भाषा बदलें। आपकी पसंद इस ब्राउज़र में याद रहती है।
 
 ## 2. Start a scan · स्कैन शुरू करें (`/scan`)
@@ -82,7 +82,7 @@ The smallest safe version for each package, re-checked so the upgrade does not l
 npm install ejs@3.1.10
 ```
 
-For packages you did not install directly, Kavach names the parent package to upgrade, or gives an npm `overrides` command.
+For packages you did not install directly, Vulnexis names the parent package to upgrade, or gives an npm `overrides` command.
 
 ## 5. India brief · भारत रिपोर्ट (`/india`)
 
@@ -104,7 +104,7 @@ This is information, not legal advice. यह जानकारी है, क�
 
 ## 7. Questions · सवाल
 
-**Does Kavach run my code? · क्या Kavach मेरा कोड चलाता है?**
+**Does Vulnexis run my code? · क्या Vulnexis मेरा कोड चलाता है?**
 No. It only reads files as text. नहीं, सिर्फ़ टेक्स्ट की तरह पढ़ता है।
 
 **What does the AI see? · AI क्या देखता है?**

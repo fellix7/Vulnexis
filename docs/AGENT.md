@@ -1,6 +1,6 @@
-# Kavach agent design
+# Vulnexis agent design
 
-PS3 asks for an agent that "plans its steps, uses tools or data and decides what to do next, beyond what a plain chatbot does", with "its reasoning visible to the user". This document describes exactly how Kavach's agent does that.
+PS3 asks for an agent that "plans its steps, uses tools or data and decides what to do next, beyond what a plain chatbot does", with "its reasoning visible to the user". This document describes exactly how Vulnexis's agent does that.
 
 ## 1. Design principles
 

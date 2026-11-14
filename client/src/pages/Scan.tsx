@@ -190,7 +190,7 @@ export default function ScanPage() {
         <div className="scan-main">
           {healthFailed && (
             <Callout tone="warn" role="status">
-              <strong>The scan API is not reachable.</strong> Scanning needs the Kavach server. From the project root, run <code>npm run dev</code> to start it. You can still{' '}
+              <strong>The scan API is not reachable.</strong> Scanning needs the Vulnexis server. From the project root, run <code>npm run dev</code> to start it. You can still{' '}
               <button type="button" className="link-btn" onClick={exploreDemo} disabled={scanning}>
                 explore the demo data
               </button>
@@ -267,7 +267,7 @@ export default function ScanPage() {
                 </span>
               </div>
               <p className="scan-step__lede">
-                With your code, Kavach can check whether it actually calls the vulnerable function. Only files that import a vulnerable package are analysed, and only short
+                With your code, Vulnexis can check whether it actually calls the vulnerable function. Only files that import a vulnerable package are analysed, and only short
                 snippets around those uses go to Gemini. Nothing is installed or executed. Up to 300 files and 3 MB are read; without a folder, findings show “Not assessed”.
               </p>
               <SourceFolder

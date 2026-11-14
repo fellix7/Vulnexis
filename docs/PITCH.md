@@ -1,4 +1,4 @@
-# Kavach: demo script and pitch (3 minutes)
+# Vulnexis: demo script and pitch (3 minutes)
 
 Problem Statement 3: Open Innovation. Judged out of 70: Technical 20, ML.ai 10, Innovation 10, UX 10, Completeness 10, Presentation 10.
 
@@ -33,14 +33,14 @@ Flip **हिंदी**. Tap **Share on WhatsApp**.
 > "The developer gets commands. The founder gets this, in Hindi, on WhatsApp."
 
 **2:35 · Business case (25 s)**
-> "Who pays: Indian startups at ₹999 a month, and dev agencies at ₹4,999 for 25 client apps. What they renew for: the weekly re-scan that WhatsApps them the day a package they use starts being exploited. First 100 users: free for college clubs and hackathons like this one, with a 'Scanned by Kavach' badge on every README."
+> "Who pays: Indian startups at ₹999 a month, and dev agencies at ₹4,999 for 25 client apps. What they renew for: the weekly re-scan that WhatsApps them the day a package they use starts being exploited. First 100 users: free for college clubs and hackathons like this one, with a 'Scanned by Vulnexis' badge on every README."
 
 **3:00 · Close**
-> "Kavach. Armour for India's builders."
+> "Vulnexis. Security that speaks your language, for India's builders."
 
 ## Likely judge questions
 
-- **"Isn't this just npm audit?"** npm audit lists. Kavach decides: exploitation data, production vs dev, whether *your code* calls the vulnerable function, a verified upgrade, Indian compliance mapping, and Hindi.
+- **"Isn't this just npm audit?"** npm audit lists. Vulnexis decides: exploitation data, production vs dev, whether *your code* calls the vulnerable function, a verified upgrade, Indian compliance mapping, and Hindi.
 - **"What if the AI is wrong?"** It can't create or remove a finding. It can only raise a priority, and every citation is machine-checked against the file. "Not found" is shown as "needs review", not "safe".
 - **"Where is the agent?"** `/agent`: the plan, tool calls, inputs, outputs, decisions and sources for this run. The plan changes with the inputs (no source → it skips the code check and says why).
 - **"Limits?"** npm only, public repos only, top 30 direct findings get the code check, not legal advice.

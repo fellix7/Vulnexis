@@ -2,7 +2,7 @@
 @import '@fontsource-variable/jetbrains-mono';
 
 /* ==========================================================================
-   Kavach design tokens. Dark-first; colour is always paired with a label or glyph.
+   Vulnexis design tokens. Dark-first; colour is always paired with a label or glyph.
    Owner: shared foundation. Pages add their own CSS in pages/<page>.css.
    ========================================================================== */
 :root {

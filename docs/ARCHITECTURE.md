@@ -1,6 +1,6 @@
-# Kavach architecture
+# Vulnexis architecture
 
-Kavach is one TypeScript project in npm workspaces: an Express API (`server/`) that runs the scan agent, and a React + Vite single-page app (`client/`). There is no database. In production, the API also serves the built client, so it deploys as one Node process.
+Vulnexis is one TypeScript project in npm workspaces: an Express API (`server/`) that runs the scan agent, and a React + Vite single-page app (`client/`). There is no database. In production, the API also serves the built client, so it deploys as one Node process.
 
 ```
 ┌──────────────────────────── Browser (phone or desktop) ────────────────────────────┐

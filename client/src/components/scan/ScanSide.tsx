@@ -26,7 +26,7 @@ export function ScanSide() {
         <h2 id="scan-privacy-h">What happens to your files</h2>
         <ul className="scan-points">
           <Point icon="eye" title="Read only">
-            Your project is never installed, built or run. Kavach only reads the lockfile and, if you choose a folder, the text of your source files.
+            Your project is never installed, built or run. Vulnexis only reads the lockfile and, if you choose a folder, the text of your source files.
           </Point>
           <Point icon="upload" title="The lockfile goes to this server">
             Package names and versions are looked up at OSV.dev, FIRST.org (EPSS), CISA (KEV) and the npm registry. The file itself is not sent to those services.

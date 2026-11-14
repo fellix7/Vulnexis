@@ -93,7 +93,7 @@ function findingBlock(f: Finding, review: ReviewState, result: ScanResult): stri
 export function buildMarkdown(result: ScanResult, review: ReviewState, source: 'api' | 'mock'): string {
   const funnel = computeFunnel(result.findings, review)
   const out: string[] = []
-  out.push('# Kavach dependency triage report')
+  out.push('# Vulnexis dependency triage report')
   out.push('')
   out.push(`- Scanned: ${result.scannedAt}`)
   out.push(`- Packages inspected: ${result.packageCount}`)

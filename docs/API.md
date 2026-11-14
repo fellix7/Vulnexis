@@ -1,4 +1,4 @@
-# Kavach API reference
+# Vulnexis API reference
 
 Base URL: the server origin (default `http://localhost:8787`). In development, the Vite dev server proxies `/api` to it.
 
@@ -62,7 +62,7 @@ Response: `200`, `Content-Type: application/x-ndjson; charset=utf-8`. One JSON o
 - The stream ends with exactly one `result` or one `error` line:
 
 ```json
-{"type":"error","status":400,"error":"No package-lock.json found in this repository. Kavach needs an npm lockfile to know exact versions."}
+{"type":"error","status":400,"error":"No package-lock.json found in this repository. Vulnexis needs an npm lockfile to know exact versions."}
 ```
 
 Errors are sent in-band (the HTTP status stays 200 because headers are already sent); `status` is the equivalent HTTP status. The one exception is `429` (server busy), which is returned as a normal JSON error before streaming starts.
@@ -156,7 +156,7 @@ The canonical definitions are in `server/src/types.ts` (copied to `client/src/ty
 | 400 | Repository too large | "This repository is larger than 60 MB…", "…too large to read (over 300 MB unpacked)…" |
 | 404 | Sample missing on this server | "Sample project is not available on this server." |
 | 502 | A data source failed (OSV, npm, GitHub unreachable) | "Scan failed while contacting a data source. Try again." |
-| 429 | Too many scans running at once on this server (`MAX_CONCURRENT_SCANS`, default 4); sent as a normal JSON error before the stream starts | "Kavach is busy with other scans right now. Try again in a minute." |
+| 429 | Too many scans running at once on this server (`MAX_CONCURRENT_SCANS`, default 4); sent as a normal JSON error before the stream starts | "Vulnexis is busy with other scans right now. Try again in a minute." |
 | 503 | Offline mode and no snapshot for this project | "Offline mode: this project has no saved snapshot…" |
 
 All messages are safe to show to users as-is.

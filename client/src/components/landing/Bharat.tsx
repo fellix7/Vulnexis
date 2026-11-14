@@ -4,7 +4,7 @@ import { Icon, type IconName } from '../ui/Icon'
 import { SectionHead } from './SectionHead'
 import { useOpenDemo } from './useOpenDemo'
 
-// Landing sections added for Kavach: the agent loop, why it is built for India, and pricing in rupees.
+// Landing sections added for Vulnexis: the agent loop, why it is built for India, and pricing in rupees.
 
 const LOOP: { icon: IconName; en: string; hi: string; dEn: string; dHi: string; ai?: boolean }[] = [
   { icon: 'github', en: 'Take a real input', hi: 'असली इनपुट', dEn: 'A GitHub link or a lockfile. No login.', dHi: 'पब्लिक GitHub लिंक या package-lock.json। न लॉग-इन, न निजी जानकारी।' },
@@ -86,7 +86,7 @@ export function IndiaSection() {
       en: 'CERT-In: report within 6 hours',
       hi: 'CERT-In: 6 घंटे में रिपोर्ट',
       dEn: 'Report attacks within 6 hours; keep logs 180 days in India.',
-      dHi: 'सर्वर या ऐप पर हमले की सूचना 6 घंटे में CERT-In को देनी होती है, और लॉग 180 दिन भारत में रखने होते हैं। Kavach बताता है कि किस पर नज़र रखें।',
+      dHi: 'सर्वर या ऐप पर हमले की सूचना 6 घंटे में CERT-In को देनी होती है, और लॉग 180 दिन भारत में रखने होते हैं। Vulnexis बताता है कि किस पर नज़र रखें।',
       src: 'https://www.cert-in.org.in/PDF/CERT-In_Directions_70B_28.04.2022.pdf',
     },
     {
@@ -136,7 +136,7 @@ export function IndiaSection() {
             </li>
           ))}
         </ul>
-        <p className="kv-fine">{tr('Kavach gives information, not legal advice.', 'Kavach जानकारी देता है, क़ानूनी सलाह नहीं।')}</p>
+        <p className="kv-fine">{tr('Vulnexis gives information, not legal advice.', 'Vulnexis जानकारी देता है, क़ानूनी सलाह नहीं।')}</p>
       </div>
     </section>
   )
@@ -227,7 +227,7 @@ export function Pricing() {
           <div>
             <h3>{tr('First 100 users, for almost ₹0', 'पहले 100 यूज़र, लगभग ₹0 में')}</h3>
             <ol>
-              <li>{tr('College tech clubs and hackathons (Geek Room, GDG chapters): free tier + "Scanned by Kavach" README badge.', 'कॉलेज टेक क्लब और हैकाथॉन (Geek Room, GDG): फ़्री प्लान + README पर "Scanned by Kavach" बैज।')}</li>
+              <li>{tr('College tech clubs and hackathons (Geek Room, GDG chapters): free tier + "Scanned by Vulnexis" README badge.', 'कॉलेज टेक क्लब और हैकाथॉन (Geek Room, GDG): फ़्री प्लान + README पर "Scanned by Vulnexis" बैज।')}</li>
               <li>{tr('Open a helpful PR on popular Indian open-source repos with their fix plan.', 'लोकप्रिय भारतीय ओपन-सोर्स रिपॉज़िटरी पर उनकी सुधार योजना के साथ PR।')}</li>
               <li>{tr('Dev agencies on LinkedIn: one free client report, then the Agency plan.', 'LinkedIn पर डेव एजेंसियाँ: एक फ़्री क्लाइंट रिपोर्ट, फिर एजेंसी प्लान।')}</li>
             </ol>

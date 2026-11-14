@@ -1,4 +1,4 @@
-// Mark: a shield (kavach) holding the three narrowing bars: many alerts in, one decision out.
+// Mark: a shield holding the three narrowing bars: many alerts in, one decision out.
 export function LogoMark({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" aria-hidden="true" focusable="false">
@@ -14,7 +14,7 @@ export function Logo({ size = 20 }: { size?: number }) {
   return (
     <span className="logo" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, color: 'var(--text)' }}>
       <LogoMark size={size} />
-      <span style={{ fontWeight: 650, fontSize: size * 0.82, letterSpacing: '-0.03em', lineHeight: 1 }}>kavach</span>
+      <span style={{ fontWeight: 650, fontSize: size * 0.82, letterSpacing: '-0.03em', lineHeight: 1 }}>vulnexis</span>
     </span>
   )
 }

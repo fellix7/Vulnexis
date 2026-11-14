@@ -42,7 +42,7 @@ async function download(owner: string, name: string, ref: string): Promise<Buffe
   const url = `https://codeload.github.com/${owner}/${name}/tar.gz/${ref.split('/').map(encodeURIComponent).join('/')}`;
   let res: Response;
   try {
-    res = await fetch(url, { headers: { 'User-Agent': 'kavach-scanner' }, signal: AbortSignal.timeout(TIMEOUT_MS * 2) });
+    res = await fetch(url, { headers: { 'User-Agent': 'vulnexis-scanner' }, signal: AbortSignal.timeout(TIMEOUT_MS * 2) });
   } catch {
     throw new RepoError('Could not reach GitHub. Try again, or upload the lockfile instead.');
   }
@@ -121,8 +121,8 @@ export async function fetchRepo(rawUrl: string): Promise<FetchedRepo> {
     const hasYarn = all.some((b) => /(^|\/)(yarn\.lock|pnpm-lock\.yaml)$/.test(b.path));
     throw new RepoError(
       hasYarn
-        ? 'This repository uses Yarn or pnpm. Kavach currently reads npm lockfiles (package-lock.json) only.'
-        : 'No package-lock.json found in this repository. Kavach needs an npm lockfile to know exact versions.',
+        ? 'This repository uses Yarn or pnpm. Vulnexis currently reads npm lockfiles (package-lock.json) only.'
+        : 'No package-lock.json found in this repository. Vulnexis needs an npm lockfile to know exact versions.',
     );
   }
   let lockfile: unknown;

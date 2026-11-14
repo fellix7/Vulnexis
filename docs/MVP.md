@@ -1,6 +1,6 @@
-# Kavach MVP: what we present
+# Vulnexis MVP: what we present
 
-> **Kavach** (कवच, "armour") is an AI security agent for India's builders. Paste a GitHub link, and the agent finds which vulnerable open-source packages to fix first, checks whether your code really uses them, verifies the safest upgrade, and explains it in Hindi or English, mapped to CERT-In and the DPDP Act.
+> **Vulnexis** is an AI security agent for India's builders. Paste a GitHub link, and the agent finds which vulnerable open-source packages to fix first, checks whether your code really uses them, verifies the safest upgrade, and explains it in Hindi or English, mapped to CERT-In and the DPDP Act.
 
 **Event:** Infra Shift Hackathon 2026 (ML.ai × Infrasity × Geek Room), 14 November 2026, 4 to 5 hour build window
 **Track:** Problem Statement 3, Open Innovation: *"Build an AI agent that solves a real problem for India and Indians"*
@@ -26,7 +26,7 @@ Related documents: [Demo script](PITCH.md) · [System policies](SYSTEM_POLICIES.
 
 ### Core MVP requirements
 
-| PS3 requirement | Kavach | Where to see it |
+| PS3 requirement | Vulnexis | Where to see it |
 | :--- | :--- | :--- |
 | Define the target user, problem and outcome | Section 1 above, the landing page ("Built for India"), README | `/`, `#india` |
 | One complete end-to-end workflow | GitHub link → plan → tools → decisions → verified fix → India brief → WhatsApp / export | `/scan` → `/overview` → `/india` |
@@ -115,7 +115,7 @@ Sample scan (offline snapshot) result: **251 packages → 76 known vulnerabiliti
 | :--- | :--- |
 | **Who pays** | Seed-stage Indian startups (**₹999 / month**) and dev agencies maintaining client apps (**₹4,999 / month**, 25 projects, white-label report in the client's language). Students and open source: free. |
 | **What keeps them coming back** | The weekly re-scan that sends a WhatsApp alert the day a package they use appears on the exploited list. That is the feature they renew for. |
-| **Cheapest channel for the first 100 users** | College tech clubs and hackathons (Geek Room, GDG chapters): free tier plus a "Scanned by Kavach" README badge that spreads with every repo. Then helpful pull requests with fix plans on popular Indian open-source repos, and one free client report for agencies found on LinkedIn. |
+| **Cheapest channel for the first 100 users** | College tech clubs and hackathons (Geek Room, GDG chapters): free tier plus a "Scanned by Vulnexis" README badge that spreads with every repo. Then helpful pull requests with fix plans on popular Indian open-source repos, and one free client report for agencies found on LinkedIn. |
 | **Why they would pay** | One hour of a security consultant costs more than a year of the Startup plan. An agency can show clients a before/after report to justify a maintenance retainer. |
 
 ---
