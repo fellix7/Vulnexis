@@ -284,6 +284,25 @@ if (savedKey) {
 }
 if (savedOffline) process.env.OFFLINE = savedOffline;
 
+check('import regex: pathological lines finish fast', () => {
+  const lines = [
+    'import' + ' '.repeat(200_000) + 'x',
+    'from '.repeat(40_000) + "'",
+    "import '" + 'lodash/'.repeat(30_000),
+    ("import  " + ' '.repeat(1900) + 'x\n').repeat(100), // under the 2,000-char line cap, many lines
+    ("from 'lodash/" + 'a'.repeat(1900) + '\n').repeat(100),
+  ];
+  for (const content of lines) {
+    const t0 = performance.now();
+    const r = findUsages('lodash', [], [{ path: 'evil.js', content }]);
+    const ms = performance.now() - t0;
+    assert.ok(ms < 100, `pathological input took ${ms.toFixed(1)} ms`);
+    assert.equal(r.importingFiles.length, 0);
+    console.log(`    ${ms.toFixed(1)} ms for ${content.length} chars`);
+  }
+  assert.equal(findUsages('lodash', [], [{ path: 'a.js', content: "import _ from 'lodash/fp'\nconst a = require( 'lodash' )" }]).importingFiles.length, 1);
+});
+
 console.log(`\n${passed} offline checks passed`);
 
 // ---------------------------------------------------------------------------

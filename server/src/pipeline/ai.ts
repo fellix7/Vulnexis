@@ -133,10 +133,14 @@ function apiIdentifier(api: string): string | null {
   return ids && ids.length > 0 ? ids[ids.length - 1] : null;
 }
 
-function importRegex(pkgName: string): RegExp {
+const MAX_IMPORT_LINE_CHARS = 2000;
+
+/** Matches a line that imports the package. Linear time: no adjacent overlapping quantifiers; lines over 2,000 chars are skipped. */
+function importRegex(pkgName: string): { test(line: string): boolean } {
   const name = escapeRe(pkgName);
   // require('x'), require("x/sub"), import ... from 'x', import 'x', import('x'), export ... from 'x'
-  return new RegExp(`(?:require\\s*\\(|import\\s*\\(|\\bfrom\\s+|\\bimport\\s+)\\s*['"\`]${name}(?:/[^'"\`]*)?['"\`]`);
+  const re = new RegExp(`(?:require\\s*\\(|import\\s*\\(|\\b(?:from|import)(?=\\s))\\s*['"\`]${name}(?:/[^'"\`]*)?['"\`]`);
+  return { test: (line) => line.length <= MAX_IMPORT_LINE_CHARS && re.test(line) };
 }
 
 function mergeWindows(matches: number[], total: number): { start: number; end: number; matches: number[] }[] {

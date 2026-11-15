@@ -6,6 +6,34 @@ const REGEN_HINT =
 
 type Obj = Record<string, unknown>;
 
+export const MAX_LOCK_PACKAGES = 20_000;
+const MAX_KEY_CHARS = 1_000;
+const MAX_NEST_DEPTH = 40;
+const MAX_PATH_NAMES = 8; // first + last 7
+const ROOTS_BUDGET = 2_000_000; // node and edge visits across all roots in packageRoots
+
+/** Throws a user-facing Error when the lockfile is too big or too deeply nested to analyse safely. */
+function checkLimits(packages: Obj): string[] {
+  const keys = Object.keys(packages);
+  if (keys.length > MAX_LOCK_PACKAGES) {
+    throw new Error(
+      `This lockfile lists more than ${MAX_LOCK_PACKAGES.toLocaleString('en-US')} packages, which is over the limit Vulnera can scan. Scan a smaller project or a single workspace's lockfile.`,
+    );
+  }
+  for (const k of keys) {
+    if (k.length > MAX_KEY_CHARS) {
+      throw new Error(`Invalid package-lock.json: a package path is longer than ${MAX_KEY_CHARS} characters.`);
+    }
+    let depth = 0;
+    for (let i = k.indexOf(NM); i !== -1; i = k.indexOf(NM, i + NM.length)) {
+      if (++depth > MAX_NEST_DEPTH) {
+        throw new Error(`Invalid package-lock.json: packages are nested more than ${MAX_NEST_DEPTH} levels deep.`);
+      }
+    }
+  }
+  return keys;
+}
+
 function isObj(v: unknown): v is Obj {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
@@ -42,21 +70,33 @@ interface Acc {
   direct: boolean;
   dev: boolean;
   path: string[];
+  depth: number;
 }
 
 const edgeFields = ['dependencies', 'optionalDependencies', 'peerDependencies'] as const;
 
 /** Node's lookup: the installed location `dep` resolves to when required from `from`. */
 function resolver(entries: Map<string, Obj>) {
+  const memo = new Map<string, Map<string, string | null>>();
   return (from: string, dep: string): string | null => {
+    let byDep = memo.get(from);
+    if (!byDep) memo.set(from, (byDep = new Map()));
+    const hit = byDep.get(dep);
+    if (hit !== undefined) return hit;
+    let found: string | null = null;
     let loc = from;
     for (;;) {
       const cand = loc === '' ? NM + dep : `${loc}/${NM}${dep}`;
       const e = entries.get(cand);
-      if (e && e.link !== true) return cand;
-      if (loc === '') return null;
+      if (e && e.link !== true) {
+        found = cand;
+        break;
+      }
+      if (loc === '') break;
       loc = parentLocation(loc);
     }
+    byDep.set(dep, found);
+    return found;
   };
 }
 
@@ -66,10 +106,24 @@ function resolver(entries: Map<string, Obj>) {
  * Call after parseLockfile has validated the lockfile.
  */
 export function packageRoots(lock: unknown): Map<string, Set<string>> {
+  return packageRootsWithStatus(lock).roots;
+}
+
+/** Like packageRoots, but with a work budget; `complete` is false when the budget ran out or the lockfile is over the limits (the map is then partial). */
+export function packageRootsWithStatus(lock: unknown): { roots: Map<string, Set<string>>; complete: boolean } {
   const out = new Map<string, Set<string>>();
-  if (!isObj(lock) || !isObj(lock.packages)) return out;
+  if (!isObj(lock) || !isObj(lock.packages)) return { roots: out, complete: true };
+  let keys: string[];
+  try {
+    keys = checkLimits(lock.packages);
+  } catch {
+    return { roots: out, complete: false };
+  }
   const entries = new Map<string, Obj>();
-  for (const [key, val] of Object.entries(lock.packages)) if (isObj(val)) entries.set(key, val);
+  for (const key of keys) {
+    const val = lock.packages[key];
+    if (isObj(val)) entries.set(key, val);
+  }
   const resolve = resolver(entries);
   const idOf = (loc: string) => {
     const e = entries.get(loc)!;
@@ -83,16 +137,19 @@ export function packageRoots(lock: unknown): Map<string, Set<string>> {
       for (const n of depNames(e, ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'])) roots.push([key, n]);
     }
   }
+  let budget = ROOTS_BUDGET;
   for (const [from, root] of roots) {
     const start = resolve(from, root);
     if (!start) continue;
     const seen = new Set([start]);
     const queue = [start];
     for (let i = 0; i < queue.length; i++) {
+      if (--budget < 0) return { roots: out, complete: false };
       const loc = queue[i]!;
       const id = idOf(loc);
       (out.get(id) ?? out.set(id, new Set()).get(id)!).add(root);
       for (const dep of depNames(entries.get(loc)!, edgeFields)) {
+        if (--budget < 0) return { roots: out, complete: false };
         const t = resolve(loc, dep);
         if (t && !seen.has(t)) {
           seen.add(t);
@@ -101,7 +158,7 @@ export function packageRoots(lock: unknown): Map<string, Set<string>> {
       }
     }
   }
-  return out;
+  return { roots: out, complete: true };
 }
 
 /** Workspace members of a monorepo: package name → folder (e.g. "@acme/shared" → "packages/shared"). */
@@ -137,7 +194,8 @@ export function parseLockfile(lock: unknown): Package[] {
   }
 
   const entries = new Map<string, Obj>();
-  for (const [key, val] of Object.entries(packages)) {
+  for (const key of checkLimits(packages)) {
+    const val = packages[key];
     if (isObj(val)) entries.set(key, val);
   }
   if (entries.size === 0) {
@@ -158,27 +216,48 @@ export function parseLockfile(lock: unknown): Package[] {
   const resolve = resolver(entries);
 
   // BFS from all direct deps over installed locations; first visit = shortest chain.
-  const pathOf = new Map<string, string[]>();
+  // Each location stores only a parent pointer; the (truncated) path is built at the end.
+  interface Hop {
+    parent: string | null;
+    name: string;
+    root: string;
+    depth: number;
+  }
+  const hops = new Map<string, Hop>();
   const queue: string[] = [];
   for (const n of rootNames) {
     const loc = NM + n;
     const e = entries.get(loc);
-    if (e && e.link !== true && !pathOf.has(loc)) {
-      pathOf.set(loc, [n]);
+    if (e && e.link !== true && !hops.has(loc)) {
+      hops.set(loc, { parent: null, name: n, root: n, depth: 1 });
       queue.push(loc);
     }
   }
   for (let qi = 0; qi < queue.length; qi++) {
     const loc = queue[qi]!;
-    const p = pathOf.get(loc)!;
+    const h = hops.get(loc)!;
     for (const dep of depNames(entries.get(loc)!, edgeFields)) {
       const target = resolve(loc, dep);
-      if (target && !pathOf.has(target)) {
-        pathOf.set(target, [...p, nameFromKey(target) ?? dep]);
+      if (target && !hops.has(target)) {
+        hops.set(target, { parent: loc, name: nameFromKey(target) ?? dep, root: h.root, depth: h.depth + 1 });
         queue.push(target);
       }
     }
   }
+  /** Chain from the direct dependency to `key`; long chains keep the first name and the last 7. */
+  const pathOf = (key: string): string[] | null => {
+    const h = hops.get(key);
+    if (!h) return null;
+    const long = h.depth > MAX_PATH_NAMES;
+    const tail: string[] = [];
+    let cur: Hop | undefined = h;
+    for (let i = 0, n = long ? MAX_PATH_NAMES - 1 : h.depth; i < n && cur; i++) {
+      tail.push(cur.name);
+      cur = cur.parent === null ? undefined : hops.get(cur.parent);
+    }
+    tail.reverse();
+    return long ? [h.root, ...tail] : tail;
+  };
 
   const acc = new Map<string, Acc>();
   for (const [key, e] of entries) {
@@ -189,22 +268,28 @@ export function parseLockfile(lock: unknown): Package[] {
 
     const isDirect = key === NM + name && rootNames.has(name);
     const dev = e.dev === true;
-    const path = pathOf.get(key) ?? [name];
+    const path = pathOf(key) ?? [name];
+    const depth = hops.get(key)?.depth ?? 1;
     // Aliased installs ("lodash-old": "npm:lodash@4.17.15") are keyed by the alias but record the real
     // registry name in `name`; vulnerability lookups and upgrade commands need the real one.
     const registryName = typeof e.name === 'string' && e.name !== '' ? e.name : name;
     const id = `${registryName}@${e.version}`;
     const cur = acc.get(id);
     if (!cur) {
-      acc.set(id, { name: registryName, version: e.version, direct: isDirect, dev, path });
+      acc.set(id, { name: registryName, version: e.version, direct: isDirect, dev, path, depth });
     } else {
       cur.direct = cur.direct || isDirect;
       cur.dev = cur.dev && dev;
-      if (path.length < cur.path.length) cur.path = path;
+      if (depth < cur.depth) {
+        cur.path = path;
+        cur.depth = depth;
+      }
     }
   }
 
-  return [...acc.values()].sort((a, b) =>
+  return [...acc.values()]
+    .map(({ depth: _d, ...p }) => p)
+    .sort((a, b) =>
     a.name < b.name ? -1 : a.name > b.name ? 1 : a.version < b.version ? -1 : a.version > b.version ? 1 : 0,
   );
 }

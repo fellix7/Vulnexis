@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parseLockfile } from '../parse.js';
+import { packageRootsWithStatus, parseLockfile } from '../parse.js';
 
 const find = (pkgs: ReturnType<typeof parseLockfile>, name: string, version?: string) =>
   pkgs.find((p) => p.name === name && (version === undefined || p.version === version));
@@ -167,4 +167,54 @@ for (const f of files) {
   assert.equal(pkgs[0].version, '4.17.15');
   assert.equal(pkgs[0].direct, true);
   console.log('ok  aliased package reports registry name');
+}
+
+// --- DoS limits ---
+{
+  const chain = (n: number) => {
+    const packages: Record<string, unknown> = { '': { dependencies: { p0: '1' } } };
+    const m = n - 1; // n entries in total, including the root
+    for (let i = 0; i < m; i++) packages[`node_modules/p${i}`] = { version: '1.0.0', ...(i + 1 < m ? { dependencies: { [`p${i + 1}`]: '1' } } : {}) };
+    return { lockfileVersion: 3, packages };
+  };
+  const heap = () => {
+    (globalThis as { gc?: () => void }).gc?.();
+    return process.memoryUsage().heapUsed;
+  };
+  const big = chain(20_000);
+  const h0 = heap();
+  const t0 = Date.now();
+  const pkgs = parseLockfile(big);
+  const ms = Date.now() - t0;
+  const grown = (heap() - h0) / 1e6;
+  assert.equal(pkgs.length, 19_999);
+  assert.ok(pkgs.every((p) => p.path.length <= 8), 'paths truncated to 8 names');
+  const deepest = find(pkgs, 'p19998')!;
+  assert.deepEqual(deepest.path, ['p0', 'p19992', 'p19993', 'p19994', 'p19995', 'p19996', 'p19997', 'p19998']);
+  assert.ok(ms < 2000, `chain parse took ${ms} ms`);
+  if ((globalThis as { gc?: unknown }).gc) assert.ok(grown < 150, `heap grew ${grown} MB`);
+  const t1 = Date.now();
+  const st = packageRootsWithStatus(big);
+  console.log(`ok  20,000-package chain: parse ${ms} ms, heap +${grown.toFixed(0)} MB (gc ${(globalThis as { gc?: unknown }).gc ? 'on' : 'off'}), packageRoots ${Date.now() - t1} ms complete=${st.complete}`);
+  assert.equal(st.complete, true);
+  const many = chain(20_000);
+  (many.packages[''] as { dependencies: Record<string, string> }).dependencies = Object.fromEntries(Array.from({ length: 300 }, (_, i) => [`p${i}`, '1']));
+  const t3 = Date.now();
+  assert.equal(packageRootsWithStatus(many).complete, false, 'roots x nodes work exceeds the budget');
+  assert.ok(Date.now() - t3 < 3000);
+
+  const t2 = Date.now();
+  const deps: Record<string, string> = {};
+  for (let i = 0; i < 3000; i++) deps[`missing-${i}`] = '1';
+  const nested = { lockfileVersion: 3, packages: { '': { dependencies: { a: '1' } }, 'node_modules/a': { version: '1.0.0', dependencies: deps }, ['node_modules/a/' + 'node_modules/x/'.repeat(38) + 'node_modules/y']: { version: '1.0.0', dependencies: deps } } };
+  parseLockfile(nested);
+  packageRootsWithStatus(nested);
+  assert.ok(Date.now() - t2 < 1000);
+  assert.throws(() => parseLockfile({ lockfileVersion: 3, packages: { '': {}, ['node_modules/x/'.repeat(41) + 'node_modules/y']: { version: '1' } } }), /nested/);
+  assert.throws(() => parseLockfile({ lockfileVersion: 3, packages: { '': {}, ['node_modules/' + 'a'.repeat(1001)]: { version: '1' } } }), /longer than/);
+  console.log(`ok  nested key + unresolved deps: ${Date.now() - t2} ms; depth and key-length caps`);
+
+  assert.doesNotThrow(() => parseLockfile(chain(20_000)));
+  assert.throws(() => parseLockfile(chain(20_001)), /more than 20,000 packages/);
+  console.log('ok  20,001 entries -> friendly error');
 }
