@@ -23,6 +23,9 @@ export function formatEpss(p: number): string {
   return '<0.1%';
 }
 
+/** OpenSSF malicious-packages advisories (OSV ids "MAL-…"): the package itself is hostile, whatever its severity label says. */
+export const isMalicious = (a: Pick<Advisory, 'id' | 'aliases'>): boolean => a.id.startsWith('MAL-') || a.aliases.some((x) => x.startsWith('MAL-'));
+
 // AI can only raise a tier (USES_VULNERABLE_API); NO_VULNERABLE_USAGE_FOUND / UNCERTAIN are ignored here.
 function tierFor(pkg: Package, advisory: Advisory, e: Enrichment, ai: AiVerdict | undefined, threshold: number): Tier {
   const sev = advisory.severity;
@@ -31,7 +34,7 @@ function tierFor(pkg: Package, advisory: Advisory, e: Enrichment, ai: AiVerdict 
   const prod = !pkg.dev;
   const epssHigh = e.epss !== null && e.epss >= threshold;
 
-  if (e.kev === true) return 'FIX_NOW';
+  if (isMalicious(advisory) || e.kev === true) return 'FIX_NOW';
   if (highOrCritical && prod && (epssHigh || ai?.verdict === 'USES_VULNERABLE_API')) return 'FIX_NOW';
   if (prod && (highOrCritical || (moderateLike && epssHigh))) return 'FIX_SPRINT';
   if (prod) return 'PLAN';
@@ -66,6 +69,7 @@ function citedSymbol(quote: string): string {
 
 function reasonsFor(pkg: Package, advisory: Advisory, e: Enrichment, ai: AiVerdict | undefined, x?: ExposureVerdict): string[] {
   const reasons: string[] = [];
+  if (isMalicious(advisory)) reasons.push('Known malicious package: remove it');
   if (e.kev === true) reasons.push('On CISA KEV (exploited in the wild)');
   reasons.push(e.epss === null ? 'EPSS: no data' : `EPSS ${formatEpss(e.epss)}`);
   reasons.push(`Severity: ${SEVERITY_LABEL[advisory.severity]}`);
@@ -102,7 +106,7 @@ export function scoreFindings(
     const ai = aiVerdicts?.get(findingKey(pkg, advisory));
     const base = tierFor(pkg, advisory, enrichment, ai, threshold);
     const x0 = opts?.exposureOf?.(pkg);
-    const tier = applyExposure(base, enrichment, x0);
+    const tier = isMalicious(advisory) ? base : applyExposure(base, enrichment, x0); // hostile code is never lowered
     const exposure = x0 ? { ...x0, lowered: tier !== base } : undefined;
     const finding: Finding = {
       pkg,

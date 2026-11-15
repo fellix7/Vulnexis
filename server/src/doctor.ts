@@ -49,6 +49,20 @@ export async function runDoctor(): Promise<{ offline: boolean; probes: Probe[] }
   return { offline: process.env.OFFLINE === '1', probes };
 }
 
+let last: { at: number; value: Promise<Awaited<ReturnType<typeof runDoctor>>> } | undefined;
+
+/** runDoctor() with a 60 s result cache, so repeated calls cannot fan out into outbound requests. */
+export function runDoctorCached(now = Date.now()) {
+  if (!last || now - last.at > 60_000) {
+    const value = runDoctor();
+    value.catch(() => {
+      if (last?.value === value) last = undefined;
+    });
+    last = { at: now, value };
+  }
+  return last.value;
+}
+
 export function printDoctor(r: { offline: boolean; probes: Probe[] }): void {
   const bad = r.probes.filter((p) => !p.ok);
   console.log('\nConnection check');

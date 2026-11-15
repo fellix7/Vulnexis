@@ -1,17 +1,21 @@
-import './net.js'; // first: route outbound requests through HTTPS_PROXY when one is set
+import './env.js'; // first: NODE_ENV defaults (production for dist/, development for tsx)
+import './net.js'; // second: route outbound requests through HTTPS_PROXY when one is set
 import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import express from 'express';
 import { Agent, plural, SOURCES } from './agent.js';
 import { sourceMessage } from './net.js';
-import { printDoctor, runDoctor } from './doctor.js';
-import { OfflineMissError, savedFallbacks } from './cache.js';
+import { printDoctor, runDoctor, runDoctorCached } from './doctor.js';
+import { OfflineMissError } from './cache.js';
+import { runWithStats, savedDataNote, stats } from './scanStats.js';
+import { doctorAccess, jsonErrorHandler, securityHeaders } from './security.js';
+import { validateScanRequest, ValidationError } from './validate.js';
 import { analyzeFindings } from './pipeline/ai.js';
-import { enrich } from './pipeline/enrich.js';
+import { enrich, loadKev } from './pipeline/enrich.js';
 import { matchPackages } from './pipeline/match.js';
 import { parseLockfile } from './pipeline/parse.js';
-import { planUpgrades, unverifiedByNetwork } from './pipeline/plan.js';
+import { planUpgrades } from './pipeline/plan.js';
 import { fetchRepo, RepoError } from './pipeline/github.js';
 import { buildContext, isContextPath } from './pipeline/context.js';
 import { DEFAULT_EPSS_THRESHOLD, EXPOSURE_LABEL, scoreFindings, TIER_ORDER } from './pipeline/score.js';
@@ -20,6 +24,9 @@ import type { AgentStep, ExposureVerdict, Finding, Package, RepoRef, ScanRequest
 const TIER_NAME: Record<Tier, string> = { FIX_NOW: 'fix now', FIX_SPRINT: 'this sprint', PLAN: 'plan', MONITOR: 'monitor' };
 
 const app = express();
+app.disable('x-powered-by');
+app.set('trust proxy', Number(process.env.TRUST_PROXY) || 0); // number of reverse proxies in front (0 = none)
+app.use(securityHeaders);
 const PORT = Number(process.env.PORT ?? 8787);
 const SAMPLE_DIR = path.resolve(import.meta.dirname, '../../samples/demo-app');
 const SOURCE_EXT = /\.(js|jsx|ts|tsx|mjs|cjs)$/;
@@ -64,11 +71,13 @@ async function loadSample(): Promise<{ lockfile: unknown; sources: SourceFile[];
   return { lockfile, sources, contextFiles };
 }
 
-async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal?: AbortSignal): Promise<ScanResult> {
+// Each scan runs inside its own stats scope, so concurrent scans never share counters or warnings.
+const scan = (req: ScanRequest, onStep?: (step: AgentStep) => void, signal?: AbortSignal): Promise<ScanResult> => runWithStats(() => runScan(req, onStep, signal));
+
+async function runScan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal?: AbortSignal): Promise<ScanResult> {
   const notes: string[] = [];
   const agent = new Agent(onStep, signal);
-  const fallbacksAtStart = savedFallbacks;
-  const unverifiedAtStart = unverifiedByNetwork;
+  const st = stats();
   const hasKey = Boolean(process.env.GEMINI_API_KEY);
   const offline = process.env.OFFLINE === '1';
 
@@ -193,7 +202,7 @@ async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal
       const kev = vals.filter((e) => e.kev === true).length;
       const hot = vals.filter((e) => e.epss !== null && e.epss >= DEFAULT_EPSS_THRESHOLD).length;
       return {
-        output: `${plural(kev, 'advisory', 'advisories')} on CISA KEV · ${hot} with EPSS ≥ 10%`,
+        output: `${plural(kev, 'advisory', 'advisories')} on CISA KEV · ${hot} with EPSS ≥ 10%${v.kevDate ? ` · CISA KEV catalog ${v.kevDate}` : ''}`,
         decision: kev > 0 ? `${plural(kev, 'vulnerability is', 'vulnerabilities are')} already exploited in real attacks; these go straight to "Fix now".` : undefined,
       };
     },
@@ -213,7 +222,8 @@ async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal
           : `no deployment files; import graph of ${plural(sources.length, 'source file')} and the servers they start`,
         sources: [SOURCES.ssvc, SOURCES.vex],
       },
-      async () => buildContext({ lockfile, sources, contextFiles, base, truncated }),
+      // A repository scanned by link belongs to someone else: its vulnexis.yml is shown but cannot lower anything.
+      async () => buildContext({ lockfile, sources, contextFiles, base, truncated, trustDeclarations: !req.repoUrl }),
       (v) => {
         if (!v) return { output: 'Nothing to map', decision: 'Ranking uses the published rules only.' };
         const c = v.context;
@@ -310,13 +320,14 @@ async function scan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal
     decision: fixNow > 0 ? `Start with the ${plural(fixNow, 'Fix now item')}.` : 'Nothing needs an emergency fix. Work through the sprint list.',
   });
 
-  const unverified = unverifiedByNetwork - unverifiedAtStart;
+  const unverified = st.unverifiedByNetwork;
   if (unverified > 0) {
     notes.push(`${plural(unverified, 'upgrade')} could not be verified because OSV.dev or the npm registry was unreachable; they show "no verified fix" instead of a guess. Scan again on a network that allows them.`);
   }
-  const fromSaved = savedFallbacks - fallbacksAtStart;
-  if (fromSaved > 0) {
-    notes.push(`The network blocked some live lookups, so ${plural(fromSaved, 'answer was', 'answers were')} taken from saved data. Results may be a little older than live data.`);
+  const savedNote = savedDataNote(st);
+  if (savedNote) notes.push(savedNote);
+  if (st.invalidPackages > 0) {
+    notes.push(`${plural(st.invalidPackages, 'package name')} in the lockfile ${st.invalidPackages === 1 ? 'is' : 'are'} not valid npm names and ${st.invalidPackages === 1 ? 'was' : 'were'} not looked up.`);
   }
 
   const result: ScanResult = {
@@ -338,13 +349,17 @@ function failure(e: unknown): { status: number; error: string } {
   if (e instanceof OfflineMissError) {
     return { status: 503, error: 'Offline mode: this project has no saved snapshot. Turn OFFLINE off or scan the sample.' };
   }
-  console.error(e);
-  return { status: 502, error: `The scan failed: ${e instanceof Error ? e.message : String(e)}` };
+  console.error(e); // the real cause stays in the server log
+  return { status: 502, error: 'The scan failed on our side. Please try again in a moment.' };
 }
 
 // Connection check: which services this server can reach, and what to do about the ones it cannot.
-app.get('/api/doctor', async (_req, res) => {
-  res.json(await runDoctor());
+// Open in development; in production it needs the x-admin-token header (see security.ts) and is cached for 60 s.
+app.get('/api/doctor', async (req, res) => {
+  const access = doctorAccess(req);
+  if (access === 'not-found') return void res.status(404).json({ error: 'Not found' });
+  if (access === 'forbidden') return void res.status(403).json({ error: 'Forbidden' });
+  res.json(await runDoctorCached());
 });
 
 // Each scan can hold a repository tarball (up to 300 MB unpacked) in memory, so only a few run at once.
@@ -354,7 +369,20 @@ let running = 0;
 const BUSY = { status: 429, error: 'Vulnera is busy with other scans right now. Try again in a minute.' };
 
 // Streams the agent's steps as they happen (one JSON object per line), then the result.
+/** Shape and size limits before any work; answers 400/413 with a plain message, or returns the clean request. */
+function checked(req: express.Request, res: express.Response): ScanRequest | null {
+  try {
+    return validateScanRequest(req.body);
+  } catch (e) {
+    if (!(e instanceof ValidationError)) throw e;
+    res.status(e.status).json({ error: e.message });
+    return null;
+  }
+}
+
 app.post('/api/scan/stream', async (req, res) => {
+  const body = checked(req, res);
+  if (!body) return;
   if (running >= MAX_SCANS) return void res.status(BUSY.status).json({ error: BUSY.error });
   running++;
   const abort = new AbortController();
@@ -369,7 +397,7 @@ app.post('/api/scan/stream', async (req, res) => {
     if (!abort.signal.aborted) res.write(`${JSON.stringify(obj)}\n`);
   };
   try {
-    const result = await scan((req.body ?? {}) as ScanRequest, (step) => send({ type: 'step', step }), abort.signal);
+    const result = await scan(body, (step) => send({ type: 'step', step }), abort.signal);
     send({ type: 'result', result });
   } catch (e) {
     if (!abort.signal.aborted) send({ type: 'error', ...failure(e) });
@@ -380,10 +408,12 @@ app.post('/api/scan/stream', async (req, res) => {
 });
 
 app.post('/api/scan', async (req, res) => {
+  const body = checked(req, res);
+  if (!body) return;
   if (running >= MAX_SCANS) return void res.status(BUSY.status).json({ error: BUSY.error });
   running++;
   try {
-    res.json(await scan((req.body ?? {}) as ScanRequest));
+    res.json(await scan(body));
   } catch (e) {
     const f = failure(e);
     res.status(f.status).json({ error: f.error });
@@ -400,7 +430,11 @@ if (existsSync(CLIENT_DIST)) {
   app.get(/^\/(?!api\/)[^.]*$/, (_req, res) => res.sendFile(path.join(CLIENT_DIST, 'index.html')));
 }
 
+// Last: malformed JSON, oversized bodies and unexpected errors become short JSON answers (no stack traces).
+app.use(jsonErrorHandler);
+
 app.listen(PORT, () => {
   console.log(`Vulnexis API listening on http://localhost:${PORT}`);
   runDoctor().then(printDoctor).catch(() => {});
+  loadKev().catch(() => {}); // read (and, once a day, refresh) the CISA KEV catalog before the first scan
 });

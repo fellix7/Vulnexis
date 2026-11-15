@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { cached, isOffline } from '../cache.js';
 import type { Advisory, Enrichment } from '../types.js';
@@ -18,33 +18,110 @@ export interface EnrichResult {
   map: Map<string, Enrichment>;
   /** non-fatal problems (EPSS unreachable, KEV missing); append to ScanResult.notes */
   warnings: string[];
+  /** release date of the KEV catalog that was used, e.g. "2026-10-23" */
+  kevDate?: string;
 }
 
-let kevPromise: Promise<Set<string>> | undefined;
+// The bundled data/kev.json is loaded once; at most every 24 h the official CISA feed is downloaded to refresh it.
+// A failed or malformed download keeps the bundled copy (one log line); the file is replaced only after validation.
+const KEV_REFRESH_MS = 24 * 3_600_000;
+const kevState: { set?: Set<string>; date?: string; attemptedAt: number; refreshing?: Promise<void> } = { attemptedAt: 0 };
 
-export function loadKev(): Promise<Set<string>> {
-  kevPromise ??= readKev().catch((err) => {
-    kevPromise = undefined; // allow retry on next call
-    throw err;
-  });
-  return kevPromise;
+export interface KevCatalog {
+  set: Set<string>;
+  /** e.g. "2026-10-23" */
+  date?: string;
 }
 
-async function readKev(): Promise<Set<string>> {
-  let text: string;
+/** Returns the parsed catalog, or null when the JSON is not a KEV catalog. */
+export function parseKev(text: string): KevCatalog | null {
+  let json: { vulnerabilities?: unknown; dateReleased?: unknown; catalogVersion?: unknown };
   try {
-    text = await readFile(KEV_FILE, 'utf8');
+    json = JSON.parse(text);
   } catch {
-    if (isOffline()) throw new Error('data/kev.json is missing and OFFLINE=1');
-    const res = await fetch(KEV_URL, { signal: AbortSignal.timeout(30_000) });
-    if (!res.ok) throw new Error(`KEV download failed: HTTP ${res.status}`);
-    text = await res.text();
-    await mkdir(path.dirname(KEV_FILE), { recursive: true });
-    await writeFile(KEV_FILE, text);
+    return null;
   }
-  const json = JSON.parse(text) as { vulnerabilities?: { cveID: string }[] };
-  return new Set((json.vulnerabilities ?? []).map((v) => v.cveID.toUpperCase()));
+  const list = json?.vulnerabilities;
+  if (!Array.isArray(list) || list.length < 100) return null; // the real catalog has well over a thousand entries
+  const set = new Set<string>();
+  for (const v of list) {
+    const id = (v as { cveID?: unknown } | null)?.cveID;
+    if (typeof id !== 'string' || !/^CVE-\d{4}-\d{4,}$/i.test(id)) return null;
+    set.add(id.toUpperCase());
+  }
+  const released = typeof json.dateReleased === 'string' && /^\d{4}-\d{2}-\d{2}/.test(json.dateReleased) ? json.dateReleased.slice(0, 10) : undefined;
+  const version = typeof json.catalogVersion === 'string' ? json.catalogVersion.replace(/\./g, '-') : undefined;
+  const date = released ?? version;
+  return date ? { set, date } : { set };
 }
+
+function adopt(cat: KevCatalog) {
+  kevState.set = cat.set;
+  kevState.date = cat.date;
+}
+
+async function downloadKev(): Promise<void> {
+  try {
+    const res = await fetch(KEV_URL, { signal: AbortSignal.timeout(30_000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    const cat = parseKev(text);
+    if (!cat) throw new Error('the download is not a valid KEV catalog');
+    adopt(cat); // usable even if the disk copy below cannot be written
+    const tmp = `${KEV_FILE}.${process.pid}.tmp`;
+    try {
+      await mkdir(path.dirname(KEV_FILE), { recursive: true });
+      await writeFile(tmp, text);
+      await rename(tmp, KEV_FILE);
+    } catch (e) {
+      await rm(tmp, { force: true }).catch(() => {});
+      console.warn(`[kev] could not save data/kev.json (${e instanceof Error ? e.message : String(e)})`);
+    }
+    console.log(`[kev] refreshed from CISA (${cat.set.size} entries, ${cat.date ?? 'date unknown'})`);
+  } catch (err) {
+    console.warn(`[kev] refresh failed (${err instanceof Error ? err.message : String(err)}); using the bundled copy${kevState.date ? ` from ${kevState.date}` : ''}`);
+  }
+}
+
+/** Starts a download when the catalog has not been tried in the last 24 h. Never throws. */
+function refreshKev(): Promise<void> {
+  if (isOffline() || kevState.refreshing || Date.now() - kevState.attemptedAt < KEV_REFRESH_MS) return kevState.refreshing ?? Promise.resolve();
+  kevState.attemptedAt = Date.now();
+  kevState.refreshing = downloadKev().finally(() => {
+    kevState.refreshing = undefined;
+  });
+  return kevState.refreshing;
+}
+
+async function readBundledKev(): Promise<boolean> {
+  try {
+    const cat = parseKev(await readFile(KEV_FILE, 'utf8'));
+    if (cat) {
+      adopt(cat);
+      const age = Date.now() - (await stat(KEV_FILE)).mtimeMs;
+      if (age < KEV_REFRESH_MS) kevState.attemptedAt = Date.now() - age; // fresh enough: next try after the 24 h are up
+      return true;
+    }
+  } catch {
+    /* missing or unreadable */
+  }
+  return false;
+}
+
+export async function loadKev(): Promise<Set<string>> {
+  if (!kevState.set) {
+    if (!(await readBundledKev())) {
+      if (isOffline()) throw new Error('data/kev.json is missing or invalid and OFFLINE=1');
+      await refreshKev(); // nothing to fall back on: wait for the download
+      if (!kevState.set) throw new Error('data/kev.json is missing and the CISA download failed');
+    }
+  }
+  void refreshKev(); // stale? refresh in the background so this scan is not delayed; the next one uses it
+  return kevState.set!;
+}
+
+/** The catalog release date, e.g. "2026-10-23", once loadKev() has run. */
+export const kevCatalogDate = (): string | undefined => kevState.date;
 
 export function cveIdsOf(advisory: Pick<Advisory, 'id' | 'aliases'>): string[] {
   const ids = new Set<string>();
@@ -128,5 +205,6 @@ export async function enrich(advisories: Advisory[]): Promise<EnrichResult> {
       kev: kev ? cves.some((c) => kev.has(c)) : null,
     });
   }
-  return { map, warnings };
+  const kevDate = kev ? kevCatalogDate() : undefined;
+  return kevDate ? { map, warnings, kevDate } : { map, warnings };
 }

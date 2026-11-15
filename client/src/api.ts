@@ -129,9 +129,11 @@ export interface Probe {
   advice?: string
 }
 
-/** GET /api/doctor: which services the server can reach, with advice for the ones it cannot. */
-export async function fetchDoctor(): Promise<{ offline: boolean; probes: Probe[] }> {
+/** GET /api/doctor: which services the server can reach, with advice for the ones it cannot.
+ *  In production the server only answers its operator (403/404); that is reported as `restricted`, not as an error. */
+export async function fetchDoctor(): Promise<{ offline: boolean; probes: Probe[]; restricted?: boolean }> {
   const r = await fetch('/api/doctor')
+  if (r.status === 403 || r.status === 404) return { offline: false, probes: [], restricted: true }
   if (!r.ok) throw new Error(`HTTP ${r.status}`)
   return (await r.json()) as { offline: boolean; probes: Probe[] }
 }

@@ -137,4 +137,28 @@ console.log('ok  formatEpss');
   assert.deepEqual(funnel(fs), { total: 2, production: 1, aiConfirmed: 1, fixNow: 1 });
   console.log('ok  funnel');
 }
+// Malicious packages (OSV MAL-*): always Fix now, even dev-only / unknown severity / lowered exposure.
+{
+  const mal = (id: string, aliases: string[] = []): Advisory => ({ ...adv('UNKNOWN', id), aliases });
+  for (const [label, p, a] of [
+    ['MAL id, prod', pkg(), mal('MAL-2024-1234')],
+    ['MAL id, dev-only', pkg({ dev: true }), mal('MAL-2024-1234')],
+    ['MAL alias, dev-only transitive', pkg({ dev: true, direct: false, path: ['a', 'evil'] }), mal('GHSA-xxxx-yyyy-zzzz', ['MAL-2025-9'])],
+  ] as const) {
+    const [f] = scoreFindings([{ pkg: p, advisory: a }], new Map([[a.id, enr(null, null)]]));
+    assert.equal(f!.tier, 'FIX_NOW', label);
+    assert.equal(f!.reasons[0], 'Known malicious package: remove it', label);
+  }
+  // exposure lowering does not apply
+  const m = mal('MAL-1');
+  const [g] = scoreFindings([{ pkg: pkg(), advisory: m }], new Map(), undefined, {
+    exposureOf: () => ({ level: 'unreached', evidence: [], lowered: false }) as never,
+  });
+  assert.equal(g!.tier, 'FIX_NOW', 'malicious not lowered by exposure');
+  // a normal advisory is unaffected
+  const [n] = scoreFindings([{ pkg: pkg(), advisory: adv('UNKNOWN', 'GHSA-malx-aaaa-bbbb') }], new Map());
+  assert.equal(n!.tier, 'PLAN');
+  assert.notEqual(n!.reasons[0], 'Known malicious package: remove it');
+  console.log('ok  malicious packages');
+}
 console.log('ALL SCORE CHECKS PASSED');

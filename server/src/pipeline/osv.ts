@@ -1,28 +1,16 @@
 import semver from 'semver';
-import { cached } from '../cache.js';
+import { cached, peek, savedOrThrow, store } from '../cache.js';
+import { fetchRetry } from '../http.js';
+import { stats } from '../scanStats.js';
 import type { Advisory, Severity } from '../types.js';
 
 const OSV = 'https://api.osv.dev/v1';
 const BATCH_SIZE = 500;
 export const DETAIL_CONCURRENCY = 8;
 
-import { reasonOf } from '../net.js';
-
 // ---------- HTTP ----------
 
-async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
-  let lastErr: unknown;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const res = await fetch(url, init);
-      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-      return (await res.json()) as T;
-    } catch (err) {
-      lastErr = err;
-    }
-  }
-  throw new Error(`Request to ${url} failed after retry: ${reasonOf(lastErr)}`, { cause: lastErr });
-}
+const requestJson = <T>(url: string, init?: RequestInit) => fetchRetry<T>(url, init, async (res) => (await res.json()) as T);
 
 export async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, i: number) => Promise<R>): Promise<R[]> {
   const out = new Array<R>(items.length);
@@ -57,30 +45,32 @@ const postBatch = (queries: BatchQuery[]) =>
     body: JSON.stringify({ queries }),
   });
 
-const MISS = Symbol('cache-miss');
+// npm's package-name grammar: at most 214 characters, optional @scope/, no leading . or _, URL-safe characters only.
+// Uppercase is allowed because old packages such as JSONStream still exist; spaces, slashes and control characters are not.
+const NAME_PART = /^[a-zA-Z0-9~-][a-zA-Z0-9._~-]*$/;
+export function isValidNpmName(name: unknown): boolean {
+  if (typeof name !== 'string' || name.length === 0 || name.length > 214) return false;
+  if (!name.startsWith('@')) return NAME_PART.test(name);
+  const [scope, pkg, ...rest] = name.slice(1).split('/');
+  return rest.length === 0 && !!scope && !!pkg && NAME_PART.test(scope) && NAME_PART.test(pkg);
+}
 
 /** Vulnerability ids for each input package version (same order as input). */
 export async function queryVersions(pkgs: { name: string; version: string }[]): Promise<string[][]> {
   const keyOf = (p: { name: string; version: string }) => `${p.name}@${p.version}`;
-  const unique = [...new Map(pkgs.map((p) => [keyOf(p), p])).values()];
+  const all = [...new Map(pkgs.map((p) => [keyOf(p), p])).values()];
+  // Invented or malformed names are never queried or cached; they count as "no known vulnerabilities".
+  const unique = all.filter((p) => isValidNpmName(p.name));
+  stats().invalidPackages += all.length - unique.length;
   const resolved = new Map<string, string[]>();
   const misses: typeof unique = [];
 
-  // Probe the cache: the fetcher throws a sentinel, so nothing is written on a miss.
-  // OfflineMissError (offline + not cached) is not the sentinel and propagates.
+  // Probe the cache. Offline + not saved throws OfflineMissError, which propagates.
   await Promise.all(
     unique.map(async (p) => {
-      try {
-        resolved.set(
-          keyOf(p),
-          await cached<string[]>('osv-query', keyOf(p), async () => {
-            throw MISS;
-          }),
-        );
-      } catch (err) {
-        if (err !== MISS) throw err;
-        misses.push(p);
-      }
+      const hit = await peek<string[]>('osv-query', keyOf(p));
+      if (hit) resolved.set(keyOf(p), hit);
+      else misses.push(p);
     }),
   );
 
@@ -92,12 +82,7 @@ export async function queryVersions(pkgs: { name: string; version: string }[]): 
     } catch (e) {
       // OSV unreachable: use saved answers for this chunk if every package has one, else fail with the network error.
       for (const p of chunk) {
-        resolved.set(
-          keyOf(p),
-          await cached<string[]>('osv-query', keyOf(p), async () => {
-            throw e;
-          }),
-        );
+        resolved.set(keyOf(p), await savedOrThrow<string[]>('osv-query', keyOf(p), e));
       }
       continue;
     }
@@ -116,7 +101,7 @@ export async function queryVersions(pkgs: { name: string; version: string }[]): 
       }
       const list = [...ids].sort();
       resolved.set(keyOf(p), list);
-      await cached('osv-query', keyOf(p), async () => list); // still a miss, so this stores it
+      await store('osv-query', keyOf(p), list);
     }
   }
 

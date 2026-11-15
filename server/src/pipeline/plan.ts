@@ -2,30 +2,21 @@ import semver from 'semver';
 import { cached, OfflineMissError } from '../cache.js';
 import type { Advisory, Package, UpgradePlan } from '../types.js';
 import { mapLimit, queryVersions } from './osv.js';
-import { reasonOf } from '../net.js';
+import { fetchRetry } from '../http.js';
+import { stats } from '../scanStats.js';
+import { isMalicious } from './score.js';
 
 const MAX_VERIFY_TRIES = 5;
 
-/** Upgrades left unverified because OSV or npm could not be reached (read by index.ts per scan). */
-export let unverifiedByNetwork = 0;
-
 // Cache only the list of version strings; the full registry document can be megabytes.
 async function registryVersions(name: string): Promise<string[]> {
-  return cached<string[]>('npm-registry', name, async () => {
-    const url = `https://registry.npmjs.org/${name.replace('/', '%2f')}`;
-    let lastErr: unknown;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const res = await fetch(url, { headers: { Accept: 'application/vnd.npm.install-v1+json' } });
-        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-        const doc = (await res.json()) as { versions?: Record<string, unknown> };
-        return Object.keys(doc.versions ?? {});
-      } catch (err) {
-        lastErr = err;
-      }
-    }
-    throw new Error(`npm registry lookup for ${name} failed: ${reasonOf(lastErr)}`, { cause: lastErr });
-  });
+  return cached<string[]>('npm-registry', name, () =>
+    fetchRetry(
+      `https://registry.npmjs.org/${name.replace('/', '%2f')}`,
+      { headers: { Accept: 'application/vnd.npm.install-v1+json' } },
+      async (res) => Object.keys(((await res.json()) as { versions?: Record<string, unknown> }).versions ?? {}),
+    ),
+  );
 }
 
 function jumpOf(from: string, to: string): UpgradePlan['jump'] {
@@ -69,7 +60,7 @@ async function resolveFixes(entries: { pkg: Package; advisories: Advisory[] }[])
   } catch (e) {
     // OSV unreachable and nothing saved: no upgrade can be verified, but the scan itself still stands.
     if (e instanceof OfflineMissError) throw e;
-    unverifiedByNetwork += probes.length;
+    stats().unverifiedByNetwork += probes.length;
     return entries.map(() => null);
   }
   const vulnerable = new Map(probes.map((p, k) => [`${p.name}@${p.version}`, probeResults[k]!.length > 0]));
@@ -91,7 +82,7 @@ async function resolveFixes(entries: { pkg: Package; advisories: Advisory[] }[])
     retryResults = await queryVersions(retryProbes);
   } catch (e) {
     if (e instanceof OfflineMissError) throw e;
-    unverifiedByNetwork += retryIdx.length;
+    stats().unverifiedByNetwork += retryIdx.length;
     higherLists = retryIdx.map(() => []);
     retryResults = [];
   }
@@ -120,7 +111,12 @@ export async function planUpgrades(matches: { pkg: Package; advisory: Advisory }
   }
 
   const entries = [...groups.values()];
-  const fixes = await resolveFixes(entries);
+  // A malicious package has no safe version: the only fix is to remove it, so it is never probed for upgrades.
+  const malicious = entries.map((e) => e.advisories.some(isMalicious));
+  const upgradable = entries.filter((_e, i) => !malicious[i]);
+  const resolved = await resolveFixes(upgradable);
+  let next = 0;
+  const fixes = entries.map((_e, i) => (malicious[i] ? null : resolved[next++]!));
   const plans = entries.map(({ pkg }, i) => {
     const to = fixes[i]!;
     const plan: UpgradePlan = {
@@ -128,7 +124,7 @@ export async function planUpgrades(matches: { pkg: Package; advisory: Advisory }
       from: pkg.version,
       to,
       jump: to ? jumpOf(pkg.version, to) : null,
-      command: to ? commandFor(pkg, to) : null,
+      command: malicious[i] ? `npm uninstall ${pkg.name}` : to ? commandFor(pkg, to) : null,
     };
     if (!pkg.direct && pkg.path[0]) plan.viaParent = pkg.path[0];
     return { plan, direct: pkg.direct };

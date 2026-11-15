@@ -6,14 +6,15 @@ import { Icon } from '../ui/Icon'
 /** Tests every service a scan needs from the server, and says what to do about any that are blocked. */
 export function ConnectionCheck({ auto = false }: { auto?: boolean }) {
   const { tr } = useLang()
-  const [state, setState] = useState<'idle' | 'checking' | 'done' | 'error'>('idle')
+  const [state, setState] = useState<'idle' | 'checking' | 'done' | 'error' | 'restricted'>('idle')
   const [probes, setProbes] = useState<Probe[]>([])
 
   async function run() {
     setState('checking')
     try {
-      setProbes((await fetchDoctor()).probes)
-      setState('done')
+      const doc = await fetchDoctor()
+      setProbes(doc.probes)
+      setState(doc.restricted ? 'restricted' : 'done')
     } catch {
       setState('error')
     }
@@ -36,6 +37,9 @@ export function ConnectionCheck({ auto = false }: { auto?: boolean }) {
         </button>
       </div>
       {state === 'error' && <p className="conn__note">{tr('The server did not answer the check.', 'सर्वर ने जाँच का जवाब नहीं दिया।')}</p>}
+      {state === 'restricted' && (
+        <p className="conn__note">{tr('Connection details are available to the server operator.', 'कनेक्शन की जानकारी सर्वर संचालक को उपलब्ध है।')}</p>
+      )}
       {probes.length > 0 && (
         <ul className="conn__list" aria-live="polite">
           {probes.map((p) => (
