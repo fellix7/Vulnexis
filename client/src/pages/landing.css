@@ -1137,105 +1137,6 @@ html:has(.lp) {
   color: var(--text-3);
 }
 
-.kv-plans {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-}
-.kv-plan {
-  position: relative;
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--surface-1);
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.kv-plan--featured {
-  border-color: var(--accent-line);
-  background: linear-gradient(180deg, var(--accent-soft), transparent 50%), var(--surface-1);
-}
-.kv-plan__tag {
-  position: absolute;
-  top: -11px;
-  left: 22px;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  padding: 4px 12px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--text-inverse);
-}
-.kv-plan h3 {
-  margin: 0;
-  font-size: var(--fs-lg);
-}
-.kv-plan__for {
-  margin: 0;
-  font-size: var(--fs-sm);
-  color: var(--text-2);
-}
-.kv-plan__price {
-  margin: 8px 0;
-}
-.kv-plan__price .num {
-  font-variant-numeric: tabular-nums;
-  font-size: 40px;
-  font-weight: 650;
-  letter-spacing: -0.04em;
-}
-.kv-plan ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 12px;
-  font-size: var(--fs-sm);
-  color: var(--text-2);
-}
-.kv-plan li {
-  display: grid;
-  grid-template-columns: 16px 1fr;
-  gap: 8px;
-  align-items: start;
-}
-.kv-plan li svg {
-  margin-top: 4px;
-  color: var(--accent);
-}
-.kv-gtm {
-  margin-top: 24px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  padding: 24px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 24px;
-  align-items: center;
-}
-.kv-gtm h3 {
-  margin: 0 0 12px;
-  font-size: var(--fs-lg);
-}
-.kv-gtm ol {
-  margin: 0;
-  padding-left: 20px;
-  display: grid;
-  gap: 8px;
-  color: var(--text-2);
-  font-size: var(--fs-sm);
-  line-height: 1.55;
-}
-.kv-gtm__cta {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
 @media (max-width: 1080px) {
   .kv-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1249,31 +1150,20 @@ html:has(.lp) {
 }
 @media (max-width: 720px) {
   .kv-loop,
-  .kv-cards,
-  .kv-plans {
+  .kv-cards {
     grid-template-columns: 1fr;
-  }
-  .kv-gtm {
-    grid-template-columns: 1fr;
-  }
-  .kv-gtm__cta .btn {
-    justify-content: center;
   }
 }
 
-/* Finish: balanced display heads, steady figures, readable muted text on the featured plan */
+/* Finish: balanced display heads, steady figures */
 .lp-hero h1,
 .lp-title,
 .kv-loop h3,
 .kv-card h3 {
   text-wrap: balance;
 }
-.lp-stat__n,
-.kv-plan__price .num {
+.lp-stat__n {
   font-variant-numeric: tabular-nums;
-}
-.kv-plan--featured .subtle {
-  color: var(--text-2);
 }
 
 /* Hero is one screen: headline, one sentence, two actions. The demo preview follows as its own section. */

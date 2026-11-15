@@ -2,9 +2,8 @@ import { useLang } from '../../lib/i18n'
 import { Link } from '../../router'
 import { Icon, type IconName } from '../ui/Icon'
 import { SectionHead } from './SectionHead'
-import { useOpenDemo } from './useOpenDemo'
 
-// Landing sections added for Vulnexis: the agent loop, why it is built for India, and pricing in rupees.
+// Landing sections added for Vulnexis: the agent loop and why it is built for India.
 
 const LOOP: { icon: IconName; en: string; hi: string; dEn: string; dHi: string; ai?: boolean }[] = [
   { icon: 'github', en: 'Take a real input', hi: 'असली इनपुट', dEn: 'A GitHub link or a lockfile. No login.', dHi: 'GitHub लिंक या लॉकफ़ाइल। लॉग-इन नहीं।' },
@@ -126,101 +125,6 @@ export function IndiaSection() {
           ))}
         </ul>
         <p className="kv-fine">{tr('Vulnera gives information, not legal advice.', 'Vulnera जानकारी देता है, क़ानूनी सलाह नहीं।')}</p>
-      </div>
-    </section>
-  )
-}
-
-const PLANS = [
-  {
-    nameEn: 'Student & open source',
-    nameHi: 'स्टूडेंट और ओपन-सोर्स',
-    price: '₹0',
-    perEn: 'forever',
-    perHi: 'हमेशा',
-    forEn: 'College teams, hackathon projects, public repos',
-    forHi: 'कॉलेज टीमें, हैकाथॉन प्रोजेक्ट, पब्लिक रिपॉज़िटरी',
-    features: [
-      ['10 scans a month', 'महीने में 10 स्कैन'],
-      ['Agent trace, fix plan, commands', 'एजेंट ट्रेस, सुधार योजना, कमांड'],
-      ['Hindi + English report', 'हिंदी + अंग्रेज़ी रिपोर्ट'],
-    ],
-  },
-  {
-    nameEn: 'Startup',
-    nameHi: 'स्टार्टअप',
-    price: '₹999',
-    perEn: 'per month',
-    perHi: 'प्रति माह',
-    forEn: 'Seed-stage teams with one or two products',
-    forHi: 'एक-दो प्रोडक्ट वाली शुरुआती टीमें',
-    featured: true,
-    features: [
-      ['Unlimited scans, private repos', 'अनलिमिटेड स्कैन, प्राइवेट रिपॉज़िटरी'],
-      ['Weekly re-scan + WhatsApp alert on new exploited CVEs', 'हर हफ़्ते स्कैन + नए ख़तरे पर WhatsApp अलर्ट'],
-      ['CERT-In / DPDP brief as PDF for investors', 'निवेशकों के लिए CERT-In / DPDP रिपोर्ट PDF'],
-    ],
-  },
-  {
-    nameEn: 'Agency',
-    nameHi: 'एजेंसी',
-    price: '₹4,999',
-    perEn: 'per month',
-    perHi: 'प्रति माह',
-    forEn: 'Dev shops maintaining client apps',
-    forHi: 'क्लाइंट ऐप सँभालने वाली डेव एजेंसियाँ',
-    features: [
-      ['25 client projects', '25 क्लाइंट प्रोजेक्ट'],
-      ['White-label report in the client’s language', 'क्लाइंट की भाषा में अपने ब्रांड वाली रिपोर्ट'],
-      ['Before/after proof for maintenance retainers', 'मेंटेनेंस कॉन्ट्रैक्ट के लिए पहले/बाद का सबूत'],
-    ],
-  },
-]
-
-export function Pricing() {
-  const { tr } = useLang()
-  const openDemo = useOpenDemo()
-  return (
-    <section id="pricing" className="lp-section" aria-labelledby="pricing-title">
-      <div className="lp-wrap">
-        <SectionHead
-          id="pricing-title"
-          eyebrow={tr('Pricing in rupees', 'क़ीमत रुपये में')}
-          title={tr('Cheaper than one hour of a security consultant.', 'एक घंटे के सिक्योरिटी कंसल्टेंट से भी सस्ता।')}
-        />
-        <ul className="kv-plans">
-          {PLANS.map((p) => (
-            <li key={p.nameEn} className={`kv-plan${p.featured ? ' kv-plan--featured' : ''}`}>
-              {p.featured && <span className="kv-plan__tag">{tr('Most teams', 'सबसे लोकप्रिय')}</span>}
-              <h3>{tr(p.nameEn, p.nameHi)}</h3>
-              <p className="kv-plan__for">{tr(p.forEn, p.forHi)}</p>
-              <p className="kv-plan__price">
-                <span className="num">{p.price}</span> <span className="subtle">{tr(p.perEn, p.perHi)}</span>
-              </p>
-              <ul>
-                {p.features.map(([en, hi]) => (
-                  <li key={en}>
-                    <Icon name="check" size={14} />
-                    {tr(en, hi)}
-                  </li>
-                ))}
-              </ul>
-            </li>
-          ))}
-        </ul>
-        <div className="kv-gtm">
-          <h3>{tr('Free for college clubs and hackathons.', 'कॉलेज क्लब और हैकाथॉन के लिए फ़्री।')}</h3>
-          <div className="kv-gtm__cta">
-            <Link to="/scan" className="btn btn--primary">
-              <Icon name="github" size={14} />
-              {tr('Scan your repo free', 'अपनी रिपॉज़िटरी फ़्री स्कैन करें')}
-            </Link>
-            <button type="button" className="btn" onClick={openDemo}>
-              <Icon name="beaker" size={14} />
-              {tr('See a demo report', 'डेमो रिपोर्ट देखें')}
-            </button>
-          </div>
-        </div>
       </div>
     </section>
   )

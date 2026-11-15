@@ -8,7 +8,6 @@ const SECTION_LINKS = [
   { id: 'agent', label: 'The agent', hi: 'एजेंट' },
   { id: 'india', label: 'Built for India', hi: 'भारत के लिए' },
   { id: 'how-it-works', label: 'How it works', hi: 'कैसे काम करता है' },
-  { id: 'pricing', label: 'Pricing', hi: 'क़ीमत' },
 ] as const
 
 /** Id of the section currently crossing a band near the top of the viewport (null when none of the nav sections). */
