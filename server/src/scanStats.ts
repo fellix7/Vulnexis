@@ -11,6 +11,8 @@ export interface ScanStats {
   unverifiedByNetwork: number;
   /** package names that are not valid npm names and were not looked up */
   invalidPackages: number;
+  /** aborted when the scan is cancelled (client gone) or passes its deadline; every wait and fetch should honour it */
+  signal?: AbortSignal;
 }
 
 const newStats = (): ScanStats => ({ savedFromDemo: 0, savedFromCache: 0, oldestSavedMs: 0, unverifiedByNetwork: 0, invalidPackages: 0 });
@@ -18,12 +20,28 @@ const newStats = (): ScanStats => ({ savedFromDemo: 0, savedFromCache: 0, oldest
 const als = new AsyncLocalStorage<ScanStats>();
 const orphan = newStats(); // used only by code running outside any scan (checks, startup)
 
-export function runWithStats<T>(fn: (s: ScanStats) => T): T {
+export function runWithStats<T>(fn: (s: ScanStats) => T, signal?: AbortSignal): T {
   const s = newStats();
+  if (signal) s.signal = signal;
   return als.run(s, () => fn(s));
 }
 
 export const stats = (): ScanStats => als.getStore() ?? orphan;
+
+/** The current scan's cancel/deadline signal, if any. Combine with a per-request timeout: AbortSignal.any([...]). */
+export const currentSignal = (): AbortSignal | undefined => als.getStore()?.signal;
+
+/** A signal that fires on the per-request timeout OR when the current scan is cancelled. */
+export function withScanSignal(timeoutMs: number): AbortSignal {
+  const t = AbortSignal.timeout(timeoutMs);
+  const scan = currentSignal();
+  return scan ? AbortSignal.any([t, scan]) : t;
+}
+
+/** Throws the scan's abort reason if it was cancelled or ran out of time. */
+export function throwIfScanAborted(): void {
+  currentSignal()?.throwIfAborted();
+}
 
 const age = (ms: number) => {
   const h = ms / 3_600_000;
