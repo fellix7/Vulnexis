@@ -6,7 +6,7 @@ import { useScan } from '../state/store'
 import { SourceBadge } from './ui/Badges'
 import { Icon, type IconName } from './ui/Icon'
 import { Logo } from './ui/Logo'
-import { LangToggle, useLang } from '../lib/i18n'
+import { useLang } from '../lib/i18n'
 import { useAuth } from '../state/auth'
 import { quotaText, SignInButton, UserMenu } from './account/AccountUi'
 
@@ -38,7 +38,6 @@ const WORKSPACE: NavItem[] = [
     match: (p) => p === '/architecture',
     count: (n) => n.moved,
   },
-  { to: '/india', label: 'India brief', hi: 'भारत रिपोर्ट', icon: 'scale', match: (p) => p === '/india' },
   {
     to: '/findings',
     label: 'Findings',
@@ -188,7 +187,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           )}
           <div className="topbar__actions">
-            <LangToggle compact />
             {accounts && (user ? <UserMenu /> : <SignInButton className="btn btn--ghost btn--sm" iconOnlySm />)}
             {path !== '/scan' && (
               <Link to="/scan" className="btn btn--primary btn--sm">

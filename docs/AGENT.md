@@ -86,7 +86,7 @@ If verdicts raised findings, an extra `rank` step appears: "Re-ranked: N finding
 Decision: "Every upgrade target was re-checked and is clean", or "N have no verified fix yet; I will say so instead of suggesting an unverified version."
 
 ### 3.8 Report
-Output: total findings, Fix-now count, "Hindi + English summary · CERT-In / DPDP brief". Decision: "Start with the N Fix now items", or "Nothing needs an emergency fix. Work through the sprint list."
+Output: total findings, Fix-now count, "Markdown and JSON report". Decision: "Start with the N Fix now items", or "Nothing needs an emergency fix. Work through the sprint list."
 
 ## 4. The step record
 

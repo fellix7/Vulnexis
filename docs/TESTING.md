@@ -73,23 +73,19 @@ curl -sN -X POST localhost:8787/api/scan/stream -H 'content-type: application/js
 
 | # | Step | Expected |
 | :--- | :--- | :--- |
-| 1 | Open `/` on desktop and on a phone (390 px wide) | Hero, agent section, India section, pricing; no horizontal scroll |
-| 2 | Toggle **हिंदी**, then back | Landing, nav and buttons switch; choice survives reload |
-| 3 | `/scan` → tap **OWASP/NodeGoat** | Live timeline: fetch → plan → parse → OSV → EPSS·KEV → rank → Gemini → verify → report; each step has output, and decisions where relevant |
-| 4 | Wait for the redirect to `/overview` | Funnel numbers; Fix-now list |
-| 5 | Open a Fix-now finding | Reasons, advisory, chain, code evidence with file:line (if the key is set), verified fix |
-| 6 | `/agent` | Same steps, tool list, sources cited, the five rules |
-| 7 | `/india` | Verdict, summary, next steps, 4 obligations with working source links, plain-words list |
-| 8 | **Share on WhatsApp** | WhatsApp (or web.whatsapp.com) opens with the summary; no number asked by Vulnera |
-| 9 | Switch to हिंदी on `/india` | Verdict, summary, steps, obligations and plain words in Hindi; package names unchanged |
-| 10 | `/remediation` → copy a command | Clipboard has the exact command |
-| 11 | `/reports` → download Markdown and JSON | Files download; history lists the scan |
-| 12 | Paste `https://github.com/expressjs/express` (no lockfile) | Clear error: "No package-lock.json found…", with Try again |
-| 13 | Paste `not a link` | Inline hint; Run agent stays disabled |
-| 14 | Stop the server and reload `/scan` | "API not reachable" banner, demo data still available |
-| 15 | Start with `OFFLINE=1`, scan the sample | Works; offline banner shown; Gemini step skipped with a reason |
-| 16 | Production build: `curl -i localhost:8787/assets/nope.js` | 404 (not the HTML page); `/india` still returns the app |
-| 17 | Start with `MAX_CONCURRENT_SCANS=1`, start a scan, start a second at once | Second gets 429 "Vulnera is busy…"; works again after the first finishes |
+| 1 | Open `/` on desktop and on a phone (390 px wide) | Hero, agent section, how it works; no horizontal scroll |
+| 2 | `/scan` → tap **OWASP/NodeGoat** | Live timeline: fetch → plan → parse → OSV → EPSS·KEV → rank → Gemini → verify → report; each step has output, and decisions where relevant |
+| 3 | Wait for the redirect to `/overview` | Funnel numbers; Fix-now list |
+| 4 | Open a Fix-now finding | Reasons, advisory, chain, code evidence with file:line (if the key is set), verified fix |
+| 5 | `/agent` | Same steps, tool list, sources cited, the five rules |
+| 6 | `/remediation` → copy a command | Clipboard has the exact command |
+| 7 | `/reports` → download Markdown and JSON | Files download; history lists the scan |
+| 8 | Paste `https://github.com/expressjs/express` (no lockfile) | Clear error: "No package-lock.json found…", with Try again |
+| 9 | Paste `not a link` | Inline hint; Run agent stays disabled |
+| 10 | Stop the server and reload `/scan` | "API not reachable" banner, demo data still available |
+| 11 | Start with `OFFLINE=1`, scan the sample | Works; offline banner shown; Gemini step skipped with a reason |
+| 12 | Production build: `curl -i localhost:8787/assets/nope.js` | 404 (not the HTML page); `/overview` still returns the app |
+| 13 | Start with `MAX_CONCURRENT_SCANS=1`, start a scan, start a second at once | Second gets 429 "Vulnera is busy…"; works again after the first finishes |
 
 ## 5. Accessibility spot checks
 
@@ -102,4 +98,3 @@ curl -sN -X POST localhost:8787/api/scan/stream -H 'content-type: application/js
 
 - No automated browser tests (Playwright is available in the dev environment; the flows in section 4 are the candidates).
 - No load test for concurrent GitHub scans; see the limits in [ARCHITECTURE.md](ARCHITECTURE.md#8-expected-load-and-known-limits).
-- India brief categorisation has no fixture test; changes to `client/src/lib/india.ts` should be checked on the sample scan by hand.

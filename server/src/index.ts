@@ -368,7 +368,7 @@ async function runScan(req: ScanRequest, onStep?: (step: AgentStep) => void, sig
 
   const fixNow = findings.filter((f) => f.tier === 'FIX_NOW').length;
   agent.note('report', 'Preparing the report', {
-    output: `${plural(findings.length, 'finding')} · ${fixNow} to fix now · Hindi + English summary · CERT-In / DPDP brief`,
+    output: `${plural(findings.length, 'finding')} · ${fixNow} to fix now · Markdown and JSON report`,
     decision: fixNow > 0 ? `Start with the ${plural(fixNow, 'Fix now item')}.` : 'Nothing needs an emergency fix. Work through the sprint list.',
   });
 

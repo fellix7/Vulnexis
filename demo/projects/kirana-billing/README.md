@@ -25,4 +25,4 @@ Deliberate drift: `ARCHITECTURE.md` and `openapi.yaml` both say `/supplier` need
 
 Expected exposure: **lodash → behind login** (moves down one step), **node-fetch → private network only** (moves down one step), axios / ejs / jsonwebtoken / express → reachable from the internet (unchanged).
 
-Expected in Vulnera: several **Fix now** findings, code evidence pointing at `src/routes/*.js` (when a Gemini key is set), and an India brief verdict of **Act today**.
+Expected in Vulnera: several **Fix now** findings, code evidence pointing at `src/routes/*.js` (when a Gemini key is set), and an overview that says to start with the Fix now items.

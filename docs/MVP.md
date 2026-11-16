@@ -1,5 +1,7 @@
 # Vulnera MVP: what we present
 
+> **Note (after the hackathon):** the India brief (`/india`), the Hindi toggle and WhatsApp sharing described here have been removed from the product. This document is kept as the hackathon record.
+
 > **Vulnera** is an AI security agent for India's builders. Paste a GitHub link, and the agent finds which vulnerable open-source packages to fix first, checks whether your code really uses them, verifies the safest upgrade, and explains it in Hindi or English, mapped to CERT-In and the DPDP Act.
 
 **Event:** Infra Shift Hackathon 2026 (ML.ai × Infrasity × Geek Room), 14 November 2026, 4 to 5 hour build window

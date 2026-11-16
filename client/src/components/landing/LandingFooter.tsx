@@ -36,7 +36,7 @@ export function LandingFooter() {
             <a href="#top" aria-label="Vulnera, back to top" onClick={(e) => goToSection(e, 'top')}>
               <Logo />
             </a>
-            <p className="muted">Which vulnerable packages to fix first, and why. Built for Indian teams.</p>
+            <p className="muted">Which vulnerable packages to fix first, and why.</p>
           </div>
 
           <nav aria-label="App" className="lp-foot__col">

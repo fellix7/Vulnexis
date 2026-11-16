@@ -21,16 +21,15 @@ export interface Auth {
   refresh(): Promise<void>
 }
 
-const KEEP = 'vulnera:lang:v1'
 const OFF: Me = { accounts: false, user: null, plan: null, usage: null }
 
-/** Remove everything Vulnera saved in this browser except the language choice. */
+/** Remove everything Vulnera saved in this browser. */
 export function clearSavedData() {
   try {
     const drop: string[] = []
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i)
-      if (k && k.startsWith('vulnera:') && k !== KEEP) drop.push(k)
+      if (k && k.startsWith('vulnera:')) drop.push(k)
     }
     drop.forEach((k) => localStorage.removeItem(k))
   } catch {

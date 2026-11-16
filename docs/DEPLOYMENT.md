@@ -54,21 +54,72 @@ npm start
 
 `npm run build` compiles `server/dist` and `client/dist`. `npm start` runs `node server/dist/index.js`, which serves `/api/*`, the static client, and an SPA fallback, all on `PORT`.
 
-### Hosting on a Node platform (Render, Railway, Fly.io, a VM)
+## 5. Host it for demos
+
+Accounts stay off until you add a database and a GitHub app, so the hosted site works like the local app: anyone can scan, nothing is stored. That is the right setup for showing Vulnera to investors and clients.
+
+**Settings for any host**
+
+| Variable | Value | Why |
+| :--- | :--- | :--- |
+| `PORT` | given by the host (the image defaults to 8080) | Port the app listens on |
+| `TRUST_PROXY` | `1` (`2` behind Cloudflare plus the host) | Rate limits see the visitor's real address |
+| `GEMINI_API_KEY` | your key | Turns on the AI code check. Without it, findings show "Not assessed" |
+| `ADMIN_TOKEN` | a long random string | Lets you open `/api/doctor` with the `x-admin-token` header. Unset = `/api/doctor` returns 404 |
+
+Leave `DATABASE_URL` unset. Health check: `GET /api/health`. Memory: 1 GB.
+
+**Option A: Fly.io (Mumbai region, always on)**
+
+```bash
+fly launch --copy-config --no-deploy
+```
+
+```bash
+fly secrets set GEMINI_API_KEY=your-key ADMIN_TOKEN=$(openssl rand -hex 24)
+```
+
+```bash
+fly deploy
+```
+
+`fly.toml` keeps one 1 GB machine running in `bom` so the first visitor never waits for a cold start. Fly prints the `https://<app>.fly.dev` address.
+
+**Option B: Render (Singapore)**
+
+New + → Blueprint → pick this repository. Render reads `render.yaml`, builds the Dockerfile and asks for `GEMINI_API_KEY`. Use the Starter plan: the free plan sleeps and the first visit takes about a minute.
+
+**Option C: any server with Docker**
+
+```bash
+docker build -t vulnera .
+```
+
+```bash
+docker run -d --restart unless-stopped -p 8080:8080 -e TRUST_PROXY=1 -e GEMINI_API_KEY=your-key vulnera
+```
+
+Put nginx or Caddy in front for HTTPS (see below).
+
+**Option D: a Node platform without Docker**
 
 | Setting | Value |
 | :--- | :--- |
 | Build command | `npm ci && npm run build` |
 | Start command | `npm start` |
-| Environment | `GEMINI_API_KEY`, optionally `GEMINI_RPM`, `GEMINI_MODEL` |
-| Health check | `GET /api/health` |
-| Memory | 1 GB recommended (a large repository tarball is unpacked in memory, capped at 300 MB) |
+| Node version | 22 |
+
+**Before a demo**
+
+- [ ] `/api/health` shows `"ok": true` (and `"gemini": true` if you set the key).
+- [ ] Scan `OWASP/NodeGoat` once to warm the cache, so the live demo is fast.
+- [ ] Open the site on your phone.
 
 ### Reverse proxy notes
 
 - The live agent timeline uses a streamed response (`application/x-ndjson`). **Disable response buffering** for `/api/scan/stream`. The server already sends `X-Accel-Buffering: no` (nginx) and `Cache-Control: no-cache, no-transform`.
 - Allow request bodies up to 10 MB, and requests to run for up to ~2 minutes (large repos plus the AI step).
-- Add per-IP rate limiting for `/api/scan*` on a public deployment (for example 10 scans per minute per IP).
+- Per-IP scan limits are built in (`SCAN_RATE_PER_MIN`, `SCAN_RATE_PER_DAY`); set `TRUST_PROXY` so they see the real visitor.
 
 nginx example:
 
@@ -84,7 +135,7 @@ location / {
 }
 ```
 
-## 5. Offline demo mode
+## 6. Offline demo mode
 
 ```bash
 OFFLINE=1 npm run dev
@@ -95,17 +146,16 @@ OFFLINE=1 npm run dev
 - To make a project available offline: scan it once online (answers land in `.cache/`), then copy the relevant `.cache/<namespace>/` files into `data/snapshots/<namespace>/`.
 - The AI code check runs offline only if `data/snapshots/gemini-package/` exists (copied from `.cache/` after an online scan).
 
-## 6. Venue checklist (hackathon day)
+## 7. Venue checklist (hackathon day)
 
 - [ ] `npm run build` passes on the demo laptop.
 - [ ] `.env` has a working Gemini key; `/api/health` shows `"gemini": true`.
 - [ ] Run `OWASP/NodeGoat` once to warm the cache (EPSS, npm, Gemini answers are reused).
 - [ ] Phone on the same network can open the app (use the deployed URL, or `npx vite --host` in `client/` for LAN).
 - [ ] Fallback ready: sample scan, `OFFLINE=1`, and demo data.
-- [ ] Official links on `/india` open.
 - [ ] Browser zoom at 110 to 125% for the projector; dark room friendly by default.
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 | Symptom | Cause | Fix |
 | :--- | :--- | :--- |

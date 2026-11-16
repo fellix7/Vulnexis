@@ -1,5 +1,5 @@
 import './landing.css'
-import { AgentSection, IndiaSection } from '../components/landing/Bharat'
+import { AgentSection } from '../components/landing/Bharat'
 import { Hero } from '../components/landing/Hero'
 import { HowItWorks } from '../components/landing/HowItWorks'
 import { LandingFooter } from '../components/landing/LandingFooter'
@@ -18,7 +18,6 @@ export default function LandingPage() {
       <main id="main" tabIndex={-1}>
         <Hero />
         <AgentSection />
-        <IndiaSection />
         <Problem />
         <HowItWorks />
         <Why />

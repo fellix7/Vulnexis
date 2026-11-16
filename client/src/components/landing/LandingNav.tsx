@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from '../../router'
-import { LangToggle, useLang } from '../../lib/i18n'
+import { useLang } from '../../lib/i18n'
 import { useAuth } from '../../state/auth'
 import { SignInButton, UserMenu } from '../account/AccountUi'
 import { Logo } from '../ui/Logo'
@@ -8,7 +8,6 @@ import { goToSection } from './scroll'
 
 const SECTION_LINKS = [
   { id: 'agent', label: 'The agent', hi: 'एजेंट' },
-  { id: 'india', label: 'Built for India', hi: 'भारत के लिए' },
   { id: 'how-it-works', label: 'How it works', hi: 'कैसे काम करता है' },
 ] as const
 
@@ -59,7 +58,6 @@ export function LandingNav() {
           ))}
         </ul>
         <div className="lp-nav__actions">
-          <LangToggle compact />
           <Link to="/overview" className="btn btn--ghost lp-nav__open">
             {tr('Open app', 'ऐप खोलें')}
           </Link>

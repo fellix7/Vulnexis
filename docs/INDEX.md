@@ -9,8 +9,7 @@
 | [ARCHITECTURE_CONTEXT.md](ARCHITECTURE_CONTEXT.md) | Engineers, judges, mentors | Exploitability from architecture: research (SSVC, VEX), files read, how exposure is decided, the one-step policy, `vulnera.yml`, worked example, limits |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Engineers | Layout, request lifecycle, pipeline stages, caching/offline, client, production topology, limits |
 | [API.md](API.md) | Integrators | `/api/health`, `/api/scan/stream` (NDJSON), `/api/scan`, schemas, errors |
-| [INDIA_COMPLIANCE.md](INDIA_COMPLIANCE.md) | Engineers, reviewers | Risk categories, verdict rules, CERT-In / DPDP mapping, WhatsApp text, worked example |
-| [USER_GUIDE.md](USER_GUIDE.md) | Users (EN + हिंदी) | How to scan, read results, use the India brief, reports |
+| [USER_GUIDE.md](USER_GUIDE.md) | Users | How to scan, read results, reports |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Operators | Env vars, local, production, proxy, offline mode, venue checklist, troubleshooting |
 | [../demo/README.md](../demo/README.md) | Anyone testing locally | Start scripts, demo projects, bad inputs, smoke test, click-through checklist |
 | [TESTING.md](TESTING.md) | Engineers | Self-checks, smoke tests, manual end-to-end plan, accessibility checks |

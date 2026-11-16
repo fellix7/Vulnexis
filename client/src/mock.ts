@@ -444,7 +444,7 @@ const agent: AgentStep[] = [
   { id: 's6', tool: 'gemini', title: 'Reading your code for calls to the vulnerable functions', status: 'done', startedAt: 3550, ms: 9840, input: '64 source files scanned locally; only short snippets around imports of vulnerable packages go to Gemini, secrets masked', output: '2 used · 3 not used · 3 uncertain · 4 citations re-checked against the real files', decision: 'Your code reaches 2 vulnerable functions. AI may only raise a priority, never lower it.', sources: [S.gemini] },
   { id: 's7', tool: 'rank', title: 'Re-ranked: 1 finding raised to Fix now by code evidence', status: 'done', startedAt: 13392, ms: 1, output: '2 fix now · 4 this sprint · 5 plan · 4 monitor' },
   { id: 's8', tool: 'verify', title: 'Finding the smallest safe upgrade for each package', status: 'done', startedAt: 13395, ms: 3020, input: 'fixed versions from OSV → re-query OSV for each candidate → next releases from npm if still vulnerable', output: '9 of 10 packages have a verified clean version · 2 need a major upgrade', decision: '1 has no verified fix yet; I will say so instead of suggesting an unverified version.', sources: [S.osv, S.npm] },
-  { id: 's9', tool: 'report', title: 'Preparing the report', status: 'done', startedAt: 16418, ms: 1, output: '15 findings · 2 to fix now · Hindi + English summary · CERT-In / DPDP brief', decision: 'Start with the 2 Fix now items.' },
+  { id: 's9', tool: 'report', title: 'Preparing the report', status: 'done', startedAt: 16418, ms: 1, output: '15 findings · 2 to fix now · Markdown and JSON report', decision: 'Start with the 2 Fix now items.' },
 ]
 
 export const MOCK_RESULT: ScanResult = {

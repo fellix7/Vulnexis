@@ -89,22 +89,17 @@ Tick each line as you go. **Expected** is what you should see.
 - [ ] Open the lodash finding → **Who can reach it**. **Expected:** "Behind login" with the quoted lines `src/routes/admin.js:4` and `src/server.js:16`.
 - [ ] **Remediation**. **Expected:** exact `npm install …@…` commands, and `overrides` for transitive packages; copy one.
 
-### C. India brief and Hindi
-- [ ] **India brief**. **Expected:** verdict **Act today**, next steps, four Indian rules (DPDP 8(5), 8(6), CERT-In 6 hours, 180-day logs) each with a source link.
-- [ ] Tap **Share on WhatsApp**. **Expected:** WhatsApp (or WhatsApp Web) opens with the "Vulnera security report"; Vulnera never asks for a number.
-- [ ] Switch **हिंदी** (top right). **Expected:** navigation, verdict, summary, steps and rules in Hindi; package names unchanged. Reload: still Hindi.
+### C. The clean project
+- [ ] Upload `demo/projects/clean-app/package-lock.json`. **Expected:** zero findings; the overview says nothing needs an emergency fix.
 
-### D. The clean project
-- [ ] Upload `demo/projects/clean-app/package-lock.json`. **Expected:** zero findings; India brief verdict **In good shape**.
-
-### E. Things that must fail politely
+### D. Things that must fail politely
 - [ ] Try every file and link in [`bad-inputs/README.md`](bad-inputs/README.md). **Expected:** a clear message each time, the page stays usable, "Try again" works.
 
-### F. Reports and history
+### E. Reports and history
 - [ ] **Reports & history**: download Markdown and JSON. Scan kirana-billing twice, then **Compare**. **Expected:** both scans listed; no changes between them.
 
-### G. Phone
-- [ ] On your phone, open the `http://<your-ip>:8787` address the start script printed. **Expected:** the landing page fits the screen; the GitHub-link flow and the India brief work. If it does not open, allow Node through the computer's firewall, or check that both are on the same Wi-Fi.
+### F. Phone
+- [ ] On your phone, open the `http://<your-ip>:8787` address the start script printed. **Expected:** the landing page fits the screen; the GitHub-link flow and the results pages work. If it does not open, allow Node through the computer's firewall, or check that both are on the same Wi-Fi.
 
 ## 4. Before going on stage
 

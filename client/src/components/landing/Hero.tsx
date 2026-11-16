@@ -23,7 +23,7 @@ export function Hero() {
             </h1>
             <p className="lp-hero__lede">
               {tr(
-                'A security agent for Indian teams: paste a GitHub link, get a verified fix order in Hindi or English.',
+                'A security agent for small teams: paste a GitHub link, get a verified fix order in minutes.',
                 'भारतीय टीमों के लिए सुरक्षा एजेंट: GitHub लिंक डालें, हिंदी या अंग्रेज़ी में पक्का सुधार-क्रम पाएँ।',
               )}
             </p>

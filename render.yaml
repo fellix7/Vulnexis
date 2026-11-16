@@ -1,0 +1,20 @@
+# Render blueprint (alternative to Fly.io): New + > Blueprint > pick this repository.
+# Render has no Indian region; Singapore is the closest.
+services:
+  - type: web
+    name: vulnera
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    region: singapore
+    plan: starter # the free plan sleeps after inactivity, which makes the first demo visit slow
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "1"
+      - key: GEMINI_API_KEY
+        sync: false # paste it in the Render dashboard; never commit it
+      - key: ADMIN_TOKEN
+        generateValue: true # lets you open /api/doctor with the x-admin-token header

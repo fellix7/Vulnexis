@@ -15,13 +15,12 @@ These policies describe how Vulnera behaves: what it collects, what the AI is al
 | 6 | [Sources and citations](#6-source-and-citation-policy) | Every fact links to its source; unknowns are shown as unknown |
 | 7 | [Input handling and execution safety](#7-input-handling-and-execution-safety) | Inputs are read as text, size-capped, never installed or executed |
 | 8 | [Secrets and credentials](#8-secrets-and-credentials) | Keys stay on the server; secrets in code are masked before AI |
-| 9 | [Regulatory information](#9-regulatory-information-policy) | CERT-In and DPDP content is information with sources, not legal advice |
-| 10 | [Language and accessibility](#10-language-and-accessibility-policy) | Hindi and English, simple words, phone-first, colour never alone |
-| 11 | [Availability and failure](#11-availability-and-failure-policy) | Fail visibly and honestly; degrade to rules, never to guesses |
-| 12 | [Third-party services](#12-third-party-services) | What leaves the server, to whom, and why |
-| 13 | [Acceptable use](#13-acceptable-use) | What users must not do with Vulnera |
-| 14 | [Security issues and incidents](#14-security-issues-and-incident-response) | How to report a problem and how we respond |
-| 15 | [Change control](#15-change-control) | How these policies and the rules behind them change |
+| 9 | [Language and accessibility](#9-language-and-accessibility-policy) | English, simple words, phone-first, colour never alone |
+| 10 | [Availability and failure](#10-availability-and-failure-policy) | Fail visibly and honestly; degrade to rules, never to guesses |
+| 11 | [Third-party services](#11-third-party-services) | What leaves the server, to whom, and why |
+| 12 | [Acceptable use](#12-acceptable-use) | What users must not do with Vulnera |
+| 13 | [Security issues and incidents](#13-security-issues-and-incident-response) | How to report a problem and how we respond |
+| 14 | [Change control](#14-change-control) | How these policies and the rules behind them change |
 
 ---
 
@@ -76,8 +75,6 @@ These are strictly necessary cookies for signing in. There are **no analytics, t
 
 | Rule | How it is enforced |
 | :--- | :--- |
-| WhatsApp sharing collects nothing | The share button opens `https://wa.me/?text=…` with the summary only; no phone number is entered or stored (`client/src/pages/India.tsx`) |
-| The language choice is a preference, not personal data | Stored only in the user's own browser (`localStorage` key `vulnera:lang:v1`) |
 
 If a scanned repository itself contains personal data (for example in fixtures), Vulnera does not extract, display or store it. Only short line windows around imports and uses of vulnerable packages can reach the AI, after best-effort secret masking (policy 8). Never whole files.
 
@@ -103,7 +100,7 @@ Signed-in users can delete their account from **Account › Danger zone** by typ
 
 - With accounts off the server has **no database**; there is nothing to breach beyond the public-data cache.
 - With accounts on, the database holds only the data above. Every table has row level security with no policies, so a hosted provider's public REST API cannot read it; the app connects as the owner.
-- Users can delete browser history at any time from **Reports & history › Clear history**, saved scans one by one, or everything by deleting the account (policy 2). Signing out clears Vulnera's data from the browser except the language choice.
+- Users can delete browser history at any time from **Reports & history › Clear history**, saved scans one by one, or everything by deleting the account (policy 2). Signing out clears Vulnera's data from the browser.
 - **Demo data** is illustrative, labelled "Demo data" wherever it appears, and is never saved to history.
 
 ## 4. AI usage policy
@@ -124,7 +121,6 @@ Vulnera uses Google Gemini for **one job**: reading short line windows of the us
 | Invent code | Every citation's quote is re-checked against the real file and line; a "uses" verdict with no surviving citation is downgraded (`pipeline/ai.ts` › `validateCitations`) |
 | Claim "safe" when it saw too little | If any relevant file was too large to send in full, "not used" is downgraded to `UNCERTAIN` (`pipeline/ai.ts` › `analyzeChunk`) |
 | Follow instructions in code or advisories | The system prompt marks advisory text and code as untrusted data and forbids following instructions inside them |
-| Decide the regulatory brief | The India brief is deterministic templates filled from scan data (`client/src/lib/india.ts`); no AI text |
 
 ### Architecture context (not AI)
 Exposure from the project's own files (docker-compose, Kubernetes, serverless.yml, Procfile, Dockerfile, OpenAPI, package.json, Markdown docs, `vulnera.yml`) and the import graph is computed **deterministically**, with every claim quoted from a file and line. It may lower a finding **one step**, never below Plan, never for CISA KEV, and never for "behind login" when anyone can sign up. Docs never override config or code; contradictions are reported. Unknown exposure counts as internet-facing (CISA SSVC default). Architecture files are never sent to Gemini. Details: [ARCHITECTURE_CONTEXT.md](ARCHITECTURE_CONTEXT.md).
@@ -173,7 +169,7 @@ The agent must be **inspectable**: a user can see what it did, with what, and wh
 
 - **Unknown is shown as unknown.** Missing EPSS is "no data", never zero. Unreviewed code usage is "Not assessed". No verified fix is "no verified fix", never a guessed version.
 - Advisory text from OSV is displayed as plain text (untrusted), never rendered as HTML.
-- Every finding in the India brief's "In plain words" list shows its advisory id (and CVE) as the source.
+- Every finding in the report shows its advisory id (and CVE) as the source.
 
 ## 7. Input handling and execution safety
 
@@ -198,23 +194,13 @@ The agent must be **inspectable**: a user can see what it did, with what, and wh
 - Masking is best effort. Users should not commit secrets to repositories in the first place.
 - No secrets are written to the agent trace, notes, logs shown to users, or reports.
 
-## 9. Regulatory information policy
+## 9. Language and accessibility policy
 
-- The India brief explains **CERT-In's 2022 directions** (6-hour incident reporting, 180-day log retention in India) and the **DPDP Act 2023** (Section 8(5) reasonable security safeguards, Section 8(6) breach intimation, penalties up to ₹250 crore under the Schedule).
-- It is **information, not legal advice**. This is stated on the page, in the WhatsApp message and in these policies.
-- Every obligation shows a link to the official source, and states whether it applies **now**, **if exploited**, or **always**, with a reason taken from the scan's data.
-- Having a vulnerability is not presented as an "incident". The brief says reporting obligations start only if exploitation is noticed.
-- The mapping is deterministic (`client/src/lib/india.ts`) and documented in [INDIA_COMPLIANCE.md](INDIA_COMPLIANCE.md). It is reviewed whenever the law, the rules under it, or CERT-In's directions change.
-
-## 10. Language and accessibility policy
-
-- The core journey (landing, navigation, scan, live agent trace, agent page, India brief, WhatsApp summary) is available in **Hindi and English**, switchable at any time; the choice is remembered in the browser. The first visit follows the browser language.
-- Technical identifiers (package names, versions, CVE ids, commands) are never translated.
-- Plain, everyday wording. Jargon gets a plain-language explanation in the India brief.
+- The interface is in English. Plain, everyday wording; technical identifiers (package names, versions, CVE ids, commands) are shown exactly.
 - Phone first: the GitHub-link flow needs no files; layouts collapse to one column; tap targets are at least 44 px for primary actions.
 - Colour is never the only signal: tiers, severities and risk levels always carry a word and usually an icon. Focus states are visible; live regions announce agent progress to screen readers; reduced-motion preferences turn off animations.
 
-## 11. Availability and failure policy
+## 10. Availability and failure policy
 
 | Failure | Behaviour |
 | :--- | :--- |
@@ -229,7 +215,7 @@ The agent must be **inspectable**: a user can see what it did, with what, and wh
 
 The rule: **degrade to deterministic rules, never to guesses**, and always tell the user what was skipped.
 
-## 12. Third-party services
+## 11. Third-party services
 
 | Service | What is sent | Why |
 | :--- | :--- | :--- |
@@ -240,11 +226,10 @@ The rule: **degrade to deterministic rules, never to guesses**, and always tell 
 | GitHub (codeload) | Owner and repository name in the URL | Download a public repository as text |
 | GitHub (OAuth, accounts on) | The sign-in redirect; then, server to server, the one-time code and PKCE verifier, and two read calls with the user's token | Sign in: read the GitHub id, login, name and primary verified email (policy 2) |
 | Google Gemini | Masked line windows around imports and uses of vulnerable packages, advisory text | Code-usage verdicts |
-| WhatsApp (`wa.me`) | Only when the user taps Share: the summary text, in the user's own browser | Let the user send the summary |
 
 No other services are contacted. Scan lookups send `User-Agent: vulnera-scanner` and no user identifiers; only the sign-in calls to GitHub carry the user's own token.
 
-## 13. Acceptable use
+## 12. Acceptable use
 
 Users must not:
 - scan repositories they are not allowed to read, or try to use Vulnera to reach private code;
@@ -254,15 +239,15 @@ Users must not:
 
 The server enforces size, time and host limits (policy 7), runs at most `MAX_CONCURRENT_SCANS` scans at once (429 beyond that), and stops a scan when its browser disconnects. A public deployment should also add per-IP rate limiting at the proxy.
 
-## 14. Security issues and incident response
+## 13. Security issues and incident response
 
 - **Report a problem** with Vulnera itself (for example a way to make it read private data or execute code) by opening a private security advisory on the GitHub repository, or by contacting the maintainers directly. Please do not open a public issue for security bugs.
 - **Our response:** acknowledge within 2 working days; fix or mitigate critical issues first; credit reporters who want it.
 - **If Vulnera's own server is compromised**, the team will take the deployment offline, rotate the Gemini keys, review logs, and, where the CERT-In directions apply to the operator, report within 6 hours of noticing. The server stores no source code and no user projects, and keeps only the account data in policy 2 (no GitHub tokens; session ids and API keys only as hashes), which limits impact. If the database may have been exposed, the team will also delete all sessions (forcing sign-out), ask users to rotate API keys, rotate the GitHub OAuth client secret, and tell affected users.
 - **Dependencies of Vulnera itself** are scanned with Vulnera before each release.
 
-## 15. Change control
+## 14. Change control
 
-- Changes to tier rules (`pipeline/score.ts`), AI permissions (`pipeline/ai.ts`), the India mapping (`client/src/lib/india.ts`) or data flows must update this document and the relevant design doc in the same commit.
+- Changes to tier rules (`pipeline/score.ts`), AI permissions (`pipeline/ai.ts`) or data flows must update this document and the relevant design doc in the same commit.
 - Tier rules are fixed and published; there is no hidden weighting. A rule change is a visible code change with a review.
 - Bump `PROMPT_VERSION` in `pipeline/ai.ts` whenever the AI prompt or output format changes, so old cached answers are not reused.

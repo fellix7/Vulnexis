@@ -8,7 +8,6 @@ import ArchitecturePage from './pages/Architecture'
 import EvidencePage from './pages/Evidence'
 import FindingDetailPage from './pages/FindingDetail'
 import FindingsPage from './pages/Findings'
-import IndiaPage from './pages/India'
 import LandingPage from './pages/Landing'
 import OverviewPage from './pages/Overview'
 import RemediationPage from './pages/Remediation'
@@ -24,7 +23,6 @@ const APP_ROUTES: Record<string, { page: ComponentType; title: string }> = {
   '/overview': { page: OverviewPage, title: 'Overview' },
   '/agent': { page: AgentPage, title: 'Agent trace' },
   '/architecture': { page: ArchitecturePage, title: 'Architecture' },
-  '/india': { page: IndiaPage, title: 'India brief' },
   '/findings': { page: FindingsPage, title: 'Findings' },
   '/finding': { page: FindingDetailPage, title: 'Finding' },
   '/evidence': { page: EvidencePage, title: 'Code evidence' },
@@ -47,7 +45,7 @@ function Routes() {
 
   const route = APP_ROUTES[path]
   useEffect(() => {
-    document.title = path === '/' ? 'Vulnera · Security agent for Indian builders' : `${route?.title ?? 'Not found'} · Vulnera`
+    document.title = path === '/' ? 'Vulnera · Know which vulnerabilities to fix first' : `${route?.title ?? 'Not found'} · Vulnera`
   }, [path, route])
 
   if (path === '/') return <LandingPage />

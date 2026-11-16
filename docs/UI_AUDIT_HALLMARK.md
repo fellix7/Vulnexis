@@ -1,5 +1,7 @@
 # UI audit: Hallmark
 
+> **Note (after the hackathon):** the India brief (`/india`), the Hindi toggle and WhatsApp sharing described here have been removed from the product. This document is kept as the hackathon record.
+
 **Skill:** [Hallmark](https://github.com/Nutlope/hallmark) v2.0.0 (commit `04977e1`), `audit` verb: report only, no files changed.
 **Date:** 14 November 2026. **Genre inferred:** modern-minimal (developer tool / platform). **Scopes:** landing page as a page; `/scan` and `/overview` as app screens.
 **Method:** `sloplint.mjs --render --before` on the CSS and the running dev server (1280×800, 1440×900, 1920×1080 folds; 1440 and 375 full pages), then the judged gates walked from the screenshots (`gates.md` § 1, § 4, § 5).

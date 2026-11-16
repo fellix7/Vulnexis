@@ -4,8 +4,8 @@ Vulnera is one TypeScript project in npm workspaces: an Express API (`server/`) 
 
 ```
 ┌──────────────────────────── Browser (phone or desktop) ────────────────────────────┐
-│ React 19 SPA · EN | हिंदी · history in localStorage                                │
-│  /  /scan  /overview  /agent  /india  /findings  /finding  /evidence  /remediation  /reports │
+│ React 19 SPA · history in localStorage (or the account)                                │
+│  /  /scan  /overview  /agent  /findings  /finding  /evidence  /remediation  /reports │
 └───────────────┬───────────────────────────────────────────────▲────────────────────┘
                 │ POST /api/scan/stream  (JSON body)            │ NDJSON lines:
                 │ { repoUrl } | { lockfile, sources? } | { sample } │ {type:"step"} … {type:"result"|"error"}
@@ -32,8 +32,7 @@ Vulnera is one TypeScript project in npm workspaces: an Express API (`server/`) 
 │   ├── src/api.ts               fetchHealth, postScan, streamScan (NDJSON reader)
 │   ├── src/router.tsx           tiny History-API router
 │   ├── src/state/store.tsx      current scan, live agent steps, history (localStorage)
-│   ├── src/lib/i18n.tsx         EN/HI context, tr(en, hi), LangToggle
-│   ├── src/lib/india.ts         India brief: risk categories, CERT-In/DPDP mapping, WhatsApp text
+│   ├── src/lib/i18n.tsx         tr() helper (English only)
 │   ├── src/lib/*.ts             selectors, tiers, review, report export, funnel …
 │   ├── src/components/agent/    AgentTimeline, AgentLive (+ agent.css)
 │   ├── src/components/scan/     RepoInput, LockfileDrop, SourceFolder, ScanSide
@@ -71,7 +70,7 @@ Vulnera is one TypeScript project in npm workspaces: an Express API (`server/`) 
 4. `scan()` creates an `Agent` whose `onChange` writes each step as one JSON line. Steps are emitted on start (`running`) and on finish (`done` / `skipped` / `failed`).
 5. When the pipeline finishes, the server writes `{type:"result", result}` and ends the response. Errors become `{type:"error", status, error}`.
 6. The client stores the result as a `ScanRecord` (history, last 8, in `localStorage`) and navigates to `/overview`.
-7. Pages derive everything else from the stored result: the funnel, tiers, the India brief (`buildIndiaBrief`), exports.
+7. Pages derive everything else from the stored result: the funnel, tiers, exports.
 
 `POST /api/scan` remains as a one-shot JSON endpoint with the same `scan()` underneath. The client falls back to it if the streaming route returns 404.
 
@@ -116,7 +115,6 @@ The pipeline modules are unchanged from the original Vulnera build; the agent wr
 - **Routing:** `router.tsx`, a History-API router (no dependency). Unknown paths render a 404 inside the app shell.
 - **State:** one React context (`ScanProvider`) holds the current scan, status, error, `liveSteps`, history, health and in-memory sources. History is written to `localStorage`, and the oldest entries are dropped if the quota is exceeded.
 - **Language:** `LangProvider` exposes `tr(en, hi)`. Strings sit next to the component that shows them, which avoids a dictionary drifting out of sync. `<html lang>` follows the choice; Devanagari uses Noto Sans Devanagari (self-hosted via Fontsource).
-- **India brief:** `lib/india.ts` is a pure function of the scan result and human review, so it works for live scans, history and demo data alike. See [INDIA_COMPLIANCE.md](INDIA_COMPLIANCE.md).
 - **Design system:** tokens in `index.css` (dark-first, accent `#c6f432`, semantic colours always paired with labels; AI content is violet and dashed). Each page has its own CSS file. See [DESIGN.md](DESIGN.md).
 
 ## 7. Production topology
