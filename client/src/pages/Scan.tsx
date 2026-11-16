@@ -21,7 +21,7 @@ const lastRun = { startedAt: 0, label: '', kind: 'upload' as 'upload' | 'sample'
 const SAMPLE_NAME = 'QuickNotes (sample)'
 
 export default function ScanPage() {
-  const { current, status, error, liveSteps, health, healthFailed, runScan, loadDemo, dismissError } = useScan()
+  const { current, status, error, liveSteps, queue, cancelScan, health, healthFailed, runScan, loadDemo, dismissError } = useScan()
   const { tr } = useLang()
   const scanning = status === 'scanning'
 
@@ -212,7 +212,7 @@ export default function ScanPage() {
 
           {scanning && (
             <div ref={progressBox}>
-              <AgentLive steps={liveSteps} startedAt={lastRun.startedAt || fallbackStart} label={lastRun.label || 'your project'} />
+              <AgentLive steps={liveSteps} startedAt={lastRun.startedAt || fallbackStart} label={lastRun.label || 'your project'} queue={queue} onCancel={cancelScan} />
             </div>
           )}
 

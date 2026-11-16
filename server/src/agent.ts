@@ -64,3 +64,21 @@ export class Agent {
 }
 
 export const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString('en-IN')} ${n === 1 ? one : many}`;
+
+/** Calls ping() whenever `ms` pass with no write() through the returned function. Keeps proxies from dropping long scans. */
+export function heartbeat(write: (line: string) => void, ping: unknown = { type: 'ping' }, ms = 15_000) {
+  let last = Date.now();
+  const timer = setInterval(() => {
+    if (Date.now() - last >= ms) {
+      last = Date.now();
+      write(`${JSON.stringify(ping)}\n`);
+    }
+  }, Math.min(ms, 1000));
+  return {
+    write(line: string) {
+      last = Date.now();
+      write(line);
+    },
+    stop: () => clearInterval(timer),
+  };
+}

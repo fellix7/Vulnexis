@@ -119,7 +119,19 @@ export function AgentTimeline({ steps, live = false, startedAt, compact = false 
 }
 
 /** Live panel shown on the scan page while the server streams steps. */
-export function AgentLive({ steps, startedAt, label }: { steps: AgentStep[]; startedAt: number; label: string }) {
+export function AgentLive({
+  steps,
+  startedAt,
+  label,
+  queue = null,
+  onCancel,
+}: {
+  steps: AgentStep[]
+  startedAt: number
+  label: string
+  queue?: { position: number; ahead: number } | null
+  onCancel?: () => void
+}) {
   const { tr } = useLang()
   const now = useTicker(true)
   const done = steps.filter((s) => s.status !== 'running').length
@@ -140,6 +152,16 @@ export function AgentLive({ steps, startedAt, label }: { steps: AgentStep[]; sta
           <span className="subtle">s</span>
         </div>
       </div>
+      {queue && (
+        <p className="agent-live__meta" role="status" aria-live="polite">
+          <strong>{tr(`Waiting for a free slot: ${queue.ahead} ahead of you`, `खाली जगह का इंतज़ार: आपसे आगे ${queue.ahead}`)}</strong>
+        </p>
+      )}
+      {onCancel && (
+        <button type="button" className="btn btn--sm" onClick={onCancel}>
+          {tr('Cancel scan', 'स्कैन रद्द करें')}
+        </button>
+      )}
       <p className="sr-only" role="status" aria-live="polite">
         {steps.length ? `${steps[steps.length - 1]!.title}` : ''}
       </p>

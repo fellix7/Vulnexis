@@ -4,7 +4,9 @@ import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import express from 'express';
-import { Agent, plural, SOURCES } from './agent.js';
+import { Agent, heartbeat, plural, SOURCES } from './agent.js';
+import { ClientLimitError, QueueFullError, ScanQueue } from './queue.js';
+import { clientKey, createLimiter } from './ratelimit.js';
 import { sourceMessage } from './net.js';
 import { printDoctor, runDoctor, runDoctorCached } from './doctor.js';
 import { OfflineMissError } from './cache.js';
@@ -21,6 +23,12 @@ import { buildContext, isContextPath } from './pipeline/context.js';
 import { DEFAULT_EPSS_THRESHOLD, EXPOSURE_LABEL, scoreFindings, TIER_ORDER } from './pipeline/score.js';
 import type { AgentStep, ExposureVerdict, Finding, Package, RepoRef, ScanRequest, ScanResult, SourceFile, Tier } from './types.js';
 
+declare module 'express-serve-static-core' {
+  interface Request {
+    queueTicket?: import('./queue.js').Ticket;
+  }
+}
+
 const TIER_NAME: Record<Tier, string> = { FIX_NOW: 'fix now', FIX_SPRINT: 'this sprint', PLAN: 'plan', MONITOR: 'monitor' };
 
 const app = express();
@@ -31,8 +39,16 @@ const PORT = Number(process.env.PORT ?? 8787);
 const SAMPLE_DIR = path.resolve(import.meta.dirname, '../../samples/demo-app');
 const SOURCE_EXT = /\.(js|jsx|ts|tsx|mjs|cjs)$/;
 
-// Lockfiles are JSON; real-world ones run to a few MB.
-app.use(express.json({ limit: '10mb' }));
+// Lockfiles are JSON; real-world ones run to a few MB. Only the scan routes read a body, and the rate limit runs before it is parsed.
+const scanBody = express.json({ limit: '10mb' });
+const envNum = (name: string, def: number) => Number(process.env[name]) || def;
+const scanLimiter = createLimiter({
+  limits: [
+    { windowMs: 60_000, max: envNum('SCAN_RATE_PER_MIN', 6) },
+    { windowMs: 86_400_000, max: envNum('SCAN_RATE_PER_DAY', 100) },
+  ],
+});
+const doctorLimiter = createLimiter({ limits: [{ windowMs: 60_000, max: 10 }], message: (m) => `Too many requests. Try again in ${m} ${m === 1 ? 'minute' : 'minutes'}.` });
 
 app.get('/api/health', (_req, res) => {
   res.json({
@@ -72,7 +88,7 @@ async function loadSample(): Promise<{ lockfile: unknown; sources: SourceFile[];
 }
 
 // Each scan runs inside its own stats scope, so concurrent scans never share counters or warnings.
-const scan = (req: ScanRequest, onStep?: (step: AgentStep) => void, signal?: AbortSignal): Promise<ScanResult> => runWithStats(() => runScan(req, onStep, signal));
+const scan = (req: ScanRequest, onStep?: (step: AgentStep) => void, signal?: AbortSignal): Promise<ScanResult> => runWithStats(() => runScan(req, onStep, signal), signal);
 
 async function runScan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal?: AbortSignal): Promise<ScanResult> {
   const notes: string[] = [];
@@ -355,20 +371,25 @@ function failure(e: unknown): { status: number; error: string } {
 
 // Connection check: which services this server can reach, and what to do about the ones it cannot.
 // Open in development; in production it needs the x-admin-token header (see security.ts) and is cached for 60 s.
-app.get('/api/doctor', async (req, res) => {
+app.get('/api/doctor', doctorLimiter, async (req, res) => {
   const access = doctorAccess(req);
   if (access === 'not-found') return void res.status(404).json({ error: 'Not found' });
   if (access === 'forbidden') return void res.status(403).json({ error: 'Forbidden' });
   res.json(await runDoctorCached());
 });
 
-// Each scan can hold a repository tarball (up to 300 MB unpacked) in memory, so only a few run at once.
-// shortcut: per-process counter; behind several instances, add rate limiting at the proxy instead.
-const MAX_SCANS = Math.max(1, Number(process.env.MAX_CONCURRENT_SCANS) || 4);
-let running = 0;
+// Each scan can hold a repository tarball (up to 300 MB unpacked) in memory, so only a few run at once; the rest wait in a fair queue.
+const queue = new ScanQueue({
+  maxRunning: Math.max(1, envNum('MAX_CONCURRENT_SCANS', 4)),
+  maxQueued: Math.max(0, Number(process.env.MAX_QUEUED_SCANS ?? 40) || 0),
+  perClient: Math.max(1, envNum('MAX_SCANS_PER_CLIENT', 2)),
+});
+const DEADLINE_MS = envNum('SCAN_DEADLINE_MS', 180_000);
 const BUSY = { status: 429, error: 'Vulnera is busy with other scans right now. Try again in a minute.' };
+const CLIENT_BUSY = { status: 429, error: 'You already have scans running. Wait for one to finish.' };
+const TIMEOUT = { status: 504, error: 'This scan took longer than 3 minutes and was stopped. Try again, or upload the lockfile instead of a large repository.' };
+class DeadlineError extends Error {}
 
-// Streams the agent's steps as they happen (one JSON object per line), then the result.
 /** Shape and size limits before any work; answers 400/413 with a plain message, or returns the clean request. */
 function checked(req: express.Request, res: express.Response): ScanRequest | null {
   try {
@@ -380,46 +401,99 @@ function checked(req: express.Request, res: express.Response): ScanRequest | nul
   }
 }
 
-app.post('/api/scan/stream', async (req, res) => {
+/**
+ * Queue, run and clean up one scan. `finish` is called at most once with the outcome (not when the client is gone).
+ * The slot is always released in finally; the deadline starts when the scan gets its slot, not while it waits.
+ */
+async function runQueued(
+  req: express.Request,
+  res: express.Response,
+  body: ScanRequest,
+  abort: AbortController,
+  hooks: { onQueue?: (position: number, ahead: number) => void; onStep?: (s: AgentStep) => void; finish: (out: { result: ScanResult } | { status: number; error: string }) => void },
+) {
+  let release: (() => void) | undefined;
+  let timer: NodeJS.Timeout | undefined;
+  let done = false;
+  const finish = (out: Parameters<typeof hooks.finish>[0]) => {
+    if (done || abort.signal.aborted && !(abort.signal.reason instanceof DeadlineError)) return;
+    done = true;
+    hooks.finish(out);
+  };
+  try {
+    release = await req.queueTicket!.slot;
+    timer = setTimeout(() => {
+      abort.abort(new DeadlineError());
+      finish(TIMEOUT); // tell the client now; the slot is freed once the scan actually stops
+    }, DEADLINE_MS);
+    const result = await scan(body, (st) => !done && hooks.onStep?.(st), abort.signal);
+    finish({ result });
+  } catch (e) {
+    if (abort.signal.reason instanceof DeadlineError) finish(TIMEOUT);
+    else if (!abort.signal.aborted) finish(failure(e));
+  } finally {
+    clearTimeout(timer);
+    release?.();
+  }
+}
+
+function join(req: express.Request, res: express.Response, abort: AbortController, onQueue?: (p: number, a: number) => void): boolean {
+  try {
+    req.queueTicket = queue.join(clientKey(req), abort.signal, onQueue);
+    return true;
+  } catch (e) {
+    if (!(e instanceof QueueFullError || e instanceof ClientLimitError)) throw e;
+    const m = e instanceof ClientLimitError ? CLIENT_BUSY : BUSY;
+    res.status(m.status).json({ error: m.error });
+    return false;
+  }
+}
+
+// Streams the agent's steps as they happen (one JSON object per line), then the result.
+app.post('/api/scan/stream', scanLimiter, scanBody, async (req, res) => {
   const body = checked(req, res);
   if (!body) return;
-  if (running >= MAX_SCANS) return void res.status(BUSY.status).json({ error: BUSY.error });
-  running++;
   const abort = new AbortController();
   res.on('close', () => {
-    if (!res.writableFinished) abort.abort();
+    if (!res.writableFinished) abort.abort(new Error('client gone'));
   });
+  let hb: ReturnType<typeof heartbeat> | undefined;
+  const send = (obj: unknown) => {
+    if (!res.writableEnded && !res.destroyed) hb?.write(`${JSON.stringify(obj)}\n`);
+  };
+  if (!join(req, res, abort, (position, ahead) => send({ type: 'queue', position, ahead }))) return;
   res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
-  const send = (obj: unknown) => {
-    if (!abort.signal.aborted) res.write(`${JSON.stringify(obj)}\n`);
-  };
-  try {
-    const result = await scan(body, (step) => send({ type: 'step', step }), abort.signal);
-    send({ type: 'result', result });
-  } catch (e) {
-    if (!abort.signal.aborted) send({ type: 'error', ...failure(e) });
-  } finally {
-    running--;
-  }
+  hb = heartbeat((line) => {
+    if (!res.writableEnded && !res.destroyed) res.write(line);
+  });
+  const pos = req.queueTicket!.position;
+  if (pos > 0) send({ type: 'queue', position: pos, ahead: pos - 1 });
+  await runQueued(req, res, body, abort, {
+    onQueue: undefined,
+    onStep: (step) => send({ type: 'step', step }),
+    finish: (out) => send('result' in out ? { type: 'result', result: out.result } : { type: 'error', ...out }),
+  });
+  hb.stop();
   res.end();
 });
 
-app.post('/api/scan', async (req, res) => {
+app.post('/api/scan', scanLimiter, scanBody, async (req, res) => {
   const body = checked(req, res);
   if (!body) return;
-  if (running >= MAX_SCANS) return void res.status(BUSY.status).json({ error: BUSY.error });
-  running++;
-  try {
-    res.json(await scan(body));
-  } catch (e) {
-    const f = failure(e);
-    res.status(f.status).json({ error: f.error });
-  } finally {
-    running--;
-  }
+  const abort = new AbortController();
+  res.on('close', () => {
+    if (!res.writableFinished) abort.abort(new Error('client gone'));
+  });
+  if (!join(req, res, abort)) return;
+  await runQueued(req, res, body, abort, {
+    finish: (out) => {
+      if ('result' in out) res.json(out.result);
+      else res.status(out.status).json({ error: out.error });
+    },
+  });
 });
 
 // Production: serve the built client from the same origin (one process to deploy).

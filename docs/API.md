@@ -63,15 +63,17 @@ Response: `200`, `Content-Type: application/x-ndjson; charset=utf-8`. One JSON o
 ```
 
 - A step is sent twice: when it starts (`running`) and when it finishes (`done`, `skipped` or `failed`). Instant decision steps may arrive as `running` then `done` back to back. Clients should **replace steps by `id`**.
+- While every scan slot is busy, the request waits in a fair queue and the server sends `{"type":"queue","position":2,"ahead":1}` whenever the position changes (`position` 1 = next). Steps follow once the scan starts.
+- `{"type":"ping"}` is sent every 15 s when nothing else was, so proxies (nginx `proxy_read_timeout`, Cloudflare's 100 s) keep the connection open. Clients must ignore it.
 - The stream ends with exactly one `result` or one `error` line:
 
 ```json
 {"type":"error","status":400,"error":"No package-lock.json found in this repository. Vulnexis needs an npm lockfile to know exact versions."}
 ```
 
-Errors are sent in-band (the HTTP status stays 200 because headers are already sent); `status` is the equivalent HTTP status. The one exception is `429` (server busy), which is returned as a normal JSON error before streaming starts.
+Errors are sent in-band (the HTTP status stays 200 because headers are already sent); `status` is the equivalent HTTP status. The exceptions are `429` (rate limit, queue full, or too many scans from one client), which are returned as a normal JSON error before streaming starts.
 
-If the client disconnects, the server stops the scan before its next step and frees the slot.
+If the client disconnects (or presses Cancel and aborts the fetch), the server stops the scan, or removes it from the queue, and frees the slot. A scan that runs longer than `SCAN_DEADLINE_MS` (default 180000, counted from when it gets a slot) is stopped with an in-band `{"type":"error","status":504,...}`.
 
 ### Reading the stream (browser)
 
@@ -178,7 +180,25 @@ The canonical definitions are in `server/src/types.ts` (copied to `client/src/ty
 | 400 | Repository too large | "This repository is larger than 60 MB…", "…too large to read (over 300 MB unpacked)…" |
 | 404 | Sample missing on this server | "Sample project is not available on this server." |
 | 502 | A data source failed (OSV, npm, GitHub unreachable) | "Scan failed while contacting a data source. Try again." |
-| 429 | Too many scans running at once on this server (`MAX_CONCURRENT_SCANS`, default 4); sent as a normal JSON error before the stream starts | "Vulnexis is busy with other scans right now. Try again in a minute." |
+| 429 | Queue full (`MAX_QUEUED_SCANS`); sent as a normal JSON error before the stream starts | "Vulnera is busy with other scans right now. Try again in a minute." |
+| 429 | The client already has `MAX_SCANS_PER_CLIENT` scans running or queued | "You already have scans running. Wait for one to finish." |
+| 429 | Rate limit (`SCAN_RATE_PER_MIN`, `SCAN_RATE_PER_DAY`; `/api/doctor` 10 per minute); has a `Retry-After` header in seconds | "Too many scans from this address. Try again in N minutes." |
+| 504 | The scan passed `SCAN_DEADLINE_MS` | "This scan took longer than 3 minutes and was stopped. Try again, or upload the lockfile instead of a large repository." |
 | 503 | Offline mode and no snapshot for this project | "Offline mode: this project has no saved snapshot…" |
 
 All messages are safe to show to users as-is.
+
+---
+
+## Scan limits (environment variables)
+
+| Variable | Default | Meaning |
+| :--- | :--- | :--- |
+| `MAX_CONCURRENT_SCANS` | 4 | Scans running at once |
+| `MAX_QUEUED_SCANS` | 40 | Scans waiting for a slot; beyond this, 429 |
+| `MAX_SCANS_PER_CLIENT` | 2 | Running + queued scans per client (IP, `TRUST_PROXY` aware) |
+| `SCAN_DEADLINE_MS` | 180000 | Longest a scan may run once it has a slot |
+| `SCAN_RATE_PER_MIN` | 6 | Scan requests per client per minute |
+| `SCAN_RATE_PER_DAY` | 100 | Scan requests per client per day |
+
+The queue and rate limiter live in one process; behind several instances, also limit at the proxy.

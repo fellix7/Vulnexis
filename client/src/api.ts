@@ -12,16 +12,21 @@ export async function fetchHealth(): Promise<Health> {
   return (await r.json()) as Health
 }
 
+/** Thrown when the person pressed Cancel. Not an error to show. */
+export class ScanCancelled extends Error {}
+
 /** POST /api/scan. Throws an Error with a user-readable message on any failure. */
-export async function postScan(req: ScanRequest): Promise<ScanResult> {
+export async function postScan(req: ScanRequest, signal?: AbortSignal): Promise<ScanResult> {
   let res: Response
   try {
     res = await fetch('/api/scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),
+      signal,
     })
   } catch {
+    if (signal?.aborted) throw new ScanCancelled()
     throw new Error('Could not reach the API. Is the server running?')
   }
 
@@ -76,20 +81,39 @@ function normalise(r: Partial<ScanResult> | null): ScanResult {
  * POST /api/scan/stream: the server sends one JSON object per line while the agent works
  * ({type:'step'} as each step starts and finishes, then {type:'result'} or {type:'error'}).
  */
-export async function streamScan(req: ScanRequest, onStep: (step: AgentStep) => void): Promise<ScanResult> {
+export async function streamScan(
+  req: ScanRequest,
+  onStep: (step: AgentStep) => void,
+  opts: { signal?: AbortSignal; onQueue?: (q: { position: number; ahead: number } | null) => void } = {},
+): Promise<ScanResult> {
+  try {
+    return await streamScanInner(req, onStep, opts)
+  } catch (e) {
+    if (opts.signal?.aborted) throw new ScanCancelled()
+    throw e
+  }
+}
+
+async function streamScanInner(
+  req: ScanRequest,
+  onStep: (step: AgentStep) => void,
+  { signal, onQueue }: { signal?: AbortSignal; onQueue?: (q: { position: number; ahead: number } | null) => void },
+): Promise<ScanResult> {
   let res: Response
   try {
     res = await fetch('/api/scan/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),
+      signal,
     })
   } catch {
+    if (signal?.aborted) throw new ScanCancelled()
     throw new Error('Could not reach the API. Is the server running?')
   }
   if (!res.ok || !res.body) {
     // Older servers without the streaming route: fall back to the one-shot endpoint.
-    if (res.status === 404) return postScan(req)
+    if (res.status === 404) return postScan(req, signal)
     const body = (await res.json().catch(() => null)) as { error?: unknown } | null
     throw new Error(typeof body?.error === 'string' ? body.error : `Scan failed (HTTP ${res.status}).`)
   }
@@ -104,13 +128,17 @@ export async function streamScan(req: ScanRequest, onStep: (step: AgentStep) => 
       const line = buf.slice(0, nl).trim()
       buf = buf.slice(nl + 1)
       if (!line) continue
-      let msg: { type?: string; step?: AgentStep; result?: ScanResult; error?: string }
+      let msg: { type?: string; step?: AgentStep; result?: ScanResult; error?: string; position?: number; ahead?: number }
       try {
         msg = JSON.parse(line)
       } catch {
         continue
       }
-      if (msg.type === 'step' && msg.step) onStep(msg.step)
+      if (msg.type === 'queue' && typeof msg.position === 'number') onQueue?.({ position: msg.position, ahead: msg.ahead ?? msg.position - 1 })
+      else if (msg.type === 'step' && msg.step) {
+        onQueue?.(null)
+        onStep(msg.step)
+      }
       else if (msg.type === 'result') return normalise(msg.result ?? null)
       else if (msg.type === 'error') throw new Error(msg.error || 'The scan failed.')
     }

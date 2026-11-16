@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { fetchHealth, streamScan, type Health } from '../api'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { fetchHealth, ScanCancelled, streamScan, type Health } from '../api'
 import type { Review, ReviewState } from '../lib/review'
 import { MOCK_RESULT } from '../mock'
 import type { AgentStep, ScanRequest, ScanResult, SourceFile } from '../types'
@@ -31,6 +31,10 @@ export interface ScanStore {
   error: string | null
   /** Agent steps of the running scan, as the server streams them. */
   liveSteps: AgentStep[]
+  /** Set while the scan waits for a free slot on the server (position 1 = next). */
+  queue: { position: number; ahead: number } | null
+  /** Stops the running or waiting scan and returns to idle without an error. */
+  cancelScan(): void
   /** Real scans, newest first. Persisted in this browser only. */
   history: ScanRecord[]
   /** Source files of the current upload, kept in memory only (never persisted) for code context. */
@@ -71,23 +75,33 @@ function readJson<T>(key: string, fallback: T): T {
   }
 }
 
-/** Save history, dropping the oldest scans if the browser's storage quota is exceeded. */
+const LONG = 1000
+
+/** Smaller copy for localStorage: advisory `details` cut to its opening (enough for the risk category and the finding page), long AI reasoning cut. */
+function slim(r: ScanRecord): ScanRecord {
+  return {
+    ...r,
+    result: {
+      ...r.result,
+      findings: r.result.findings.map((f) => ({
+        ...f,
+        advisory: { ...f.advisory, details: f.advisory.details.length > LONG ? `${f.advisory.details.slice(0, LONG)}…` : f.advisory.details },
+        ...(f.ai && f.ai.reasoning.length > LONG ? { ai: { ...f.ai, reasoning: `${f.ai.reasoning.slice(0, LONG)}…` } } : {}),
+      })),
+    },
+  }
+}
+
+/** Save history, dropping the oldest scans one at a time if the browser's storage quota is exceeded. */
 function writeHistory(list: ScanRecord[]) {
-  let items = list.slice(0, MAX_HISTORY)
-  while (true) {
+  const items = list.slice(0, MAX_HISTORY).map(slim)
+  for (;;) {
     try {
       localStorage.setItem(HISTORY_KEY, JSON.stringify(items))
       return
     } catch {
-      if (items.length <= 1) {
-        try {
-          localStorage.removeItem(HISTORY_KEY)
-        } catch {
-          /* storage unavailable */
-        }
-        return
-      }
-      items = items.slice(0, -1)
+      if (items.length === 0) return // storage unavailable
+      items.pop()
     }
   }
 }
@@ -118,6 +132,8 @@ export function ScanProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<ScanStore['status']>('idle')
   const [error, setError] = useState<string | null>(null)
   const [liveSteps, setLiveSteps] = useState<AgentStep[]>([])
+  const [queue, setQueue] = useState<ScanStore['queue']>(null)
+  const abortRef = useRef<AbortController | null>(null)
   const [sources, setSources] = useState<SourceFile[] | null>(null)
   const [health, setHealth] = useState<Health | null>(null)
   const [healthFailed, setHealthFailed] = useState(false)
@@ -128,23 +144,46 @@ export function ScanProvider({ children }: { children: ReactNode }) {
       .catch(() => setHealthFailed(true))
   }, [])
 
-  useEffect(() => writeHistory(history), [history])
+  // At most one write a second: review clicks change history often.
+  const lastWrite = useRef(0)
+  const latest = useRef(history)
+  latest.current = history
+  useEffect(() => {
+    const wait = Math.max(0, lastWrite.current + 1000 - Date.now())
+    const id = window.setTimeout(() => {
+      lastWrite.current = Date.now()
+      writeHistory(latest.current)
+    }, wait)
+    return () => window.clearTimeout(id)
+  }, [history])
+  useEffect(() => {
+    const flush = () => writeHistory(latest.current)
+    window.addEventListener('pagehide', flush)
+    return () => window.removeEventListener('pagehide', flush)
+  }, [])
 
   const runScan = useCallback(async (input: ScanInput) => {
     setStatus('scanning')
     setError(null)
     const withSources = input.request.sources ?? []
     setLiveSteps([])
+    setQueue(null)
+    const ctl = new AbortController()
+    abortRef.current = ctl
     try {
-      const result = await streamScan(input.request, (step) =>
-        setLiveSteps((list) => {
-          const i = list.findIndex((s) => s.id === step.id)
-          if (i === -1) return [...list, step]
-          const next = list.slice()
-          next[i] = step
-          return next
-        }),
+      const result = await streamScan(
+        input.request,
+        (step) =>
+          setLiveSteps((list) => {
+            const i = list.findIndex((s) => s.id === step.id)
+            if (i === -1) return [...list, step]
+            const next = list.slice()
+            next[i] = step
+            return next
+          }),
+        { signal: ctl.signal, onQueue: setQueue },
       )
+      setQueue(null)
       const record: ScanRecord = {
         id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
         source: input.source,
@@ -162,11 +201,18 @@ export function ScanProvider({ children }: { children: ReactNode }) {
       setStatus('idle')
       return true
     } catch (e) {
+      setQueue(null)
+      if (e instanceof ScanCancelled) {
+        setStatus('idle')
+        return false
+      }
       setError(e instanceof Error ? e.message : 'Unknown error')
       setStatus('error')
       return false
     }
   }, [])
+
+  const cancelScan = useCallback(() => abortRef.current?.abort(), [])
 
   const loadDemo = useCallback(() => {
     setCurrent(DEMO_RECORD())
@@ -232,6 +278,8 @@ export function ScanProvider({ children }: { children: ReactNode }) {
       status,
       error,
       liveSteps,
+      queue,
+      cancelScan,
       history,
       sources,
       health,
@@ -245,7 +293,7 @@ export function ScanProvider({ children }: { children: ReactNode }) {
       setReview,
       dismissError,
     }),
-    [current, status, error, liveSteps, history, sources, health, healthFailed, runScan, loadDemo, openScan, closeScan, deleteScan, clearHistory, setReview, dismissError],
+    [current, status, error, liveSteps, queue, cancelScan, history, sources, health, healthFailed, runScan, loadDemo, openScan, closeScan, deleteScan, clearHistory, setReview, dismissError],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
