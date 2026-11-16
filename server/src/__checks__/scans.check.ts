@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { closeDb, dbEnabled, query } from '../db/pool.js';
 import { makeUser, resetDb } from '../db/testdb.js';
-import { BadCursorError, get, list, putReview, remove, ReviewTooBigError, save, stripQuotes } from '../scansStore.js';
+import { BadCursorError, get, list, putReview, remove, ReviewTooBigError, reviewProblem, save, stripQuotes } from '../scansStore.js';
 import { sweepOnce } from '../sweep.js';
 import type { Finding, ScanResult } from '../types.js';
 
@@ -49,6 +49,11 @@ try {
   const cite = raw.rj.findings[0].ai.citations[0];
   assert.deepEqual([cite.file, cite.line, cite.quote, cite.quoteStored], ['src/a.js', 7, '', false]);
   assert.equal(raw.rj.findings[0].exposure.evidence[0].quote, '');
+  // A16: no AI free text either; verdict, file and line stay
+  const stored = raw.rj.findings[0].ai;
+  assert.deepEqual([stored.verdict, stored.reasoning, stored.reasoningStored], ['USES_VULNERABLE_API', '', false]);
+  assert.ok(!raw.txt.includes('"reasoning": "r"'), 'no AI reasoning text in the stored JSON');
+  assert.equal(live.findings[0]!.ai!.reasoning, 'r', 'the live result keeps its reasoning');
   assert.equal(raw.rj.findings[0].exposure.evidence[0].line, 3);
   assert.equal(live.findings[0]!.ai!.citations[0]!.quote, SECRET, 'the live result keeps its quotes');
   assert.deepEqual([raw.pc, raw.fc, raw.fn], [10, 2, 1]);
@@ -56,6 +61,9 @@ try {
   const days = (raw.exp.getTime() - raw.cr.getTime()) / 86_400_000;
   assert.ok(days > 89.9 && days < 90.1, `expires in 90 days (${days})`);
   assert.deepEqual(stripQuotes({ a: [{ quote: 'x', n: 1 }] }), { a: [{ quote: '', n: 1, quoteStored: false }] });
+  assert.deepEqual(stripQuotes({ ai: { verdict: 'UNCERTAIN', reasoning: 'free text', citations: [{ file: 'a.js', line: 2, quote: 'q' }] } }), {
+    ai: { verdict: 'UNCERTAIN', reasoning: '', reasoningStored: false, citations: [{ file: 'a.js', line: 2, quote: '', quoteStored: false }] },
+  });
   const got = (await get(a.id, id))!;
   assert.equal(got.result.scanId, id);
   assert.equal(got.projectName, 'acme/web');
@@ -120,6 +128,13 @@ try {
   assert.ok(/^[A-Za-z0-9_-]+$/.test((await list(c.id, 3)).nextCursor!), 'opaque url-safe cursor');
   await assert.rejects(list(c.id, 3, '!!!'), BadCursorError);
   await assert.rejects(list(c.id, 3, Buffer.from('["x","y"]').toString('base64url')), BadCursorError);
+  const goodId = '00000000-0000-4000-8000-000000000001';
+  for (const ts of ['2026-13-01T00:00:00.000000Z', '2026-02-31T00:00:00.000000Z', '2026-01-01T25:00:00.000000Z', '9999-99-99T99:99:99.999999Z', '2026-01-01', 'now']) {
+    await assert.rejects(list(c.id, 3, Buffer.from(JSON.stringify([ts, goodId])).toString('base64url')), BadCursorError, ts);
+  }
+  await assert.rejects(list(c.id, 3, Buffer.from(JSON.stringify(['2026-01-01T00:00:00.000000Z', 'not-a-uuid'])).toString('base64url')), BadCursorError, 'bad id');
+  await assert.rejects(list(c.id, 3, Buffer.from(JSON.stringify(['2026-01-01T00:00:00.000000Z', goodId, 'extra'])).toString('base64url')), BadCursorError, 'extra element');
+  assert.ok(Array.isArray((await list(c.id, 3, Buffer.from(JSON.stringify(['2026-01-01T00:00:00.000000Z', goodId])).toString('base64url'))).scans), 'a well-formed cursor works');
   const sum = (await list(c.id, 1)).scans[0]!;
   assert.deepEqual(Object.keys(sum).sort(), ['aiStatus', 'createdAt', 'expiresAt', 'findingCount', 'fixNowCount', 'id', 'packageCount', 'projectName', 'source']);
   console.log('ok  keyset pagination: ties, cap, cursor validation');
@@ -130,9 +145,29 @@ try {
   await query(`INSERT INTO usage (subject, period, scans) VALUES ('ip:old', current_date - 5, 1), ('ip:new', current_date, 1), ('user:keep', current_date - 5, 1)`);
   assert.equal((await list(c.id, 50)).scans.length, 6, 'expired scans are hidden even before the sweep');
   const swept = await sweepOnce();
-  assert.deepEqual(swept, { scans: 1, sessions: 1, ipUsage: 1 });
+  assert.deepEqual(swept, { scans: 1, sessions: 1, keys: 0, ipUsage: 1 });
   assert.equal((await query('SELECT 1 FROM usage')).length, 2);
-  console.log('ok  sweep');
+  // A16: IP rows from before yesterday go, yesterday's stay; A11: keys revoked over 30 days ago are purged
+  await query(`INSERT INTO usage (subject, period, scans) VALUES ('ip:two', (now() AT TIME ZONE 'Asia/Kolkata')::date - 2, 1), ('ip:one', (now() AT TIME ZONE 'Asia/Kolkata')::date - 1, 1)`);
+  await query(`INSERT INTO api_keys (user_id, name, key_id, key_hash, last4, revoked_at) VALUES
+    ($1, 'old', 'aaaaaaaaaaaaaaa1', '\\x02', 'wxyz', now() - interval '31 days'),
+    ($1, 'recent', 'aaaaaaaaaaaaaaa2', '\\x02', 'wxyz', now() - interval '29 days'),
+    ($1, 'live', 'aaaaaaaaaaaaaaa3', '\\x02', 'wxyz', NULL)`, [c.id]);
+  assert.deepEqual(await sweepOnce(), { scans: 0, sessions: 0, keys: 1, ipUsage: 1 });
+  assert.deepEqual((await query<{ name: string }>('SELECT name FROM api_keys ORDER BY name')).map((r) => r.name), ['live', 'recent']);
+  assert.deepEqual((await query<{ subject: string }>("SELECT subject FROM usage WHERE subject IN ('ip:two', 'ip:one')")).map((r) => r.subject), ['ip:one']);
+  console.log('ok  sweep: expired scans and sessions, IP rows older than yesterday, keys revoked over 30 days ago');
+
+  // ---- A14: review JSON ----
+  const deep = (n: number) => Array.from({ length: n }).reduce<unknown>((acc) => ({ a: acc }), 'x');
+  assert.equal(reviewProblem({ ok: ['fine', { nested: 1 }], 'क': 'नमस्ते 😀' }), null);
+  assert.equal(reviewProblem(deep(18)), null, 'shallow enough');
+  assert.match(reviewProblem(deep(25))!, /deeper than 20/);
+  assert.match(reviewProblem({ a: 'x\u0000y' })!, /NUL/);
+  assert.match(reviewProblem({ ['k\u0000']: 1 })!, /NUL/, 'keys too');
+  assert.match(reviewProblem(['\ud800'])!, /surrogate/);
+  assert.match(reviewProblem({ a: 'x\udc00' })!, /surrogate/);
+  console.log('ok  review JSON: NUL, lone surrogates and deep nesting rejected');
 } finally {
   await closeDb();
 }

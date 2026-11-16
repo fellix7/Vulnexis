@@ -152,10 +152,26 @@ export function clearSessionCookie(res: Response): void {
   res.append('Set-Cookie', serializeCookie(sessionCookieName(), '', { maxAge: 0, secure: secureCookies() }));
 }
 
-/** Delete the request's session row (if any) and clear the cookie. */
+/**
+ * Delete the request's session row (if any) and clear the cookie. A request with a Bearer header is an API-key request:
+ * the CSRF check was skipped for it, so its cookie is not consulted here either (Bearer wins over a cookie, everywhere).
+ * A database failure still clears the cookie: signing out always leaves the browser signed out.
+ */
 export async function destroySession(req: Request, res: Response): Promise<void> {
+  if (hasBearer(req)) return;
   const token = sessionToken(req);
-  if (token) await query('DELETE FROM sessions WHERE id_hash = $1', [sha256(token)]);
+  if (token) {
+    try {
+      await query('DELETE FROM sessions WHERE id_hash = $1', [sha256(token)]);
+    } catch (e) {
+      console.error('[auth] could not delete the session row at logout:', (e as Error).message);
+    }
+  }
   cache.delete(req);
   clearSessionCookie(res);
+}
+
+/** Delete every session of a user (sign out of all devices). */
+export async function destroyAllSessions(userId: string): Promise<void> {
+  await query('DELETE FROM sessions WHERE user_id = $1', [userId]);
 }

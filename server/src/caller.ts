@@ -2,7 +2,7 @@ import type { RequestHandler } from 'express';
 import { looksLikeKey, verifyKey } from './apiKeys.js';
 import { accountsEnabled } from './auth/config.js';
 import { sessionUser } from './auth/session.js';
-import { createLimiter } from './ratelimit.js';
+import { clientIp, createLimiter } from './ratelimit.js';
 
 // Who is calling: an API key (Authorization: Bearer), a signed-in browser session, or nobody (anonymous).
 // With accounts off everyone is anonymous and nothing else changes.
@@ -26,15 +26,14 @@ export const identify: RequestHandler = async (req, res, next) => {
     }
     const m = /^Bearer\s+(\S+)\s*$/i.exec(req.get('authorization') ?? '');
     if (m) {
-      const ip = req.ip ?? 'unknown';
-      const wait = failLimiter.peek(ip);
-      if (wait > 0) {
-        res.setHeader('Retry-After', String(wait));
-        return void res.status(429).json({ error: 'Too many failed attempts. Try again in a minute.' });
-      }
+      // Verify first: a valid key is never blocked by earlier failures from the same address. Only failures count.
       const k = looksLikeKey(m[1]!) ? await verifyKey(m[1]!) : null;
       if (!k) {
-        failLimiter.hit(ip);
+        const wait = failLimiter.hit(clientIp(req));
+        if (wait > 0) {
+          res.setHeader('Retry-After', String(wait));
+          return void res.status(429).json({ error: 'Too many failed attempts. Try again in a minute.' });
+        }
         return void res.status(401).json({ error: 'This API key is not valid.' });
       }
       res.locals.caller = { kind: 'key', ...k } satisfies Caller;

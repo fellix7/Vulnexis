@@ -253,6 +253,39 @@ test('logout deletes the row and clears the cookie; CSRF-guarded', async () => {
   }
 });
 
+test('logout-all deletes every session of the user (and only theirs); CSRF-guarded; needs a session', async () => {
+  const u = await makeUser();
+  const other = await makeUser();
+  const mk = async (uid: string) => {
+    const tok = randomBytes(32).toString('base64url');
+    await query(`INSERT INTO sessions (id_hash, user_id, expires_at) VALUES ($1, $2, now() + interval '1 day')`, [sha256(tok), uid]);
+    return `vulnera_sid=${tok}`;
+  };
+  const [a, b, o] = [await mk(u.id), await mk(u.id), await mk(other.id)];
+  const post = (cookie: string | undefined, origin = ORIGIN, extra: Record<string, string> = {}) =>
+    fetch(`${base}/api/auth/logout-all`, { method: 'POST', headers: { ...(cookie ? { cookie } : {}), origin, 'content-type': 'application/json', ...extra }, body: '{}' });
+  assert.equal((await post(undefined)).status, 401, 'no session');
+  assert.equal((await post(a, 'https://evil.example')).status, 403, 'cross-site');
+  assert.equal((await post(a, ORIGIN, { authorization: 'Bearer vk_junk' })).status, 401, 'a Bearer request never uses the cookie');
+  assert.equal((await query('SELECT 1 FROM sessions WHERE user_id = $1', [u.id])).length, 2);
+  const r = await post(a);
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { ok: true });
+  assert.equal(r.headers.get('cache-control'), 'no-store');
+  assert.match(setCookies(r).find((c) => c.startsWith('vulnera_sid='))!, /^vulnera_sid=; .*Max-Age=0/);
+  assert.equal((await query('SELECT 1 FROM sessions WHERE user_id = $1', [u.id])).length, 0, 'both sessions of the user are gone');
+  assert.equal((await query('SELECT 1 FROM sessions WHERE user_id = $1', [other.id])).length, 1, 'another user keeps theirs');
+  assert.equal((await (await get('/api/me', b)).json()).user, null, 'the other device is signed out');
+  assert.equal((await (await get('/api/me', o)).json()).user.id, other.id);
+});
+
+test('logout with a Bearer header does not touch the cookie session', async () => {
+  const { sid } = await login();
+  const r = await fetch(`${base}/api/auth/logout`, { method: 'POST', headers: { cookie: `vulnera_sid=${sid}`, authorization: 'Bearer vk_junk', origin: 'https://evil.example' } });
+  assert.equal(r.status, 200);
+  assert.equal((await query('SELECT 1 FROM sessions')).length, 1, 'the session survives: a Bearer request skips the CSRF check, so it may not act on the cookie');
+});
+
 test('expired session is rejected; last_seen_at refreshed only when stale', async () => {
   const u = await makeUser();
   const tok = randomBytes(32).toString('base64url');

@@ -59,6 +59,7 @@ export default function AccountPage() {
           <PlanPanel plan={plan} usage={usage} />
         </div>
         <Keys plan={plan} />
+        <SignOutPanel />
         <DangerZone login={user.login} />
       </div>
     </>
@@ -352,6 +353,51 @@ function Keys({ plan }: { plan: Plan | null }) {
               </li>
             ))}
           </ul>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function SignOutPanel() {
+  const { tr } = useLang()
+  const { signOut, signOutAll } = useAuth()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function onAll() {
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      await signOutAll()
+    } catch (err) {
+      setError(message(err, tr('Could not sign out of all devices.', 'सभी डिवाइस से साइन आउट नहीं हुआ।')))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="panel" aria-labelledby="acct-signout-h">
+      <div className="panel__head">
+        <h2 id="acct-signout-h">{tr('Sign out', 'साइन आउट')}</h2>
+      </div>
+      <div className="panel__body stack">
+        <p className="muted">{tr('Signing out of all devices ends every session of this account, here included.', 'सभी डिवाइस से साइन आउट करने पर इस खाते के सारे सेशन बंद हो जाते हैं, यहाँ वाला भी।')}</p>
+        <div className="acct-create">
+          <button type="button" className="btn" disabled={busy} onClick={() => void signOut()}>
+            <Icon name="logout" size={14} />
+            {tr('Sign out', 'साइन आउट')}
+          </button>
+          <button type="button" className="btn" disabled={busy} onClick={() => void onAll()}>
+            {busy ? <span className="spinner" aria-hidden="true" /> : <Icon name="logout" size={14} />}
+            {tr('Sign out of all devices', 'सभी डिवाइस से साइन आउट')}
+          </button>
+        </div>
+        {error && (
+          <Callout tone="danger" role="alert">
+            {error}
+          </Callout>
         )}
       </div>
     </section>

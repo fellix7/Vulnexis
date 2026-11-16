@@ -27,9 +27,17 @@ export const securityHeaders: RequestHandler = (req, res, next) => {
 };
 
 /** Last middleware: JSON errors only, and never a stack trace or internal message in the response. */
-export const jsonErrorHandler: ErrorRequestHandler = (err, _req, res, next) => {
+export const jsonErrorHandler: ErrorRequestHandler = async (err, _req, res, next) => {
   if (res.headersSent) return next(err);
   const e = err as { type?: string; status?: number; statusCode?: number };
+  // A scan whose body could not be read (malformed JSON, too large, aborted) never ran: give back the quota `admit` took.
+  if (e?.type === 'entity.parse.failed' || e?.type === 'entity.too.large' || (typeof (e?.status ?? e?.statusCode) === 'number' && (e.status ?? e.statusCode)! < 500)) {
+    try {
+      await (res.locals.refundScan as (() => Promise<void>) | undefined)?.();
+    } catch {
+      /* the refund logs its own failure */
+    }
+  }
   if (e?.type === 'entity.parse.failed') return void res.status(400).json({ error: 'The request body is not valid JSON.' });
   if (e?.type === 'entity.too.large') return void res.status(413).json({ error: 'The upload is too large (limit 10 MB).' });
   const status = e?.status ?? e?.statusCode;

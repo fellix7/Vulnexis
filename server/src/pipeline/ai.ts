@@ -3,7 +3,7 @@ import { GoogleGenAI, Type } from '@google/genai';
 import { record as recordAiTokens } from '../aiBudget.js';
 import { cached } from '../cache.js';
 import { findingKey } from '../keys.js';
-import { currentSignal, throwIfScanAborted } from '../scanStats.js';
+import { currentSignal, stats, throwIfScanAborted } from '../scanStats.js';
 import type { AiVerdict, Finding, SourceFile } from '../types.js';
 
 // ---------------------------------------------------------------------------
@@ -762,6 +762,7 @@ async function analyzeChunk(
   budget: { calls: number; max: number },
 ): Promise<boolean> {
   let live = false;
+  const scanStats = stats(); // the cache runs its fetcher outside this scan's context, so take the counters now
   const advisoryText = chunk.map((c) => `${c.finding.advisory.summary ?? ''} ${c.finding.advisory.details ?? ''}`).join('\n');
   const code = packageCode(pkgName, importingFiles, sources, advisoryText);
   const advisories = chunk
@@ -781,6 +782,7 @@ async function analyzeChunk(
   const items = await cached('gemini-package', cacheKey, () => {
     if (budget.calls >= budget.max) throw new AiStopError('limit');
     budget.calls++;
+    scanStats.geminiCalls++; // a request goes to Gemini from here: it may be billed even if it fails, so this scan is no longer refunded
     live = true;
     return callGemini(pool, {
       system: BATCH_SYSTEM_PROMPT,

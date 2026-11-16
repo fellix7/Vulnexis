@@ -3,6 +3,7 @@ import express, { Router } from 'express';
 import { accountsEnabled } from './auth/config.js';
 import { requireSession } from './auth/session.js';
 import { query, tx } from './db/pool.js';
+import { createLimiter } from './ratelimit.js';
 
 // API keys: vk_<16 hex id>_<43 base64url secret>. Only the sha256 is stored; the secret is shown once at creation.
 // Keys are never logged and are accepted only as `Authorization: Bearer`.
@@ -32,6 +33,13 @@ const toInfo = (r: KeyRow): KeyInfo => ({ id: r.id, name: r.name, keyId: r.key_i
 const COLS = 'id, name, key_id, last4, created_at, last_used_at';
 
 export class KeyLimitError extends Error {}
+
+/** Creating keys is rate limited per user (not per address): 10 an hour. shortcut: per process, like the other limiters. */
+export const KEY_CREATES_PER_HOUR = 10;
+export const keyCreateLimiter = createLimiter({ limits: [{ windowMs: 3_600_000, max: KEY_CREATES_PER_HOUR }], maxKeys: 20_000 });
+
+/** Key names: 1 to 60 characters, printable only (letters, marks, digits, punctuation, symbols, plain spaces). No control, format or line-separator characters. */
+export const validKeyName = (name: string): boolean => name.length >= 1 && name.length <= 60 && /^[\p{L}\p{M}\p{N}\p{P}\p{S} ]+$/u.test(name);
 
 export async function createKey(userId: string, name: string): Promise<{ key: KeyInfo; secret: string }> {
   const keyId = randomBytes(8).toString('hex');
@@ -87,7 +95,12 @@ export function keysRouter(): Router {
   });
   r.post('/api/keys', requireSession, express.json({ limit: '4kb' }), async (req, res) => {
     const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
-    if (name.length < 1 || name.length > 60) return void res.status(400).json({ error: 'Give the key a name of 1 to 60 characters.' });
+    if (!validKeyName(name)) return void res.status(400).json({ error: 'Give the key a name of 1 to 60 printable characters.' });
+    const wait = keyCreateLimiter.hit(res.locals.user.id);
+    if (wait > 0) {
+      res.setHeader('Retry-After', String(wait));
+      return void res.status(429).json({ error: `You can create ${KEY_CREATES_PER_HOUR} API keys an hour. Try again in ${Math.max(1, Math.ceil(wait / 60))} minutes.` });
+    }
     try {
       res.status(201).json(await createKey(res.locals.user.id, name));
     } catch (e) {

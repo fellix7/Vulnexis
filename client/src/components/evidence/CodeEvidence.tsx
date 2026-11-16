@@ -220,7 +220,7 @@ export function CodeRelevance({ finding: f, aiStatus, demo = false, decision }: 
         <Icon name="sparkle" />
         <div>
           <p className="ce-ai__label">AI assessment · needs human confirmation</p>
-          <p className="ce-ai__text">{ai.reasoning}</p>
+          {ai.reasoning ? <p className="ce-ai__text">{ai.reasoning}</p> : <p className="ce-ai__text subtle">AI reasoning is not stored with saved scans; the verdict and the cited line are kept.</p>}
         </div>
       </div>
 

@@ -1,6 +1,8 @@
 // Run: npx tsx server/src/__checks__/routes.check.ts   (the accounts part also needs DATABASE_URL=postgres://vulnera:vulnera-dev@127.0.0.1:5432/vulnera_dev)
 // Server wiring: with accounts off nothing changes; with accounts on, scans are saved, owned, and the AI budget applies.
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { createKey } from '../apiKeys.js';
 import { closeDb, dbEnabled, query } from '../db/pool.js';
 import { makeUser, resetDb } from '../db/testdb.js';
@@ -107,7 +109,7 @@ try {
   // ---- Gemini budget exhausted: the AI step is skipped with a note ----
   await s.stop();
   server = await startServer({ DATABASE_URL: process.env.DATABASE_URL, GEMINI_API_KEY: 'test-key-never-called', GEMINI_MONTHLY_BUDGET_INR: '100' }); // 100M tokens = Rs 900
-  const paused = await call(server, 'POST', '/api/scan', { body: { sample: true } });
+  const paused = await call(server, 'POST', '/api/scan', { cookie: ca, body: { sample: true } });
   assert.equal(paused.status, 200, JSON.stringify(paused.body).slice(0, 300));
   assert.equal(paused.body.aiStatus, 'disabled');
   assert.ok(paused.body.notes.includes("AI code check paused: this month's AI budget is used up. Priorities come from the published rules."), JSON.stringify(paused.body.notes));
@@ -122,6 +124,71 @@ try {
   assert.equal(noAi.body.aiStatus, 'disabled');
   assert.ok(noAi.body.notes.some((n: string) => /not part of your plan/.test(n)));
   console.log('ok  plan with ai_enabled=false skips the AI step');
+
+  // A4: the anonymous plan has no AI code check, with the plan note
+  await query("UPDATE plans SET ai_enabled = true WHERE id = 'free'");
+  const anonScan = await call(server, 'POST', '/api/scan', { body: { sample: true } });
+  assert.equal(anonScan.status, 200);
+  assert.equal(anonScan.body.aiStatus, 'disabled');
+  assert.ok(anonScan.body.notes.some((n: string) => /AI code check is not part of your plan/.test(n)), JSON.stringify(anonScan.body.notes));
+  assert.equal(anonScan.body.agent.find((x: { tool: string }) => x.tool === 'gemini').status, 'skipped');
+  console.log('ok  anonymous scan skips the AI step with a note');
+
+  // A17: signed-in scan responses are never cached; anonymous ones keep the old behaviour
+  const ns = await call(server, 'POST', '/api/scan', { cookie: ca, body: { lockfile: EMPTY_LOCKFILE } });
+  assert.equal(ns.headers.get('cache-control'), 'no-store', 'session');
+  assert.equal((await call(server, 'POST', '/v1/scan', { key: keyA, body: { lockfile: EMPTY_LOCKFILE } })).headers.get('cache-control'), 'no-store', '/v1');
+  const nstream = await fetch(`${server.url}/api/scan/stream`, { method: 'POST', headers: { cookie: ca, origin: 'http://localhost:5173', 'content-type': 'application/json' }, body: JSON.stringify({ lockfile: EMPTY_LOCKFILE }) });
+  assert.match(nstream.headers.get('cache-control')!, /no-store/, 'stream');
+  await nstream.text();
+  assert.match((await call(server, 'POST', '/v1/scan/stream', { key: keyA, body: { sample: true } })).headers.get('cache-control')!, /no-store/, '/v1 stream');
+  assert.notEqual(anonScan.headers.get('cache-control'), 'no-store', 'anonymous sample is not marked no-store');
+  console.log('ok  signed-in scan responses are no-store');
+
+  // A14: review JSON problems are a 400, not a 500
+  const rid = ns.body.scanId as string;
+  const put = (raw: string) => fetch(`${server!.url}/api/scans/${rid}/review`, { method: 'PUT', headers: { cookie: ca, origin: 'http://localhost:5173', 'content-type': 'application/json' }, body: raw });
+  assert.equal((await put('{"review":{"note":"a\\u0000b"}}')).status, 400, 'NUL');
+  assert.equal((await put('{"review":{"note":"\\ud800"}}')).status, 400, 'lone surrogate');
+  assert.equal((await put(`{"review":${'{"a":'.repeat(25)}1${'}'.repeat(25)}}`)).status, 400, 'nesting');
+  assert.equal((await put(`{"review":${'{"a":'.repeat(15)}1${'}'.repeat(15)}}`)).status, 200, 'moderate nesting is fine');
+  const badDate = Buffer.from(JSON.stringify(['2026-13-45T00:00:00.000000Z', '00000000-0000-4000-8000-000000000001'])).toString('base64url');
+  assert.equal((await call(server, 'GET', `/api/scans?cursor=${badDate}`, { cookie: ca })).status, 400, 'cursor with an impossible date');
+  console.log('ok  review JSON and cursor validation over HTTP');
+
+  // A17: unknown /api, /auth, /v1 paths are JSON 404s (any letter case), never the app page; real app routes still get it
+  for (const p of ['/auth', '/AUTH', '/v1', '/V1', '/api', '/API/nothing', '/Auth/nothing', '/v1/nothing', '/api/nothing']) {
+    const miss: Response = await fetch(`${server!.url}${p}`);
+    assert.equal(miss.status, 404, p);
+    assert.match(miss.headers.get('content-type')!, /json/, p);
+  }
+  if (existsSync(path.resolve(import.meta.dirname, '../../../client/dist/index.html'))) {
+    const page = await fetch(`${server.url}/overview`);
+    assert.equal(page.status, 200);
+    assert.match(page.headers.get('content-type')!, /html/);
+  }
+  console.log('ok  /api, /auth, /v1 catch-all: JSON 404');
+
+  // A17: after the scan deadline fires the scan is neither saved nor charged
+  await server.stop();
+  await query('DELETE FROM scans');
+  await query('DELETE FROM usage');
+  server = await startServer({ DATABASE_URL: process.env.DATABASE_URL, SCAN_DEADLINE_MS: '1' });
+  const late = await call(server, 'POST', '/api/scan', { cookie: ca, body: { lockfile: EMPTY_LOCKFILE } });
+  assert.equal(late.status, 504, JSON.stringify(late.body).slice(0, 200));
+  await new Promise((r) => setTimeout(r, 1000)); // the scan may still be finishing in the background
+  assert.equal((await query('SELECT 1 FROM scans')).length, 0, 'a scan that timed out is not saved');
+  assert.equal((await query<{ n: string }>("SELECT coalesce(sum(scans), 0)::text AS n FROM usage WHERE subject LIKE 'user:%'"))[0]!.n, '0', 'and the quota is given back');
+  console.log('ok  timed-out scan: not saved, not charged');
+
+  // A17: logout with the database down still clears the cookie and answers 200
+  await server.stop();
+  server = await startServer({ DATABASE_URL: 'postgres://vulnera:x@127.0.0.1:1/vulnera_dev', MIGRATE_ON_START: '0' });
+  const down = await fetch(`${server.url}/api/auth/logout`, { method: 'POST', headers: { cookie: `vulnera_sid=${'a'.repeat(43)}`, origin: 'http://localhost:5173' } });
+  assert.equal(down.status, 200);
+  assert.deepEqual(await down.json(), { ok: true });
+  assert.match(down.headers.getSetCookie().find((c) => c.startsWith('vulnera_sid='))!, /^vulnera_sid=; .*Max-Age=0/);
+  console.log('ok  logout with the database down: 200 and the cookie is cleared');
 } finally {
   await server?.stop();
   await closeDb();

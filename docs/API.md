@@ -283,7 +283,7 @@ Another user's scan, an expired one, and a malformed id are all `404`. The `/v1/
 | :--- | :--- | :--- |
 | `DATABASE_URL` | unset | Postgres connection string; unset = accounts off |
 | `MIGRATE_ON_START` | 1 | Run pending migrations before listening (the server exits with a clear log if they fail); 0 to run `npm run migrate -w server` yourself |
-| `SCAN_RETENTION_DAYS` | 90 | How long saved scans are kept (an hourly sweep deletes expired scans, expired sessions and daily IP counters older than 2 days) |
+| `SCAN_RETENTION_DAYS` | 90 | How long saved scans are kept (an hourly sweep deletes expired scans, expired sessions and daily IP counters older than yesterday, and API keys revoked over 30 days ago) |
 | `AUTH_FAIL_PER_MIN` | 20 | Failed API key lookups per IP per minute before 429 |
 | `GEMINI_MONTHLY_BUDGET_INR` | 0 | Monthly Gemini cap in rupees (0 = none); the AI step is skipped once the estimated spend reaches it (checked every 60 s, so a few scans in flight can overshoot) |
 | `GEMINI_INR_PER_1M_INPUT`, `GEMINI_INR_PER_1M_OUTPUT` | 9, 36 | Rupee estimate per million tokens; confirm against current Gemini pricing |

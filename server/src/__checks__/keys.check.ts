@@ -90,10 +90,38 @@ try {
   assert.equal((await call(s, 'POST', '/api/keys', { cookie, body: { name: 'k3' } })).status, 409);
   console.log('ok  POST /api/keys: 409 at max_api_keys');
 
+  // A14: key names are printable text, 1 to 60 characters
+  const cookieNames = cookie;
+  for (const bad of ['', '   ', 'x'.repeat(61), 'two\nlines', 'tab\there', 'nul\u0000', 'bidi\u202eoverride', 'zero\u200bwidth', 'lone\ud800surrogate', 5, null, ['a']]) {
+    assert.equal((await call(s, 'POST', '/api/keys', { cookie: cookieNames, body: { name: bad } })).status, 400, JSON.stringify(bad));
+  }
+  await query('UPDATE api_keys SET revoked_at = now()');
+  assert.equal((await call(s, 'POST', '/api/keys', { cookie: cookieNames, body: { name: 'Laptop – CI ✓ (नाम) 日本' } })).status, 201, 'printable unicode is fine');
+  assert.equal((await call(s, 'POST', '/api/keys', { cookie: cookieNames, body: { name: 'x'.repeat(60) } })).status, 201, '60 characters is fine');
+  console.log('ok  key names: printable only, 1 to 60');
+
+  // A2: at most 10 key creations per user per hour, whatever the plan allows
+  await query("UPDATE plans SET max_api_keys = 100 WHERE id = 'free'");
+  const rl = await makeUser();
+  const rlCookie = await sessionCookie(rl.id);
+  for (let i = 0; i < 10; i++) assert.equal((await call(s, 'POST', '/api/keys', { cookie: rlCookie, body: { name: `k${i}` } })).status, 201, `create ${i + 1}`);
+  const eleventh = await call(s, 'POST', '/api/keys', { cookie: rlCookie, body: { name: 'k10' } });
+  assert.equal(eleventh.status, 429, 'the 11th creation in an hour');
+  assert.ok(Number(eleventh.headers.get('retry-after')) > 0, 'Retry-After says when to try again');
+  assert.equal((await query('SELECT 1 FROM api_keys WHERE user_id = $1', [rl.id])).length, 10, 'and no key was made');
+  const innocent = await makeUser();
+  assert.equal((await call(s, 'POST', '/api/keys', { cookie: await sessionCookie(innocent.id), body: { name: 'mine' } })).status, 201, 'the limit is per user');
+  console.log('ok  key creation: 11th in an hour is 429, per user');
+
+  // A9: a valid key is never blocked by earlier failures from the same address; only failures are counted
   // failed lookups are limited per IP (default 20 a minute); do this last, it locks the test address out of key logins
   let limited = 0;
   for (let i = 0; i < 30; i++) if ((await call(s, 'GET', '/api/scans', { key: 'vk_bad' })).status === 429) limited++;
   assert.ok(limited >= 9, `failed lookups rate limited (got ${limited})`);
+  const { secret: goodSecret } = await createKey(innocent.id, 'after-the-storm');
+  const stillGood = await call(s, 'GET', '/api/scans', { key: goodSecret });
+  assert.equal(stillGood.status, 200, 'a valid key still works from an address that is over the failure limit');
+  assert.equal((await call(s, 'GET', '/api/scans', { key: 'vk_bad' })).status, 429, 'while bad keys stay blocked');
   console.log('ok  failed key lookups are rate limited per IP');
 } finally {
   await server?.stop();

@@ -1,14 +1,126 @@
+import { isIPv4, isIPv6 } from 'node:net';
 import type { Request, RequestHandler } from 'express';
 
 // Sliding-window rate limiter, no dependencies. Keyed by client key (the IP for now; later an API key).
 // shortcut: per-process memory; behind several instances, limit at the proxy as well.
 
-/** Rate-limit and queue identity: the API key or user once the caller is known, else the IP address. */
-export function clientKey(req: Pick<Request, 'ip'> & { res?: { locals?: Record<string, any> } }): string {
-  const c = req.res?.locals?.caller as { kind?: string; keyId?: string; userId?: string } | undefined;
-  if (c?.kind === 'key' && c.keyId) return `key:${c.keyId}`;
-  if (c?.kind === 'user' && c.userId) return `user:${c.userId}`;
-  return req.ip ?? 'unknown';
+// ---- client address ---------------------------------------------------------------------------------------------
+
+/** 4 bytes (IPv4) or 16 bytes (IPv6) of an address; IPv4-mapped IPv6 (::ffff:a.b.c.d) comes back as its 4 IPv4 bytes. Null if not an IP. */
+export function parseIp(input: string): number[] | null {
+  let s = input.trim();
+  const zone = s.indexOf('%');
+  if (zone >= 0) s = s.slice(0, zone);
+  if (isIPv4(s)) return s.split('.').map(Number);
+  if (!isIPv6(s)) return null;
+  const tail = /^(.*:)(\d+\.\d+\.\d+\.\d+)$/.exec(s);
+  if (tail) {
+    const v = tail[2]!.split('.').map(Number);
+    s = `${tail[1]}${((v[0]! << 8) | v[1]!).toString(16)}:${((v[2]! << 8) | v[3]!).toString(16)}`;
+  }
+  const gap = s.indexOf('::');
+  const left = (gap < 0 ? s : s.slice(0, gap)).split(':').filter(Boolean);
+  const right = gap < 0 ? [] : s.slice(gap + 2).split(':').filter(Boolean);
+  const groups = gap < 0 ? left : [...left, ...Array<string>(8 - left.length - right.length).fill('0'), ...right];
+  if (groups.length !== 8) return null;
+  const bytes = groups.flatMap((g) => {
+    const n = parseInt(g, 16);
+    return [n >> 8, n & 255];
+  });
+  if (bytes.slice(0, 10).every((b) => b === 0) && bytes[10] === 255 && bytes[11] === 255) return bytes.slice(12);
+  return bytes;
+}
+
+/**
+ * The identity an address is limited under: IPv4 as is, IPv4-mapped IPv6 as its IPv4 address, any other IPv6 as its /64
+ * prefix (one customer line holds a whole /64, so single addresses would let one client dodge every limit).
+ * Anything that is not an IP (including an identity this function already produced) comes back unchanged.
+ */
+export function normalizeIp(ip: string): string {
+  const b = parseIp(ip);
+  if (!b) return ip;
+  if (b.length === 4) return b.join('.');
+  const g = [0, 1, 2, 3].map((i) => ((b[2 * i]! << 8) | b[2 * i + 1]!).toString(16));
+  return `${g.join(':')}::/64`;
+}
+
+export interface Cidr {
+  bytes: number[];
+  bits: number;
+}
+
+/** "10.0.0.0/8", "2400:cb00::/32" or a bare address (a single host). Null when malformed. */
+export function parseCidr(input: string): Cidr | null {
+  const [addr, len, extra] = input.trim().split('/');
+  if (!addr || extra !== undefined) return null;
+  const bytes = parseIp(addr);
+  if (!bytes) return null;
+  const mapped = bytes.length === 4 && isIPv6(addr.trim()); // ::ffff:1.2.3.4/120 style: prefix counts in the 128-bit form
+  const max = bytes.length * 8;
+  let bits = len === undefined ? max : /^\d{1,3}$/.test(len) ? Number(len) : -1;
+  if (mapped && len !== undefined) bits -= 96;
+  return bits < 0 || bits > max ? null : { bytes, bits };
+}
+
+export function ipInCidr(ip: string, c: Cidr): boolean {
+  const b = parseIp(ip);
+  if (!b || b.length !== c.bytes.length) return false;
+  let left = c.bits;
+  for (let i = 0; left > 0; i++, left -= 8) {
+    const mask = left >= 8 ? 255 : (255 << (8 - left)) & 255;
+    if ((b[i]! & mask) !== (c.bytes[i]! & mask)) return false;
+  }
+  return true;
+}
+
+let cidrCache: { src: string; list: Cidr[] } | undefined;
+/** TRUSTED_PROXY_CIDRS: comma-separated CIDRs (parsed once per value; malformed entries are skipped with a warning). */
+function trustedCidrs(): Cidr[] {
+  const src = process.env.TRUSTED_PROXY_CIDRS ?? '';
+  if (cidrCache?.src !== src) {
+    const list: Cidr[] = [];
+    for (const part of src.split(',').map((x) => x.trim()).filter(Boolean)) {
+      const c = parseCidr(part);
+      if (c) list.push(c);
+      else console.warn(`[net] TRUSTED_PROXY_CIDRS: ignoring "${part}" (not a CIDR)`);
+    }
+    cidrCache = { src, list };
+  }
+  return cidrCache.list;
+}
+
+export interface IpRequest {
+  ip?: string;
+  socket?: { remoteAddress?: string };
+  headers?: Record<string, string | string[] | undefined>;
+}
+
+/**
+ * The one place that decides which address a request is from (rate limiter, anonymous quota, sign-in limiter).
+ *  - TRUSTED_CLIENT_IP_HEADER set (e.g. cf-connecting-ip): that header is believed ONLY when the socket peer is inside
+ *    TRUSTED_PROXY_CIDRS; from any other peer it is ignored and the socket address is used.
+ *  - Otherwise Express's `req.ip`, so TRUST_PROXY behaves as before.
+ * The result is normalised: IPv4, or the /64 prefix of an IPv6 address.
+ */
+export function clientIp(req: IpRequest): string {
+  const peer = req.socket?.remoteAddress;
+  const header = process.env.TRUSTED_CLIENT_IP_HEADER?.trim().toLowerCase();
+  if (header) {
+    if (peer && trustedCidrs().some((c) => ipInCidr(peer, c))) {
+      const raw = req.headers?.[header];
+      const v = (Array.isArray(raw) ? raw[0] : raw)?.trim();
+      if (v && parseIp(v)) return normalizeIp(v);
+    }
+    return normalizeIp(peer ?? 'unknown');
+  }
+  return normalizeIp(req.ip ?? peer ?? 'unknown');
+}
+
+/** Rate-limit and queue identity: the user (keys belong to a user, so a user's keys share one bucket), else the client address. */
+export function clientKey(req: IpRequest & { res?: { locals?: Record<string, any> } }): string {
+  const c = req.res?.locals?.caller as { kind?: string; userId?: string } | undefined;
+  if ((c?.kind === 'key' || c?.kind === 'user') && c.userId) return `user:${c.userId}`;
+  return clientIp(req);
 }
 
 /**

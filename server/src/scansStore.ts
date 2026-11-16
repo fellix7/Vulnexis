@@ -4,7 +4,7 @@ import { dbEnabled, query } from './db/pool.js';
 import { callerOf, identify, requireKeyCaller } from './caller.js';
 import type { ScanResult } from './types.js';
 
-// Saved scan history. Source code is never stored: every citation `quote` is blanked before saving.
+// Saved scan history. Source code and AI free text are never stored: every citation `quote` and every AI `reasoning` is blanked before saving.
 // Every query is scoped with `WHERE id = $1 AND user_id = $2`, so another user's id answers 404.
 
 export const MAX_RESULT_BYTES = 2 * 1024 * 1024;
@@ -13,14 +13,17 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const retentionDays = () => Math.max(1, Number(process.env.SCAN_RETENTION_DAYS) || 90);
 const bytes = (v: unknown) => Buffer.byteLength(JSON.stringify(v));
 
-/** Deep copy with every `quote` string blanked; the object that held it gets `quoteStored: false`. */
+/** Text fields that can hold source code or AI-written prose; they are blanked in the stored copy. */
+const NOT_STORED = new Set(['quote', 'reasoning']);
+
+/** Deep copy with every `quote` and `reasoning` string blanked; the object that held one gets `<field>Stored: false` (verdict, file and line stay). */
 export function stripQuotes<T>(value: T): T {
   const walk = (v: unknown): unknown => {
     if (Array.isArray(v)) return v.map(walk);
     if (v && typeof v === 'object') {
       const out: Record<string, unknown> = {};
-      for (const [k, x] of Object.entries(v)) out[k] = k === 'quote' && typeof x === 'string' ? '' : walk(x);
-      if (typeof (v as Record<string, unknown>).quote === 'string') out.quoteStored = false;
+      for (const [k, x] of Object.entries(v)) out[k] = NOT_STORED.has(k) && typeof x === 'string' ? '' : walk(x);
+      for (const k of NOT_STORED) if (typeof (v as Record<string, unknown>)[k] === 'string') out[`${k}Stored`] = false;
       return out;
     }
     return v;
@@ -99,11 +102,18 @@ const summary = (r: SummaryRow): ScanSummary => ({
 });
 
 const TS_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
+/** The exact shape the cursor is written in, and a date that exists (no month 13, no 31 February). */
+function validTimestamp(ts: string): boolean {
+  if (!TS_RE.test(ts)) return false;
+  const [y, mo, d, h, mi, s] = ts.split(/[-T:.Z]/).map(Number) as [number, number, number, number, number, number];
+  const t = new Date(Date.UTC(y, mo - 1, d, h, mi, s));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d && h < 24 && mi < 60 && s < 60;
+}
 const encodeCursor = (ts: string, id: string) => Buffer.from(JSON.stringify([ts, id])).toString('base64url');
 function decodeCursor(c: string): [string, string] | null {
   try {
     const v = JSON.parse(Buffer.from(c, 'base64url').toString('utf8'));
-    return Array.isArray(v) && typeof v[0] === 'string' && typeof v[1] === 'string' && TS_RE.test(v[0]) && UUID.test(v[1]) ? [v[0], v[1]] : null;
+    return Array.isArray(v) && v.length === 2 && typeof v[0] === 'string' && typeof v[1] === 'string' && validTimestamp(v[0]) && UUID.test(v[1]) ? [v[0], v[1]] : null;
   } catch {
     return null;
   }
@@ -141,6 +151,25 @@ export async function remove(userId: string, id: string): Promise<boolean> {
 }
 
 export class ReviewTooBigError extends Error {}
+
+export const MAX_REVIEW_DEPTH = 20;
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+
+/**
+ * Why a review cannot be stored, or null. Postgres jsonb refuses \u0000 and lone surrogates (a 500 otherwise), and very deep
+ * nesting only costs us time: all of it is refused with a 400.
+ */
+export function reviewProblem(v: unknown, depth = 1): string | null {
+  const text = (s: string) => (s.includes('\u0000') ? 'a string contains a NUL character' : LONE_SURROGATE.test(s) ? 'a string contains an invalid (lone surrogate) character' : null);
+  if (typeof v === 'string') return text(v);
+  if (!v || typeof v !== 'object') return null;
+  if (depth > MAX_REVIEW_DEPTH) return `nesting is deeper than ${MAX_REVIEW_DEPTH} levels`;
+  for (const [k, x] of Array.isArray(v) ? v.map((x) => ['', x] as const) : Object.entries(v)) {
+    const bad = text(k) ?? reviewProblem(x, depth + 1);
+    if (bad) return bad;
+  }
+  return null;
+}
 
 export async function putReview(userId: string, id: string, review: unknown): Promise<boolean> {
   if (bytes(review) > MAX_REVIEW_BYTES) throw new ReviewTooBigError();
@@ -193,6 +222,8 @@ function scansRouter(): Router {
       express.json({ limit: '80kb' })(req, res, (e) => (!e ? next() : (e as { type?: string }).type === 'entity.too.large' ? void res.status(413).json({ error: 'The review is larger than 64 KB.' }) : next(e))),
     async (req, res) => {
       if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body) || req.body.review === undefined) return void res.status(400).json({ error: 'Send { "review": { ... } }.' });
+      const bad = reviewProblem(req.body.review);
+      if (bad) return void res.status(400).json({ error: `The review cannot be saved: ${bad}.` });
       try {
         if (!(await putReview(owner(res), String(req.params.id), req.body.review))) return void res.status(404).json({ error: 'Scan not found.' });
         res.json({ ok: true });

@@ -11,11 +11,13 @@ export interface ScanStats {
   unverifiedByNetwork: number;
   /** package names that are not valid npm names and were not looked up */
   invalidPackages: number;
+  /** live Gemini calls started by this scan (saved answers do not count); once any was made, the scan is not refunded */
+  geminiCalls: number;
   /** aborted when the scan is cancelled (client gone) or passes its deadline; every wait and fetch should honour it */
   signal?: AbortSignal;
 }
 
-const newStats = (): ScanStats => ({ savedFromDemo: 0, savedFromCache: 0, oldestSavedMs: 0, unverifiedByNetwork: 0, invalidPackages: 0 });
+const newStats = (): ScanStats => ({ savedFromDemo: 0, savedFromCache: 0, oldestSavedMs: 0, unverifiedByNetwork: 0, invalidPackages: 0, geminiCalls: 0 });
 
 const als = new AsyncLocalStorage<ScanStats>();
 const orphan = newStats(); // used only by code running outside any scan (checks, startup)
@@ -75,3 +77,6 @@ export function savedDataNote(s: ScanStats): string | null {
   if (s.savedFromCache) parts.push(`${s.savedFromCache} from saved copies up to ${age(s.oldestSavedMs)}`);
   return `The network blocked some live lookups, so ${total} ${total === 1 ? 'answer was' : 'answers were'} taken from saved data (${parts.join('; ')}). Results may be older than live data.`;
 }
+
+/** Whether a scan that ended without a result (timeout, 5xx) gives its quota back: not once Gemini has been called, because that cost real money. */
+export const refundableAfterFailure = (s: Pick<ScanStats, 'geminiCalls'> | undefined): boolean => !s || s.geminiCalls === 0;

@@ -3,6 +3,7 @@ import express, { type RequestHandler } from 'express';
 import { accountsEnabled } from './auth/config.js';
 import { dbEnabled, query } from './db/pool.js';
 import { callerOf } from './caller.js';
+import { clientIp, normalizeIp } from './ratelimit.js';
 import type { PlanInfo, UsageInfo } from './types.js';
 
 export type { PlanInfo, UsageInfo };
@@ -80,7 +81,7 @@ export async function consume(subject: string, period: string, userId: string | 
   return { scans, refund };
 }
 
-const ipSubject = (ip: string, day: string) => `ip:${createHash('sha256').update(`${ip}|${day}`).digest('hex')}`;
+const ipSubject = (ip: string, day: string) => `ip:${createHash('sha256').update(`${normalizeIp(ip)}|${day}`).digest('hex')}`;
 
 export async function planAndUsage(userId: string | null, ip: string): Promise<{ plan: PlanInfo; usage: UsageInfo }> {
   const p = istPeriods();
@@ -105,6 +106,8 @@ declare module 'express-serve-static-core' {
   interface Locals {
     plan?: PlanRow;
     refundScan?: () => Promise<void>;
+    /** set once the scan has joined the queue: from then on the scan's own code decides about refunds */
+    scanJoined?: boolean;
   }
 }
 
@@ -141,7 +144,7 @@ export const admit: RequestHandler = async (req, res, next) => {
         return void res.status(401).json({ error: 'Sign in to upload a lockfile.', code: 'signin_required' });
       }
       plan = await getPlan('anonymous');
-      subject = ipSubject(req.ip ?? 'unknown', p.day);
+      subject = ipSubject(clientIp(req), p.day);
       period = p.day;
       limit = plan.daily_scans ?? 0;
       resetsAt = p.dayResets;
@@ -173,6 +176,10 @@ export const admit: RequestHandler = async (req, res, next) => {
     res.setHeader('X-Quota-Remaining', String(Math.max(0, limit - taken.scans)));
     res.locals.plan = plan;
     res.locals.refundScan = () => taken.refund().catch((e) => console.error('[quota] refund failed:', e instanceof Error ? e.message : e));
+    // The client left (aborted upload, dropped connection) before the scan started: give the scan back. refund is idempotent.
+    res.on('close', () => {
+      if (!res.locals.scanJoined) void res.locals.refundScan?.();
+    });
     next();
   } catch (e) {
     next(e);

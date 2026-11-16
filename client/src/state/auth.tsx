@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { fetchMe, logout, type Me, type Plan, type Usage, type User } from '../api'
+import { fetchMe, logout, logoutAll, type Me, type Plan, type Usage, type User } from '../api'
 import { navigate } from '../router'
 
 // Who is signed in, from GET /api/me. When the server has accounts off (or /api/me fails),
@@ -16,6 +16,8 @@ export interface Auth {
   signIn(returnTo?: string): void
   /** Ends the session, clears this browser's saved data (except the language) and goes home. */
   signOut(): Promise<void>
+  /** ends every session of this account, on every device, then signs out here too */
+  signOutAll(): Promise<void>
   refresh(): Promise<void>
 }
 
@@ -78,9 +80,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refresh()
   }, [refresh])
 
+  const signOutAll = useCallback(async () => {
+    await logoutAll() // a failure is shown by the caller: other devices must not look signed out when they are not
+    clearSavedData()
+    setMe((m) => ({ ...m, user: null, plan: null, usage: null }))
+    navigate('/')
+    void refresh()
+  }, [refresh])
+
   const value = useMemo<Auth>(
-    () => ({ accounts: me.accounts, user: me.accounts ? me.user : null, plan: me.plan, usage: me.usage, loading, signIn, signOut, refresh }),
-    [me, loading, signIn, signOut, refresh],
+    () => ({ accounts: me.accounts, user: me.accounts ? me.user : null, plan: me.plan, usage: me.usage, loading, signIn, signOut, signOutAll, refresh }),
+    [me, loading, signIn, signOut, signOutAll, refresh],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

@@ -94,6 +94,7 @@ export async function fetchMe(): Promise<Me> {
 }
 
 export const logout = () => call<{ ok: true }>('POST', '/api/auth/logout', {})
+export const logoutAll = () => call<{ ok: true }>('POST', '/api/auth/logout-all', {})
 export const deleteAccount = (confirm: string) => call<{ ok: true }>('DELETE', '/api/me', { confirm })
 
 export interface ApiKey {

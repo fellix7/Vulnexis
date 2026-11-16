@@ -10,10 +10,11 @@ import { clientKey, createLimiter } from './ratelimit.js';
 import { sourceMessage } from './net.js';
 import { printDoctor, runDoctor, runDoctorCached } from './doctor.js';
 import { OfflineMissError } from './cache.js';
-import { runWithStats, savedDataNote, stats } from './scanStats.js';
+import { refundableAfterFailure, runWithStats, savedDataNote, stats, type ScanStats } from './scanStats.js';
 import { doctorAccess, jsonErrorHandler, securityHeaders } from './security.js';
 import { validateScanRequest, ValidationError } from './validate.js';
 import { exhausted as aiBudgetExhausted } from './aiBudget.js';
+import { assertStartupConfig, startupWarnings } from './startup.js';
 import { keysRouter } from './apiKeys.js';
 import { accountsEnabled } from './auth/config.js';
 import { sameOrigin } from './auth/csrf.js';
@@ -114,7 +115,11 @@ async function loadSample(): Promise<{ lockfile: unknown; sources: SourceFile[];
 }
 
 // Each scan runs inside its own stats scope, so concurrent scans never share counters or warnings.
-const scan = (req: ScanRequest, onStep?: (step: AgentStep) => void, signal?: AbortSignal, aiEnabled = true): Promise<ScanResult> => runWithStats(() => runScan(req, onStep, signal, aiEnabled), signal);
+const scan = (req: ScanRequest, onStep?: (step: AgentStep) => void, signal?: AbortSignal, aiEnabled = true, onStats?: (s: ScanStats) => void): Promise<ScanResult> =>
+  runWithStats((s) => {
+    onStats?.(s);
+    return runScan(req, onStep, signal, aiEnabled);
+  }, signal);
 
 async function runScan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal?: AbortSignal, aiEnabled = true): Promise<ScanResult> {
   const notes: string[] = [];
@@ -450,11 +455,12 @@ async function runQueued(
   let release: (() => void) | undefined;
   let timer: NodeJS.Timeout | undefined;
   let done = false;
+  let counters: ScanStats | undefined;
   const finish = (out: Parameters<typeof hooks.finish>[0]) => {
     if (done || abort.signal.aborted && !(abort.signal.reason instanceof DeadlineError)) return;
     done = true;
-    // No result delivered (4xx scan errors, 5xx, deadline): give the scan back before answering.
-    if ('error' in out) void refund(res).then(() => hooks.finish(out));
+    // No result delivered (4xx scan errors, 5xx, deadline): give the scan back before answering, unless Gemini was already called (that cost money).
+    if ('error' in out) void (refundableAfterFailure(counters) ? refund(res) : Promise.resolve()).then(() => hooks.finish(out));
     else hooks.finish(out);
   };
   try {
@@ -463,13 +469,14 @@ async function runQueued(
       abort.abort(new DeadlineError());
       finish(TIMEOUT); // tell the client now; the slot is freed once the scan actually stops
     }, DEADLINE_MS);
-    const result = await scan(body, (st) => !done && hooks.onStep?.(st), abort.signal, aiEnabled);
-    await saveResult(res, body, result);
+    const result = await scan(body, (st) => !done && hooks.onStep?.(st), abort.signal, aiEnabled, (s) => (counters = s));
+    // After the deadline the client was told the scan failed: do not save it as if it had succeeded.
+    if (!(abort.signal.reason instanceof DeadlineError)) await saveResult(res, body, result);
     finish({ result });
   } catch (e) {
     if (abort.signal.reason instanceof DeadlineError) finish(TIMEOUT);
     else if (!abort.signal.aborted) finish(failure(e));
-    else if (!release) void refund(res); // left the queue before getting a slot
+    else if (!release) void refund(res); // left the queue before getting a slot (a failed scan after a slot is answered by finish)
   } finally {
     clearTimeout(timer);
     release?.();
@@ -495,7 +502,9 @@ async function saveResult(res: express.Response, body: ScanRequest, result: Scan
 
 function join(req: express.Request, res: express.Response, abort: AbortController, onQueue?: (p: number, a: number) => void): boolean {
   try {
+    // clientKey is the user for sessions and keys alike, so all of one user's keys share the plan's max_concurrent.
     req.queueTicket = queue.join(clientKey(req), abort.signal, onQueue, res.locals.plan?.max_concurrent);
+    res.locals.scanJoined = true; // from here runQueued owns refunds
     return true;
   } catch (e) {
     if (!(e instanceof QueueFullError || e instanceof ClientLimitError)) throw e;
@@ -520,7 +529,7 @@ const streamScan: express.RequestHandler = async (req, res) => {
   };
   if (!join(req, res, abort, (position, ahead) => send({ type: 'queue', position, ahead }))) return;
   res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Cache-Control', callerOf(res).kind === 'anonymous' ? 'no-cache, no-transform' : 'no-store, no-transform');
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
   hb = heartbeat((line) => {
@@ -568,7 +577,12 @@ const plainScan: express.RequestHandler = async (req, res) => {
 };
 
 // Order: who is calling, CSRF, rate limit, quota (before the body is read), body parser, then the handler.
-const scanChain = [identify, sameOrigin, scanLimiter, admit, bodyByCaller, anonymousGuard];
+/** Results for signed-in callers belong to them alone: no shared cache may keep them. */
+const noStoreWhenSignedIn: express.RequestHandler = (_req, res, next) => {
+  if (callerOf(res).kind !== 'anonymous') res.setHeader('Cache-Control', 'no-store');
+  next();
+};
+const scanChain = [identify, noStoreWhenSignedIn, sameOrigin, scanLimiter, admit, bodyByCaller, anonymousGuard];
 app.post('/api/scan/stream', ...scanChain, streamScan);
 app.post('/api/scan', ...scanChain, plainScan);
 // The same handlers for programs: API key only.
@@ -580,16 +594,27 @@ app.use(authRouter());
 app.use(keysRouter());
 app.use(scansRoutes());
 
+// Anything else under /api, /auth or /v1 (any letter case, and the bare /auth and /v1) is a JSON 404, never the app's HTML page.
+app.all(/^\/(?:api|auth|v1)(?:\/|$)/i, (_req, res) => void res.status(404).json({ error: 'Not found' }));
+
 // Production: serve the built client from the same origin (one process to deploy).
 const CLIENT_DIST = path.resolve(import.meta.dirname, '../../client/dist');
 if (existsSync(CLIENT_DIST)) {
   app.use(express.static(CLIENT_DIST, { index: false, maxAge: '1h' }));
   // App routes only (no file extension): a missing /assets/x.js must 404, not return the HTML page.
-  app.get(/^\/(?!api\/|auth\/|v1\/)[^.]*$/, (_req, res) => res.sendFile(path.join(CLIENT_DIST, 'index.html')));
+  app.get(/^\/(?!(?:api|auth|v1)(?:\/|$))[^.]*$/i, (_req, res) => res.sendFile(path.join(CLIENT_DIST, 'index.html')));
 }
 
 // Last: malformed JSON, oversized bodies and unexpected errors become short JSON answers (no stack traces).
 app.use(jsonErrorHandler);
+
+try {
+  assertStartupConfig();
+} catch (e) {
+  console.error(`[config] not starting: ${e instanceof Error ? e.message : String(e)}`);
+  process.exit(1);
+}
+for (const w of startupWarnings()) console.warn(`[config] ${w}`);
 
 if (dbEnabled() && process.env.MIGRATE_ON_START !== '0') {
   try {

@@ -27,9 +27,9 @@ export async function resetDb(): Promise<void> {
   assertDisposable();
   await migrate(() => {});
   await query('TRUNCATE users, sessions, api_keys, scans, usage, ai_usage RESTART IDENTITY CASCADE');
-  await query(`UPDATE plans SET monthly_scans = d.m, daily_scans = d.d, max_concurrent = d.c, max_api_keys = d.k, ai_enabled = true, active = d.a
-               FROM (VALUES ('anonymous', 60, 2, 1, 0, true), ('free', 30, NULL::int, 2, 3, true), ('pro', 500, NULL::int, 4, 10, false))
-                    AS d(id, m, d, c, k, a)
+  await query(`UPDATE plans SET monthly_scans = d.m, daily_scans = d.d, max_concurrent = d.c, max_api_keys = d.k, ai_enabled = d.ai, active = d.a
+               FROM (VALUES ('anonymous', 60, 2, 1, 0, true, false), ('free', 30, NULL::int, 2, 3, true, true), ('pro', 500, NULL::int, 4, 10, false, true))
+                    AS d(id, m, d, c, k, a, ai)
                WHERE plans.id = d.id`);
 }
 

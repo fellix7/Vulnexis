@@ -44,11 +44,26 @@ export function authorizeUrl(state: string, verifier: string): string {
 
 async function readJson(res: Response, what: string): Promise<unknown> {
   const len = Number(res.headers.get('content-length'));
-  if (len > MAX_BODY) throw new GitHubAuthError('error', `${what}: response too large`);
-  const text = await res.text();
-  if (text.length > MAX_BODY) throw new GitHubAuthError('error', `${what}: response too large`);
+  if (len > MAX_BODY) {
+    await res.body?.cancel().catch(() => {});
+    throw new GitHubAuthError('error', `${what}: response too large`);
+  }
+  // Read as a stream and stop at the cap: a server that lies about (or omits) the length cannot make us buffer more.
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  const reader = res.body?.getReader();
   try {
-    return JSON.parse(text);
+    for (let r = await reader?.read(); r && !r.done; r = await reader!.read()) {
+      size += r.value.byteLength;
+      if (size > MAX_BODY) throw new GitHubAuthError('error', `${what}: response too large`);
+      chunks.push(r.value);
+    }
+  } catch (e) {
+    await reader?.cancel().catch(() => {});
+    throw e instanceof GitHubAuthError ? e : new GitHubAuthError('error', `${what}: could not read the response`);
+  }
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
   } catch {
     throw new GitHubAuthError('error', `${what}: not JSON (HTTP ${res.status})`);
   }

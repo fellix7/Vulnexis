@@ -1,12 +1,13 @@
 // Run: DATABASE_URL=postgres://vulnera:vulnera-dev@127.0.0.1:5432/vulnera_dev npx tsx server/src/__checks__/quota.check.ts
 // Quotas: atomic consume, refund, IST periods, planAndUsage, Gemini budget, and the HTTP gate (before the body is read).
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import { exhausted, record, resetBudgetCache } from '../aiBudget.js';
 import { createKey } from '../apiKeys.js';
 import { closeDb, dbEnabled, query } from '../db/pool.js';
 import { makeUser, resetDb } from '../db/testdb.js';
 import { consume, istPeriods, planAndUsage } from '../quota.js';
-import { call, EMPTY_LOCKFILE, headersOnlyPost, sessionCookie, startServer } from './_harness.js';
+import { call, ORIGIN, EMPTY_LOCKFILE, headersOnlyPost, sessionCookie, startServer } from './_harness.js';
 
 if (!dbEnabled()) {
   console.log('SKIP quota checks: DATABASE_URL is not set');
@@ -84,6 +85,42 @@ try {
   assert.equal(await exhausted(), false, '0 = no cap');
   console.log('ok  AI budget');
 
+  // A4: the budget cannot be read. Cold start with a cap: assume it is used up. With a value already known: keep it.
+  process.env.GEMINI_MONTHLY_BUDGET_INR = '10';
+  await query('DELETE FROM ai_usage');
+  await query('ALTER TABLE ai_usage RENAME TO ai_usage_gone');
+  const realErr = console.error;
+  const logged: string[] = [];
+  console.error = (...a: unknown[]) => void logged.push(a.join(' '));
+  try {
+    resetBudgetCache();
+    assert.equal(await exhausted(), true, 'cold start + database error + a cap: fail closed');
+    await record(5, 5); // must not throw
+    await record(5, 5);
+    assert.equal(logged.length, 1, `write and read failures are logged once per 10 minutes (got ${logged.length})`);
+    process.env.GEMINI_MONTHLY_BUDGET_INR = '0';
+    resetBudgetCache();
+    assert.equal(await exhausted(), false, 'no cap: never exhausted, even with the database down');
+    process.env.GEMINI_MONTHLY_BUDGET_INR = '10';
+    await query('ALTER TABLE ai_usage_gone RENAME TO ai_usage');
+    resetBudgetCache();
+    assert.equal(await exhausted(), false, 'a successful read is remembered');
+    await query('ALTER TABLE ai_usage RENAME TO ai_usage_gone');
+    const realNow = Date.now;
+    Date.now = () => realNow() + 120_000; // the 60 s cache has expired
+    try {
+      assert.equal(await exhausted(), false, 'database error with a known value: keep using it');
+    } finally {
+      Date.now = realNow;
+    }
+  } finally {
+    console.error = realErr;
+    await query('ALTER TABLE ai_usage_gone RENAME TO ai_usage');
+    process.env.GEMINI_MONTHLY_BUDGET_INR = '0';
+    resetBudgetCache();
+  }
+  console.log('ok  AI budget fails closed on a cold-start database error');
+
   // ---- the HTTP gate ----
   await resetDb();
   const a = await makeUser();
@@ -133,6 +170,25 @@ try {
   assert.equal((await scan({ cookie })).status, 200);
   assert.equal(await usageOf(`user:${a.id}`), 1, 'a delivered result is kept');
   console.log('ok  refunds: validation, sample, scan error');
+
+  // A8: a body that cannot be read keeps no quota: malformed JSON, too large, aborted mid-upload
+  await query("UPDATE usage SET scans = 0 WHERE subject LIKE 'user:%'");
+  const raw = (body: string) => fetch(`${s.url}/api/scan`, { method: 'POST', headers: { cookie, origin: ORIGIN, 'content-type': 'application/json' }, body });
+  const malformed = await raw('{"lockfile": nope');
+  assert.equal(malformed.status, 400);
+  assert.equal(await usageOf(`user:${a.id}`), 0, 'malformed JSON (400) leaves usage unchanged');
+  const huge = await raw(`{"lockfile":{"pad":"${'x'.repeat(11 * 1024 * 1024)}"}}`);
+  assert.equal(huge.status, 413);
+  assert.equal(await usageOf(`user:${a.id}`), 0, 'oversized body (413) leaves usage unchanged');
+  await new Promise<void>((resolve) => {
+    const req = http.request({ host: '127.0.0.1', port: s.port, path: '/api/scan', method: 'POST', headers: { cookie, origin: ORIGIN, 'content-type': 'application/json', 'content-length': '5000' } });
+    req.on('error', () => {});
+    req.write('{"lockfile":');
+    setTimeout(() => (req.destroy(), resolve()), 300); // by now the quota was taken; the client leaves
+  });
+  for (let i = 0; i < 40 && (await usageOf(`user:${a.id}`)) !== 0; i++) await new Promise((r) => setTimeout(r, 50));
+  assert.equal(await usageOf(`user:${a.id}`), 0, 'an upload aborted before the scan started leaves usage unchanged');
+  console.log('ok  400, 413 and an aborted upload do not cost a scan');
 
   // ---- anonymous with accounts on ----
   await query('DELETE FROM usage');

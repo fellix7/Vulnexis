@@ -9,7 +9,7 @@ These policies describe how Vulnera behaves: what it collects, what the AI is al
 | :--- | :--- | :--- |
 | 1 | [Scope and intended use](#1-scope-and-intended-use) | Defensive triage of your own or public open-source projects only |
 | 2 | [Personal data](#2-personal-data-policy) | With accounts on: GitHub id, login, name and email only; nothing else is asked for |
-| 3 | [Data handling and retention](#3-data-handling-and-retention) | Project files are read in memory and not kept; signed-in scan results kept 90 days; source code never stored |
+| 3 | [Data handling and retention](#3-data-handling-and-retention) | Project files are read in memory and not kept; signed-in scan results kept 90 days; source code and AI free text never stored |
 | 4 | [AI usage](#4-ai-usage-policy) | AI reads code snippets and may raise a priority; it never creates, removes or lowers a finding |
 | 5 | [Agent decisions and transparency](#5-agent-decision-and-transparency-policy) | Every step, decision and source is shown to the user |
 | 6 | [Sources and citations](#6-source-and-citation-policy) | Every fact links to its source; unknowns are shown as unknown |
@@ -60,7 +60,7 @@ Vulnera runs in one of two modes:
 
 ### Anonymous visitors
 
-- With accounts on, anonymous scans are counted per IP address per day. The counter row stores an **unsalted sha256 of the IP and the day**, not the IP itself, and is **deleted after 2 days** (`server/src/quota.ts`, `server/src/sweep.ts`). Because it is unsalted and IPv4 space is small, treat it as pseudonymous, not anonymous: it exists only to enforce the daily limit.
+- With accounts on, anonymous scans are counted per IP address per day. The counter row stores an **unsalted sha256 of the IP and the day**, not the IP itself, and is **deleted by the hourly sweep once its day and the following day have passed (at most 2 days)** (`server/src/quota.ts`, `server/src/sweep.ts`). IPv6 addresses are counted by their /64 prefix, and IPv4-mapped IPv6 addresses as the IPv4 address. Because it is unsalted and IPv4 space is small, treat it as pseudonymous, not anonymous: it exists only to enforce the daily limit.
 - Per-IP rate limits (scans, sign-in attempts) are counted in server memory only and forgotten within a day.
 
 ### Cookies
@@ -94,11 +94,11 @@ Signed-in users can delete their account from **Account › Danger zone** by typ
 | GitHub repository tarball | Downloaded to server memory, unpacked in memory | Discarded when the response is sent; never written to disk |
 | Package names + versions | Sent to OSV.dev and the npm registry for lookups | Responses cached in `.cache/` on the server (public data, re-fetchable) |
 | CVE ids | Sent to FIRST EPSS | Responses cached in `.cache/` |
-| Scan results and reviews, signed in | Saved in the database with the user's account. **Source code is never stored**: every code quote from the AI check is blanked before saving and shown only during the live scan (`server/src/scansStore.ts`) | **90 days** (`SCAN_RETENTION_DAYS`), then deleted by the hourly sweep (`server/src/sweep.ts`); or earlier, when the user deletes the scan or the account |
+| Scan results and reviews, signed in | Saved in the database with the user's account. A saved scan holds the findings (package, advisory, tier), the AI verdicts, and for each code citation only the **file path, line number and verdict**. **No source code and no AI free text is stored**: every code quote and every AI reasoning sentence is blanked before saving and shown only during the live scan (`server/src/scansStore.ts`). Revoked API keys are purged after 30 days (`server/src/sweep.ts`) | **90 days** (`SCAN_RETENTION_DAYS`), then deleted by the hourly sweep (`server/src/sweep.ts`); or earlier, when the user deletes the scan or the account |
 | Scan results and reviews, anonymous or accounts off | Returned to the browser | Saved in the user's browser only (last 8 scans, `vulnera:history:v1`); never stored on the server |
 | Account data (policy 2) | Database | Until the user deletes the account |
 | Sessions | Database (hash only) | Until sign-out or expiry (30 days); expired rows deleted hourly |
-| Anonymous daily IP counter | Database (hash of IP and day) | 2 days |
+| Anonymous daily IP counter | Database (hash of IP and day) | At most 2 days |
 | Source files for code evidence | Kept in browser memory for the open tab only | Gone when the tab closes; never persisted |
 
 - With accounts off the server has **no database**; there is nothing to breach beyond the public-data cache.

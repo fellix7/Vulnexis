@@ -23,6 +23,7 @@ Already built (`server/src/db/`): `pool.ts` exports `dbEnabled()`, `getPool()`, 
 | GET `/auth/github?returnTo=/path` | none | sets `vulnera_oauth` cookie (state, verifier, returnTo; Path=/auth; 10 min), 302 to GitHub | 302; 404 when accounts are off |
 | GET `/auth/github/callback?code&state` | oauth cookie | compare state; exchange; fetch user + emails; upsert user by `github_id`; new session; 302 to `returnTo` (same-site path only, default `/overview`) | 302; failures 302 to `/scan?auth=denied\|state\|email\|error` |
 | POST `/api/auth/logout` | session | `{}` → `{ok:true}`; deletes the row, clears the cookie | 200, 403 |
+| POST `/api/auth/logout-all` | session | `{}` → `{ok:true}`; deletes every session of the user, clears the cookie | 200, 401, 403 |
 | GET `/api/me` | optional | `{accounts, user: null \| {id, login, name, email, createdAt}, plan: {id, name, monthlyScans, maxConcurrent, maxApiKeys, aiEnabled}, usage: {period, scans, limit, resetsAt}}` (anonymous: plan `anonymous`, daily usage) | 200 |
 | DELETE `/api/me` | session | `{confirm: "<login>"}` → `{ok:true}`; `DELETE FROM users` cascades; cookie cleared | 200, 400, 401, 403 |
 | GET `/api/keys` | session | `{keys: [{id, name, keyId, last4, createdAt, lastUsedAt}]}` (not revoked) | 200, 401 |
@@ -63,7 +64,7 @@ No row = over quota: 429 `{error, code: 'quota_exceeded'}`; otherwise `X-Quota-L
 
 **Gemini budget**: `aiBudget.exhausted()` compares this month's `ai_usage` tokens times the configured rupee rates with `GEMINI_MONTHLY_BUDGET_INR` (60 s cache). `runScan` checks it together with `plan.ai_enabled` when deciding whether to run the AI step; when exhausted the step is skipped, `aiStatus` stays `'disabled'`, and a note says "AI code check paused: this month's AI budget is used up. Priorities come from the published rules." `ai.ts` records tokens after each live call. Overshoot is at most 20 calls per running scan.
 
-**Sweep** (hourly): expired scans and sessions; IP usage rows older than 2 days.
+**Sweep** (hourly): expired scans and sessions; IP usage rows older than yesterday; API keys revoked more than 30 days ago.
 
 ## 4. Configuration
 
@@ -109,5 +110,5 @@ No row = over quota: 429 `{error, code: 'quota_exceeded'}`; otherwise `X-Quota-L
 2. `TRUST_PROXY` must equal the real number of proxies (Cloudflare + host), or all anonymous users share one IP quota.
 3. Supabase: use the session pooler (port 5432, IPv4), not the transaction pooler (6543), which breaks advisory locks.
 4. The rate limiter and queue stay per process: two containers double burst and concurrency limits. Monthly quotas and the AI budget are in Postgres and exact.
-5. IP usage rows hold an unsalted daily hash, deleted after 2 days: mention it in the privacy policy.
+5. IP usage rows hold an unsalted daily hash, deleted within 2 days: mention it in the privacy policy.
 6. Real GitHub sign-in cannot be tested in the sandbox. Create the OAuth app with callback `${PUBLIC_ORIGIN}/auth/github/callback` and test once on staging.

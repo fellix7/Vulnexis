@@ -16,6 +16,7 @@ export async function migrate(log: (m: string) => void = (m) => console.log(m)):
   try {
     await client.query('SELECT pg_advisory_lock($1)', [LOCK_KEY]);
     await client.query('CREATE TABLE IF NOT EXISTS schema_migrations (version text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())');
+    await client.query('ALTER TABLE schema_migrations ENABLE ROW LEVEL SECURITY'); // like every table in public: Supabase's REST API must not read it
     const done = new Set((await client.query<{ version: string }>('SELECT version FROM schema_migrations')).rows.map((r) => r.version));
     for (const file of files) {
       if (done.has(file)) continue;

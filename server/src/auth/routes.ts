@@ -1,13 +1,14 @@
 import { createHmac, hkdfSync, timingSafeEqual } from 'node:crypto';
-import express, { type Request, type RequestHandler, type Response, Router } from 'express';
+import express, { type RequestHandler, type Response, Router } from 'express';
 import { query } from '../db/pool.js';
 import { planAndUsage as realPlanAndUsage } from '../quota.js';
+import { clientIp } from '../ratelimit.js';
 import { accountsEnabled, secureCookies } from './config.js';
 import { sameOrigin } from './csrf.js';
 import { authorizeUrl, exchangeCode, fetchProfile, GitHubAuthError, randomToken } from './github.js';
-import { clearSessionCookie, createSession, destroySession, parseCookies, requireSession, serializeCookie, sessionToken, sessionUser, sha256, type SessionUser } from './session.js';
+import { clearSessionCookie, createSession, destroyAllSessions, destroySession, parseCookies, requireSession, serializeCookie, sessionToken, sessionUser, sha256, type SessionUser } from './session.js';
 
-// Routes: GET /auth/github, GET /auth/github/callback, POST /api/auth/logout, GET /api/me, DELETE /api/me.
+// Routes: GET /auth/github, GET /auth/github/callback, POST /api/auth/logout, POST /api/auth/logout-all, GET /api/me, DELETE /api/me.
 
 export type PlanAndUsage = (userId: string | null, ip: string) => Promise<{ plan: unknown; usage: unknown }>;
 export interface AuthRouterDeps {
@@ -107,8 +108,6 @@ function overLimit(ip: string, weight = 1): boolean {
 /** For tests. */
 export const resetAuthLimiter = () => hits.clear();
 
-const clientIp = (req: Request) => req.ip || req.socket.remoteAddress || 'unknown';
-
 const tooMany = (res: Response) => {
   noStore(res);
   res.setHeader('Retry-After', '60');
@@ -186,6 +185,14 @@ export function authRouter(deps: AuthRouterDeps = {}): Router {
   r.post('/api/auth/logout', accountsOnly, sameOrigin, smallJson, async (req, res) => {
     noStore(res);
     await destroySession(req, res);
+    res.json({ ok: true });
+  });
+
+  // Every session of this user on every device, this one included.
+  r.post('/api/auth/logout-all', accountsOnly, sameOrigin, requireSession, smallJson, async (req, res) => {
+    noStore(res);
+    await destroyAllSessions((res.locals.user as SessionUser).id);
+    clearSessionCookie(res);
     res.json({ ok: true });
   });
 
