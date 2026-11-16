@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Vulnexis landing page. Everything is scoped under .lp / .lp-* so it cannot leak into app pages.
+   Vulnera landing page. Everything is scoped under .lp / .lp-* so it cannot leak into app pages.
    Tokens come from index.css; nothing here redefines them.
    ========================================================================== */
 /* Offset for the sticky nav when jumping to a section. Smooth scrolling is done in JS (components/landing/scroll.ts)
@@ -976,7 +976,7 @@ html:has(.lp) {
 }
 
 /* ==========================================================================
-   Vulnexis additions: agent loop, India section, pricing
+   Vulnera additions: agent loop, India section, pricing
    ========================================================================== */
 .lp-nav__actions {
   align-items: center;

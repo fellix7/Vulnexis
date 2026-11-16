@@ -1,4 +1,4 @@
-// DEMO ONLY: deliberately vulnerable code for testing Vulnexis.
+// DEMO ONLY: deliberately vulnerable code for testing Vulnera.
 // Owner-only pages. server.js mounts this router behind requireOwner, so only a logged-in owner reaches it.
 const express = require('express');
 const _ = require('lodash');

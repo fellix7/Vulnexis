@@ -173,7 +173,11 @@ check('Procfile + Dockerfile CMD on built output maps dist/*.js back to src/*.ts
   ]);
 });
 
-check('vulnexis.yml declaration; a conflict with compose keeps the more exposed reading', () => {
+check('both config file names are picked up from a repository', () => {
+  for (const p of ['vulnera.yml', '.vulnera.yaml', 'vulnexis.yml', 'app/.vulnexis.yaml']) assert.equal(isContextPath(p), true, p);
+});
+
+check('legacy vulnexis.yml still read; a conflict with compose keeps the more exposed reading', () => {
   const b = buildContext({
     lockfile: lock(['a']),
     contextFiles: [
@@ -184,6 +188,15 @@ check('vulnexis.yml declaration; a conflict with compose keeps the more exposed 
   })!;
   assert.equal(b.exposureOf(pkg('a'))?.level, 'public');
   assert.ok(b.context.conflicts.some((c) => c.includes('more exposed')));
+});
+
+check('vulnera.yml declaration (the current name) sets exposure', () => {
+  const b = buildContext({
+    lockfile: lock(['a']),
+    contextFiles: [src('vulnera.yml', 'components:\n  api:\n    entry: src/api.js\n    exposure: internal\n')],
+    sources: [src('src/api.js', "require('a')")],
+  })!;
+  assert.equal(b.exposureOf(pkg('a'))?.level, 'internal');
 });
 
 // Changed: this check used to expect "internal" (Markdown prose lowered the exposure). Markdown never changes exposure now.
@@ -423,21 +436,21 @@ spec:
   assert.equal(level('nginx.ingress.kubernetes.io/auth-url: https://sso.example.com/check'), 'login');
 });
 
-check('10 trustDeclarations: false keeps vulnexis.yml as evidence but it does not set exposure', () => {
+check('10 trustDeclarations: false keeps vulnera.yml as evidence but it does not set exposure', () => {
   const run = (trust?: boolean) =>
     buildContext({
       lockfile: lock(['a']),
-      contextFiles: [src('vulnexis.yml', 'components:\n  api:\n    entry: src/api.js\n    exposure: offline\n'), src('docker-compose.yml', 'services:\n  api:\n    command: node src/api.js\n    ports: ["127.0.0.1:80:80"]\n')],
+      contextFiles: [src('vulnera.yml', 'components:\n  api:\n    entry: src/api.js\n    exposure: offline\n'), src('docker-compose.yml', 'services:\n  api:\n    command: node src/api.js\n    ports: ["127.0.0.1:80:80"]\n')],
       sources: [src('src/api.js', "require('a')")],
       ...(trust === undefined ? {} : { trustDeclarations: trust }),
     })!;
   assert.equal(run().exposureOf(pkg('a'))?.level, 'unknown'); // default true: unknown (loopback) vs offline → more exposed wins
   const t = run(false);
   assert.equal(t.exposureOf(pkg('a'))?.level, 'unknown');
-  const solo = buildContext({ lockfile: lock(['a']), contextFiles: [src('vulnexis.yml', 'components:\n  api:\n    entry: src/api.js\n    exposure: offline\n')], sources: [src('src/api.js', "require('a')\nrequire('http').createServer().listen(1)")], trustDeclarations: false })!;
+  const solo = buildContext({ lockfile: lock(['a']), contextFiles: [src('vulnera.yml', 'components:\n  api:\n    entry: src/api.js\n    exposure: offline\n')], sources: [src('src/api.js', "require('a')\nrequire('http').createServer().listen(1)")], trustDeclarations: false })!;
   assert.notEqual(solo.exposureOf(pkg('a'))?.level, 'offline');
-  assert.ok(solo.context.conflicts.some((c) => c.startsWith('vulnexis.yml:') && /not trusted/.test(c)));
-  const trusted = buildContext({ lockfile: lock(['a']), contextFiles: [src('vulnexis.yml', 'components:\n  api:\n    entry: src/api.js\n    exposure: offline\n')], sources: [src('src/api.js', "require('a')")] })!;
+  assert.ok(solo.context.conflicts.some((c) => c.startsWith('vulnera.yml:') && /not trusted/.test(c)));
+  const trusted = buildContext({ lockfile: lock(['a']), contextFiles: [src('vulnera.yml', 'components:\n  api:\n    entry: src/api.js\n    exposure: offline\n')], sources: [src('src/api.js', "require('a')")] })!;
   assert.equal(trusted.exposureOf(pkg('a'))?.level, 'offline');
 });
 

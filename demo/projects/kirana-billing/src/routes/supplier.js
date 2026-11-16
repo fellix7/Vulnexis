@@ -1,4 +1,4 @@
-// DEMO ONLY: deliberately vulnerable code for testing Vulnexis.
+// DEMO ONLY: deliberately vulnerable code for testing Vulnera.
 const express = require('express');
 const axios = require('axios');
 const router = express.Router();

@@ -1,6 +1,6 @@
-# Testing Vulnexis
+# Testing Vulnera
 
-Vulnexis is tested with small offline self-checks for the risky logic, a type-check and build, and a manual end-to-end run before every demo.
+Vulnera is tested with small offline self-checks for the risky logic, a type-check and build, and a manual end-to-end run before every demo.
 
 ## 1. Automated checks
 
@@ -27,7 +27,7 @@ for f in server/src/pipeline/__checks__/*.check.ts; do npx tsx "$f" || echo "FAI
 
 The two live checks fail without internet access to `api.osv.dev` and `api.first.org`. That is expected in sandboxes.
 
-Architecture context (offline, no network needed): `npx tsx server/src/pipeline/__checks__/context.check.ts` runs 23 cases: the kirana-billing demo (compose + OpenAPI + Markdown + auth mount), Kubernetes Ingress/ClusterIP/CronJob, serverless authorizers and schedules, Procfile with `dist/*.js → src/*.ts`, `vulnexis.yml` vs compose conflicts, README-only claims, "not loaded" with a complete graph, dynamic `require` blocking that claim, transitive inheritance, open sign-up, lockfile-only scans, and the one-step / never-below-Plan / never-KEV policy.
+Architecture context (offline, no network needed): `npx tsx server/src/pipeline/__checks__/context.check.ts` runs 23 cases: the kirana-billing demo (compose + OpenAPI + Markdown + auth mount), Kubernetes Ingress/ClusterIP/CronJob, serverless authorizers and schedules, Procfile with `dist/*.js → src/*.ts`, `vulnera.yml` vs compose conflicts, README-only claims, "not loaded" with a complete graph, dynamic `require` blocking that claim, transitive inheritance, open sign-up, lockfile-only scans, and the one-step / never-below-Plan / never-KEV policy.
 
 ## 1b. End-to-end smoke test
 
@@ -80,7 +80,7 @@ curl -sN -X POST localhost:8787/api/scan/stream -H 'content-type: application/js
 | 5 | Open a Fix-now finding | Reasons, advisory, chain, code evidence with file:line (if the key is set), verified fix |
 | 6 | `/agent` | Same steps, tool list, sources cited, the five rules |
 | 7 | `/india` | Verdict, summary, next steps, 4 obligations with working source links, plain-words list |
-| 8 | **Share on WhatsApp** | WhatsApp (or web.whatsapp.com) opens with the summary; no number asked by Vulnexis |
+| 8 | **Share on WhatsApp** | WhatsApp (or web.whatsapp.com) opens with the summary; no number asked by Vulnera |
 | 9 | Switch to हिंदी on `/india` | Verdict, summary, steps, obligations and plain words in Hindi; package names unchanged |
 | 10 | `/remediation` → copy a command | Clipboard has the exact command |
 | 11 | `/reports` → download Markdown and JSON | Files download; history lists the scan |
@@ -89,7 +89,7 @@ curl -sN -X POST localhost:8787/api/scan/stream -H 'content-type: application/js
 | 14 | Stop the server and reload `/scan` | "API not reachable" banner, demo data still available |
 | 15 | Start with `OFFLINE=1`, scan the sample | Works; offline banner shown; Gemini step skipped with a reason |
 | 16 | Production build: `curl -i localhost:8787/assets/nope.js` | 404 (not the HTML page); `/india` still returns the app |
-| 17 | Start with `MAX_CONCURRENT_SCANS=1`, start a scan, start a second at once | Second gets 429 "Vulnexis is busy…"; works again after the first finishes |
+| 17 | Start with `MAX_CONCURRENT_SCANS=1`, start a scan, start a second at once | Second gets 429 "Vulnera is busy…"; works again after the first finishes |
 
 ## 5. Accessibility spot checks
 

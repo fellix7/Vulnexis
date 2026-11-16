@@ -32,7 +32,7 @@ These are Floor in Hallmark (it treats them as the most reliable "machine-made" 
 | # | Gate | Where | Finding | Fix |
 | :--- | :--- | :--- | :--- | :--- |
 | H1 | 54 + 67 eyebrow, tracked caps | `.eyebrow` (`index.css:226`), used on every landing section and page header; `.dtable thead th` (`index.css:839`); `.agent-io dt` (`agent.css:143`); `.fd-check__state` (`finding-detail.css:201`); 7 more | Small uppercase, letter-spaced labels above headings and in table heads | Keep an eyebrow only where it carries a fact (for example "Demo data"); otherwise delete it, or let it become the heading. Labels: body face, one step smaller, sentence case, no tracking |
-| H2 | 58 screen budget | Landing at y≈6150, "Why Vulnexis" feature tiles + Guardrails: **314 words on one 900 px screen**; the hero carries three text blocks before its actions | Too much to read per screen | Cut each tile to one sentence and drop the trust line under the hero buttons (it repeats the policies) |
+| H2 | 58 screen budget | Landing at y≈6150, "Why Vulnera" feature tiles + Guardrails: **314 words on one 900 px screen**; the hero carries three text blocks before its actions | Too much to read per screen | Cut each tile to one sentence and drop the trust line under the hero buttons (it repeats the policies) |
 | H3 | 44d fold | Landing at 1920×1080: the hero section, including the product preview, ends at 1283 px | The hero runs past one screen. The headline, lede and both actions are inside the fold, so gate 12 passes | Shorten the preview to three rows at ≥1440 px, or move it below the hero |
 
 ## Reflex (fix, or waive with a reason)

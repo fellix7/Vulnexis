@@ -67,7 +67,7 @@ export interface ExposureVerdict {
   openSignup?: ContextEvidence; // "login" that anyone can get: a public sign-up route; never lowers
 }
 
-export type ContextFileKind = 'vulnexis' | 'compose' | 'kubernetes' | 'serverless' | 'procfile' | 'dockerfile' | 'openapi' | 'manifest' | 'markdown';
+export type ContextFileKind = 'declaration' | 'compose' | 'kubernetes' | 'serverless' | 'procfile' | 'dockerfile' | 'openapi' | 'manifest' | 'markdown';
 
 export interface EntryPoint {
   component: string; // e.g. "web" (compose service), "supplier-sync", "package.json main"

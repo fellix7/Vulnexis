@@ -12,7 +12,7 @@ const DOC_NAME = /(architecture|security|threat|deploy|infra|readme|design|overv
 /** Deployment and architecture files the server reads for exposure. Mirrors isContextPath() in server/src/pipeline/context.ts. */
 export function isContextPath(p: string): boolean {
   const base = p.split('/').pop() ?? p
-  if (/^\.?vulnexis\.ya?ml$/i.test(base)) return true
+  if (/^\.?(vulnera|vulnexis)\.ya?ml$/i.test(base)) return true
   if (/^Dockerfile(\.[\w.-]+)?$|\.Dockerfile$/.test(base) || base === 'Procfile' || base === 'package.json') return true
   if (/\.ya?ml$/i.test(base)) return !/^(pnpm-lock|\.?eslintrc|\.?prettierrc|\.?babelrc|codecov|mkdocs|\.?gitlab-ci|dependabot|renovate)/i.test(base)
   if (/\.json$/i.test(base)) return /(openapi|swagger)/i.test(base)

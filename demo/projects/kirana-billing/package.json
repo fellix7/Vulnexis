@@ -2,7 +2,7 @@
   "name": "kirana-billing",
   "version": "1.0.0",
   "private": true,
-  "description": "DEMO ONLY: a deliberately outdated billing app for a kirana store, used to test Vulnexis. Never deploy it.",
+  "description": "DEMO ONLY: a deliberately outdated billing app for a kirana store, used to test Vulnera. Never deploy it.",
   "main": "src/server.js",
   "dependencies": {
     "axios": "0.21.0",

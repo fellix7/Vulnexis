@@ -49,7 +49,7 @@ export function ScanSide() {
           </div>
           <div>
             <dt>Architecture files</dt>
-            <dd>docker-compose, Kubernetes, serverless.yml, Procfile, Dockerfile, OpenAPI, Markdown docs, vulnexis.yml.</dd>
+            <dd>docker-compose, Kubernetes, serverless.yml, Procfile, Dockerfile, OpenAPI, Markdown docs, vulnera.yml.</dd>
           </div>
         </dl>
         <p className="scan-aside__sub">Old lockfile (npm 6)? Regenerate it:</p>

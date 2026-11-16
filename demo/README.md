@@ -1,10 +1,10 @@
-# Vulnexis demo kit: test it on your own machine
+# Vulnera demo kit: test it on your own machine
 
-Everything you need to run Vulnexis locally and check that every part works before you present: two test projects, files that should be refused, start scripts, an automated smoke test and a click-through checklist.
+Everything you need to run Vulnera locally and check that every part works before you present: two test projects, files that should be refused, start scripts, an automated smoke test and a click-through checklist.
 
 ```
 demo/
-├── start.sh / start.ps1          start Vulnexis (macOS/Linux · Windows)
+├── start.sh / start.ps1          start Vulnera (macOS/Linux · Windows)
 ├── smoke-test.mjs                automated check of the running server (PASS / FAIL)
 ├── projects/
 │   ├── kirana-billing/           deliberately vulnerable GST billing app (lockfile + source)
@@ -16,7 +16,7 @@ demo/
 
 ---
 
-## 1. Start Vulnexis (2 minutes)
+## 1. Start Vulnera (2 minutes)
 
 You need **Node.js 22 or newer** (`node -v`) and internet for live data.
 
@@ -64,7 +64,7 @@ The `--online` form also scans `OWASP/NodeGoat` from GitHub. Expected result, on
 | sample scan has findings, tiers, verified upgrades | OSV, EPSS/KEV, ranking and upgrade verification all ran |
 | upload: kirana-billing … | Your own lockfile + source upload path, Fix-now items, dev packages in Monitor |
 | architecture: lodash behind login … | docker-compose.yml, the `/admin` auth mount and ARCHITECTURE.md were read; exposure set per package |
-| architecture: docs/OpenAPI vs code drift | Vulnexis caught the docs claiming `/supplier` needs login when the code does not check |
+| architecture: docs/OpenAPI vs code drift | Vulnera caught the docs claiming `/supplier` needs login when the code does not check |
 | AI code check cites the demo routes | Gemini found the vulnerable calls in `src/routes/*.js`, with verified citations |
 | upload: clean-app has no findings | The "nothing to fix" path |
 | refuses … | Bad input gives a clear message, not a crash |
@@ -91,7 +91,7 @@ Tick each line as you go. **Expected** is what you should see.
 
 ### C. India brief and Hindi
 - [ ] **India brief**. **Expected:** verdict **Act today**, next steps, four Indian rules (DPDP 8(5), 8(6), CERT-In 6 hours, 180-day logs) each with a source link.
-- [ ] Tap **Share on WhatsApp**. **Expected:** WhatsApp (or WhatsApp Web) opens with the "Vulnexis security report"; Vulnexis never asks for a number.
+- [ ] Tap **Share on WhatsApp**. **Expected:** WhatsApp (or WhatsApp Web) opens with the "Vulnera security report"; Vulnera never asks for a number.
 - [ ] Switch **हिंदी** (top right). **Expected:** navigation, verdict, summary, steps and rules in Hindi; package names unchanged. Reload: still Hindi.
 
 ### D. The clean project
@@ -115,14 +115,14 @@ Tick each line as you go. **Expected** is what you should see.
 
 ## Troubleshooting
 
-**Every scan fails?** Read the **Connection check** that the server prints in its terminal when it starts (also shown on the scan page after a failure, and by the smoke test). It lists each service Vulnexis needs (OSV.dev, EPSS, npm, GitHub, Gemini) as OK or BLOCKED, with the reason and what to do:
+**Every scan fails?** Read the **Connection check** that the server prints in its terminal when it starts (also shown on the scan page after a failure, and by the smoke test). It lists each service Vulnera needs (OSV.dev, EPSS, npm, GitHub, Gemini) as OK or BLOCKED, with the reason and what to do:
 
 | Reason shown | Meaning | Fix |
 | :--- | :--- | :--- |
 | `ECONNRESET`, `ECONNREFUSED`, `UND_ERR_ABORTED`, `ETIMEDOUT` | The network blocks or drops the connection | Use the network's proxy: add `HTTPS_PROXY=http://host:port` to `.env` and restart. Or use a phone hotspot |
-| `SELF_SIGNED_CERT_IN_CHAIN`, `UNABLE_TO_VERIFY_LEAF_SIGNATURE` | The network inspects HTTPS | Vulnexis already trusts your computer's certificates; if it still fails, add `NODE_EXTRA_CA_CERTS=/path/to/cert.pem` to `.env` |
+| `SELF_SIGNED_CERT_IN_CHAIN`, `UNABLE_TO_VERIFY_LEAF_SIGNATURE` | The network inspects HTTPS | Vulnera already trusts your computer's certificates; if it still fails, add `NODE_EXTRA_CA_CERTS=/path/to/cert.pem` to `.env` |
 | `ENOTFOUND` | No internet or DNS | Check the connection |
-| `HTTP 403` on GitHub downloads | GitHub or the network refused the download | Vulnexis falls back to reading only the lockfile; or upload the files |
+| `HTTP 403` on GitHub downloads | GitHub or the network refused the download | Vulnera falls back to reading only the lockfile; or upload the files |
 | Gemini `HTTP 400/403` | The API key is wrong | Fix `GEMINI_API_KEY` in `.env` (no quotes, no spaces) and restart |
 
 If OSV.dev is blocked, the bundled sample still works (it uses saved data and says so), but new projects need OSV.dev.
@@ -130,11 +130,11 @@ If OSV.dev is blocked, the bundled sample still works (it uses saved data and sa
 | Problem | Fix |
 | :--- | :--- |
 | `git pull`: "local changes to package-lock.json would be overwritten" | That file was rewritten by `npm install`. Run `git checkout -- package-lock.json && git pull && npm ci` (`.env` is not touched) |
-| `Vulnexis needs Node.js 22 or newer` | Install the current LTS from https://nodejs.org |
+| `Vulnera needs Node.js 22 or newer` | Install the current LTS from https://nodejs.org |
 | Port 8787 already in use | Set `PORT=8790` in `.env`, then run the smoke test with `BASE=http://localhost:8790 node demo/smoke-test.mjs` |
 | "Not assessed" everywhere | No `GEMINI_API_KEY` in `.env`, or no source folder chosen |
 | Many "uncertain" verdicts | Free Gemini quota hit: add `GEMINI_API_KEY_2=` or wait a minute |
 | "Offline mode: this project has no saved snapshot" | You started with `--offline`; restart without it |
-| "Vulnexis is busy…" | More than 4 scans at once; wait, or raise `MAX_CONCURRENT_SCANS` |
+| "Vulnera is busy…" | More than 4 scans at once; wait, or raise `MAX_CONCURRENT_SCANS` |
 | Timeline appears all at once at the end | A proxy or VPN is buffering responses; try without it |
 | Windows: "running scripts is disabled" | Run `powershell -ExecutionPolicy Bypass -File .\demo\start.ps1` |

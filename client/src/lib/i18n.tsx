@@ -5,7 +5,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 // Technical names (package names, CVE ids, commands) are never translated.
 
 export type Lang = 'en' | 'hi'
-const KEY = 'vulnexis:lang:v1'
+const KEY = 'vulnera:lang:v1'
+const LEGACY_KEY = 'vulnexis:lang:v1' // read once and copied to KEY, so an older saved choice survives the rename
 
 interface LangCtx {
   lang: Lang
@@ -17,7 +18,14 @@ const Ctx = createContext<LangCtx | null>(null)
 
 function initial(): Lang {
   try {
-    const saved = localStorage.getItem(KEY)
+    let saved = localStorage.getItem(KEY)
+    if (saved === null) {
+      const old = localStorage.getItem(LEGACY_KEY)
+      if (old === 'en' || old === 'hi') {
+        localStorage.setItem(KEY, old)
+        saved = old
+      }
+    }
     if (saved === 'en' || saved === 'hi') return saved
   } catch {
     /* storage unavailable */

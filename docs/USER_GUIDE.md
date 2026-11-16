@@ -1,7 +1,7 @@
-# Vulnexis user guide · उपयोग गाइड
+# Vulnera user guide · उपयोग गाइड
 
-Vulnexis tells you which vulnerable open-source packages in your Node.js project to fix first, why, and how, in Hindi or English.
-Vulnexis बताता है कि आपके Node.js प्रोजेक्ट के कौन-से कमज़ोर ओपन-सोर्स पैकेज पहले ठीक करने हैं, क्यों, और कैसे, हिंदी या अंग्रेज़ी में।
+Vulnera tells you which vulnerable open-source packages in your Node.js project to fix first, why, and how, in Hindi or English.
+Vulnera बताता है कि आपके Node.js प्रोजेक्ट के कौन-से कमज़ोर ओपन-सोर्स पैकेज पहले ठीक करने हैं, क्यों, और कैसे, हिंदी या अंग्रेज़ी में।
 
 **You never need to give personal information.** No login, no phone number, no Aadhaar or PAN.
 **आपको कोई निजी जानकारी नहीं देनी है।** न लॉग-इन, न फ़ोन नंबर, न आधार या PAN।
@@ -10,7 +10,7 @@ Vulnexis बताता है कि आपके Node.js प्रोजे�
 
 ## 1. Choose your language · भाषा चुनें
 
-Use the **EN | हिंदी** switch at the top right of every page. Vulnexis remembers your choice in this browser.
+Use the **EN | हिंदी** switch at the top right of every page. Vulnera remembers your choice in this browser.
 हर पेज पर ऊपर दाईं ओर **EN | हिंदी** बटन से भाषा बदलें। आपकी पसंद इस ब्राउज़र में याद रहती है।
 
 ## 2. Start a scan · स्कैन शुरू करें (`/scan`)
@@ -82,14 +82,14 @@ The smallest safe version for each package, re-checked so the upgrade does not l
 npm install ejs@3.1.10
 ```
 
-For packages you did not install directly, Vulnexis names the parent package to upgrade, or gives an npm `overrides` command.
+For packages you did not install directly, Vulnera names the parent package to upgrade, or gives an npm `overrides` command.
 
 ### Architecture · आर्किटेक्चर (`/architecture`)
-Vulnexis reads your deployment files (docker-compose.yml, Kubernetes, serverless.yml, Procfile, Dockerfile, OpenAPI), your docs (ARCHITECTURE.md, SECURITY.md, README) and your code to see **who can reach each vulnerable package**: anyone on the internet, only logged-in users, only your private network, nobody (a nightly job), or no running code at all. A package that an attacker cannot easily reach moves down **one step**, with the exact file and line that shows it. Known-exploited bugs never move. If your docs say a route needs login but the code does not check, you get a yellow warning.
+Vulnera reads your deployment files (docker-compose.yml, Kubernetes, serverless.yml, Procfile, Dockerfile, OpenAPI), your docs (ARCHITECTURE.md, SECURITY.md, README) and your code to see **who can reach each vulnerable package**: anyone on the internet, only logged-in users, only your private network, nobody (a nightly job), or no running code at all. A package that an attacker cannot easily reach moves down **one step**, with the exact file and line that shows it. Known-exploited bugs never move. If your docs say a route needs login but the code does not check, you get a yellow warning.
 
-Vulnexis आपकी डिप्लॉयमेंट फ़ाइलें, डॉक्स और कोड पढ़कर देखता है कि **हर कमज़ोर पैकेज तक कौन पहुँच सकता है**: इंटरनेट पर कोई भी, सिर्फ़ लॉगिन किए लोग, सिर्फ़ आपका निजी नेटवर्क, या कोई नहीं। जिस तक हमलावर आसानी से नहीं पहुँच सकता, वह **एक कदम** नीचे जाता है, फ़ाइल और पंक्ति के सबूत के साथ। असल हमलों वाली कमज़ोरियाँ कभी नहीं घटतीं। अगर डॉक्स कहें कि रूट पर लॉगिन ज़रूरी है पर कोड जाँच न करे, तो पीली चेतावनी दिखती है।
+Vulnera आपकी डिप्लॉयमेंट फ़ाइलें, डॉक्स और कोड पढ़कर देखता है कि **हर कमज़ोर पैकेज तक कौन पहुँच सकता है**: इंटरनेट पर कोई भी, सिर्फ़ लॉगिन किए लोग, सिर्फ़ आपका निजी नेटवर्क, या कोई नहीं। जिस तक हमलावर आसानी से नहीं पहुँच सकता, वह **एक कदम** नीचे जाता है, फ़ाइल और पंक्ति के सबूत के साथ। असल हमलों वाली कमज़ोरियाँ कभी नहीं घटतीं। अगर डॉक्स कहें कि रूट पर लॉगिन ज़रूरी है पर कोड जाँच न करे, तो पीली चेतावनी दिखती है।
 
-To give the upload this context, choose the **project folder** (step 2 on `/scan`): the YAML, Markdown and Dockerfile files in it are read automatically. Optional: add a `vulnexis.yml` ([format](ARCHITECTURE_CONTEXT.md#6-declaring-it-yourself-vulnexisyml)).
+To give the upload this context, choose the **project folder** (step 2 on `/scan`): the YAML, Markdown and Dockerfile files in it are read automatically. Optional: add a `vulnera.yml` ([format](ARCHITECTURE_CONTEXT.md#6-declaring-it-yourself-vulnerayml)).
 
 ## 5. India brief · भारत रिपोर्ट (`/india`)
 
@@ -111,7 +111,7 @@ This is information, not legal advice. यह जानकारी है, क�
 
 ## 7. Questions · सवाल
 
-**Does Vulnexis run my code? · क्या Vulnexis मेरा कोड चलाता है?**
+**Does Vulnera run my code? · क्या Vulnera मेरा कोड चलाता है?**
 No. It only reads files as text. नहीं, सिर्फ़ टेक्स्ट की तरह पढ़ता है।
 
 **What does the AI see? · AI क्या देखता है?**

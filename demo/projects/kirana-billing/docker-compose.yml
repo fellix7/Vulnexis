@@ -1,4 +1,4 @@
-# DEMO ONLY: how the kirana-billing demo would be deployed. Vulnexis reads this file to learn
+# DEMO ONLY: how the kirana-billing demo would be deployed. Vulnera reads this file to learn
 # which process is internet-facing and which is not. Never run it.
 services:
   web:

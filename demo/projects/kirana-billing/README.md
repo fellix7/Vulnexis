@@ -1,6 +1,6 @@
 # kirana-billing (demo, deliberately vulnerable)
 
-A tiny GST billing app for a kirana store with **outdated, vulnerable packages on purpose**, for testing Vulnexis. Do not install, run or deploy it.
+A tiny GST billing app for a kirana store with **outdated, vulnerable packages on purpose**, for testing Vulnera. Do not install, run or deploy it.
 
 | Package | Version | What the code does with it |
 | :--- | :--- | :--- |
@@ -14,15 +14,15 @@ A tiny GST billing app for a kirana store with **outdated, vulnerable packages o
 
 ## Architecture files (for the exposure check)
 
-| File | What Vulnexis learns from it |
+| File | What Vulnera learns from it |
 | :--- | :--- |
 | `docker-compose.yml` | `web` publishes port 8080 (internet-facing); `supplier-sync` sits only on an `internal: true` network |
 | `src/server.js` | `/admin` is mounted behind `requireOwner` (a JWT check) |
 | `openapi.yaml` | which routes the contract says need the owner's JWT |
 | `ARCHITECTURE.md` | the team's own description of each process |
 
-Deliberate drift: `ARCHITECTURE.md` and `openapi.yaml` both say `/supplier` needs a login, but `src/server.js` mounts it with no auth middleware. Vulnexis reports this and treats `/supplier` as public.
+Deliberate drift: `ARCHITECTURE.md` and `openapi.yaml` both say `/supplier` needs a login, but `src/server.js` mounts it with no auth middleware. Vulnera reports this and treats `/supplier` as public.
 
 Expected exposure: **lodash → behind login** (moves down one step), **node-fetch → private network only** (moves down one step), axios / ejs / jsonwebtoken / express → reachable from the internet (unchanged).
 
-Expected in Vulnexis: several **Fix now** findings, code evidence pointing at `src/routes/*.js` (when a Gemini key is set), and an India brief verdict of **Act today**.
+Expected in Vulnera: several **Fix now** findings, code evidence pointing at `src/routes/*.js` (when a Gemini key is set), and an India brief verdict of **Act today**.

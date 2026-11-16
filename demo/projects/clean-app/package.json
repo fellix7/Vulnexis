@@ -2,7 +2,7 @@
   "name": "clean-app",
   "version": "1.0.0",
   "private": true,
-  "description": "DEMO ONLY: a tiny app on current package versions, to test the 'nothing to fix' path in Vulnexis.",
+  "description": "DEMO ONLY: a tiny app on current package versions, to test the 'nothing to fix' path in Vulnera.",
   "dependencies": {
     "dayjs": "1.11.13",
     "nanoid": "5.0.9"

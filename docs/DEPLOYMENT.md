@@ -1,4 +1,4 @@
-# Running and deploying Vulnexis
+# Running and deploying Vulnera
 
 ## 1. Requirements
 

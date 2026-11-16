@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Vulnexis smoke test: drives the running server through the main paths and prints PASS / FAIL.
+// Vulnera smoke test: drives the running server through the main paths and prints PASS / FAIL.
 // Usage:  node demo/smoke-test.mjs                 (server on http://localhost:8787)
 //         node demo/smoke-test.mjs --online        (also scans a public GitHub repo)
 //         BASE=http://localhost:9000 node demo/smoke-test.mjs
@@ -56,7 +56,7 @@ function contextFiles(dir) {
 const tiers = (fs) => ['FIX_NOW', 'FIX_SPRINT', 'PLAN', 'MONITOR'].map((t) => fs.filter((f) => f.tier === t).length).join('/');
 
 async function main() {
-  console.log(`Vulnexis smoke test against ${BASE}\n`);
+  console.log(`Vulnera smoke test against ${BASE}\n`);
 
   // 1. Server up
   let health;

@@ -5,7 +5,7 @@ import { buildGraph, MAX_LINE, MAX_SOURCE_BYTES, propagate, RANK, type Graph, ty
 import type { ArchitectureContext, ContextEvidence, ContextFileKind, EntryPoint, Exposure, ExposureVerdict, Package, SourceFile } from '../types.js';
 
 // Architecture context: reads the project's own deployment and design files (docker-compose, Kubernetes,
-// serverless.yml, Procfile, Dockerfile, OpenAPI, package.json, Markdown docs, an optional vulnexis.yml) to
+// serverless.yml, Procfile, Dockerfile, OpenAPI, package.json, Markdown docs, an optional vulnera.yml) to
 // find each process that runs, and whether it is reachable from the internet, only from a private network,
 // or not at all. Combined with the import graph (reach.ts), each vulnerable package gets an exposure level
 // mapped to CISA SSVC "System Exposure". Every claim keeps the file and line it came from.
@@ -16,11 +16,11 @@ export const MAX_CONTEXT_TOTAL_BYTES = 1536 * 1024;
 
 const DOC_NAME = /(architecture|security|threat|deploy|infra|readme|design|overview|system|network|runbook|operations)/i;
 
-/** Which context files Vulnexis reads. Paths are relative to the project root; YAML/JSON are confirmed by content later. */
+/** Which context files Vulnera reads. Paths are relative to the project root; YAML/JSON are confirmed by content later. */
 export function isContextPath(p: string): boolean {
   if (/(^|\/)(node_modules|dist|build|coverage|vendor|\.git|\.next)(\/|$)/.test(p)) return false;
   const base = p.split('/').pop()!;
-  if (/^\.?vulnexis\.ya?ml$/i.test(base)) return true;
+  if (/^\.?(vulnera|vulnexis)\.ya?ml$/i.test(base)) return true; // vulnexis.yml: the older name, still read
   if (/^Dockerfile(\.[\w.-]+)?$|\.Dockerfile$/.test(base) || base === 'Procfile' || base === 'package.json') return true;
   if (/\.ya?ml$/i.test(base)) return !/^(pnpm-lock|\.?eslintrc|\.?prettierrc|\.?babelrc|codecov|mkdocs|\.?gitlab-ci|dependabot|renovate)/i.test(base);
   if (/\.json$/i.test(base)) return /(openapi|swagger)/i.test(base);
@@ -30,7 +30,7 @@ export function isContextPath(p: string): boolean {
 
 export function classify(p: string, content: string): ContextFileKind | null {
   const base = p.split('/').pop()!;
-  if (/^\.?vulnexis\.ya?ml$/i.test(base)) return 'vulnexis';
+  if (/^\.?(vulnera|vulnexis)\.ya?ml$/i.test(base)) return 'declaration';
   if (/^(docker-)?compose([.-][\w.-]+)?\.ya?ml$/i.test(base)) return 'compose';
   if (/^Dockerfile(\.[\w.-]+)?$|\.Dockerfile$/.test(base)) return 'dockerfile';
   if (base === 'Procfile') return 'procfile';
@@ -50,7 +50,7 @@ interface Ctx {
   files: (SourceFile & { kind: ContextFileKind; lines: string[] })[];
   sourcePaths: Set<string>;
   base: string; // folder of the lockfile, relative to the context files' root ('' for uploads)
-  trustDeclarations: boolean; // false for third-party repos: vulnexis.yml is evidence only
+  trustDeclarations: boolean; // false for third-party repos: vulnera.yml is evidence only
   cmdTexts: string[]; // every start command / script seen, to spot packages loaded from the command line (`node -r pkg`)
 }
 
@@ -353,7 +353,7 @@ function fromProcfile(ctx: Ctx, f: Ctx['files'][number], out: Draft[]) {
   });
 }
 
-/** vulnexis.yml: the team's own declaration. `components: { web: { entry, exposure, auth } }` or a list of them. */
+/** vulnera.yml: the team's own declaration. `components: { web: { entry, exposure, auth } }` or a list of them. */
 function fromDeclared(ctx: Ctx, f: Ctx['files'][number], out: Draft[], conflicts: string[], ignored: Ignored[]) {
   for (const { doc, lc } of yamlDocs(f)) {
     const raw = (doc.toJS() as { components?: unknown } | null)?.components;
@@ -461,7 +461,7 @@ export function buildContext(input: {
   contextFiles: SourceFile[];
   base?: string;
   truncated?: boolean; // some source files were not read (limits), so "unreached" cannot be claimed
-  /** Default true. Set false for a repository you do not control: its vulnexis.yml is then shown as evidence only. */
+  /** Default true. Set false for a repository you do not control: its vulnera.yml is then shown as evidence only. */
   trustDeclarations?: boolean;
 }): BuiltContext | null {
   const conflicts: string[] = [];
@@ -502,7 +502,7 @@ export function buildContext(input: {
     else if (f.kind === 'procfile') fromProcfile(ctx, f, drafts);
   }
   k8sEntries(ctx, k8s, drafts);
-  for (const f of files) if (f.kind === 'vulnexis') fromDeclared(ctx, f, drafts, conflicts, ignored);
+  for (const f of files) if (f.kind === 'declaration') fromDeclared(ctx, f, drafts, conflicts, ignored);
 
   // Merge the same component seen in several files: the more exposed reading wins, and disagreements are noted.
   const merged = new Map<string, Draft>();

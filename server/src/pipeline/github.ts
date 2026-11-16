@@ -96,7 +96,7 @@ async function getWithDeadlines<T>(url: string, hosts: string[], read: (res: Res
     const total = setTimeout(timeout, DOWNLOAD_MS);
     const scan = currentSignal();
     try {
-      const res = await fetch(url, { headers: { 'User-Agent': 'vulnexis-scanner' }, signal: scan ? AbortSignal.any([ctrl.signal, scan]) : ctrl.signal, redirect: 'follow' });
+      const res = await fetch(url, { headers: { 'User-Agent': 'vulnera-scanner' }, signal: scan ? AbortSignal.any([ctrl.signal, scan]) : ctrl.signal, redirect: 'follow' });
       clearTimeout(first);
       if (res.url && !hosts.includes(new URL(res.url).hostname)) {
         await res.body?.cancel().catch(() => {});
@@ -339,7 +339,7 @@ const statsCache = new Map<string, { at: number; ttl: number; value: Promise<Rep
 export const clearRepoStatsCache = () => statsCache.clear();
 
 async function loadRepoStats(owner: string, name: string): Promise<{ stars?: number; contributors?: number }> {
-  const headers: Record<string, string> = { 'User-Agent': 'vulnexis-scanner', Accept: 'application/vnd.github+json' };
+  const headers: Record<string, string> = { 'User-Agent': 'vulnera-scanner', Accept: 'application/vnd.github+json' };
   if (process.env.GITHUB_TOKEN?.trim()) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN.trim()}`;
   const base = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
   const get = async (url: string) => {

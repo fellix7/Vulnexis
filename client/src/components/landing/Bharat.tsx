@@ -3,7 +3,7 @@ import { Link } from '../../router'
 import { Icon, type IconName } from '../ui/Icon'
 import { SectionHead } from './SectionHead'
 
-// Landing sections added for Vulnexis: the agent loop and why it is built for India.
+// Landing sections added for Vulnera: the agent loop and why it is built for India.
 
 const LOOP: { icon: IconName; en: string; hi: string; dEn: string; dHi: string; ai?: boolean }[] = [
   { icon: 'github', en: 'Take a real input', hi: 'असली इनपुट', dEn: 'A GitHub link or a lockfile. No login.', dHi: 'GitHub लिंक या लॉकफ़ाइल। लॉग-इन नहीं।' },

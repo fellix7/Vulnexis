@@ -81,7 +81,7 @@ Each step exists in Hindi too.
 The summary is built from the counts: packages checked, findings, production findings, Fix-now count, KEV count, personal-data count, and the most common category. The WhatsApp message (`whatsappText`) is:
 
 ```
-*Vulnexis security report: <project>*
+*Vulnera security report: <project>*
 
 <summary in the chosen language>
 
@@ -92,7 +92,7 @@ The summary is built from the counts: packages checked, findings, production fin
 _For information, not legal advice._
 ```
 
-It is opened with `https://wa.me/?text=<encoded message>`. The user picks the recipient inside WhatsApp; Vulnexis never sees a phone number.
+It is opened with `https://wa.me/?text=<encoded message>`. The user picks the recipient inside WhatsApp; Vulnera never sees a phone number.
 
 ## 8. Worked example (bundled sample)
 

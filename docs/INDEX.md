@@ -1,4 +1,4 @@
-# Vulnexis documentation
+# Vulnera documentation
 
 | Document | For | What it covers |
 | :--- | :--- | :--- |
@@ -6,7 +6,7 @@
 | [PITCH.md](PITCH.md) | Presenter | 3-minute demo script, fallbacks, judge Q&A, ML.ai usage log |
 | [SYSTEM_POLICIES.md](SYSTEM_POLICIES.md) | Everyone | Personal data, retention, AI usage, agent transparency, sources, input safety, secrets, regulatory info, accessibility, failure, third parties, acceptable use, incidents |
 | [AGENT.md](AGENT.md) | Engineers, judges | Tools, run order, every decision rule, tier rules, step record, example trace |
-| [ARCHITECTURE_CONTEXT.md](ARCHITECTURE_CONTEXT.md) | Engineers, judges, mentors | Exploitability from architecture: research (SSVC, VEX), files read, how exposure is decided, the one-step policy, `vulnexis.yml`, worked example, limits |
+| [ARCHITECTURE_CONTEXT.md](ARCHITECTURE_CONTEXT.md) | Engineers, judges, mentors | Exploitability from architecture: research (SSVC, VEX), files read, how exposure is decided, the one-step policy, `vulnera.yml`, worked example, limits |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Engineers | Layout, request lifecycle, pipeline stages, caching/offline, client, production topology, limits |
 | [API.md](API.md) | Integrators | `/api/health`, `/api/scan/stream` (NDJSON), `/api/scan`, schemas, errors |
 | [INDIA_COMPLIANCE.md](INDIA_COMPLIANCE.md) | Engineers, reviewers | Risk categories, verdict rules, CERT-In / DPDP mapping, WhatsApp text, worked example |
@@ -17,4 +17,4 @@
 | [DESIGN.md](DESIGN.md) | Designers, engineers | Design tokens and page contract (inherited from Vulnera) |
 | [UI_AUDIT_HALLMARK.md](UI_AUDIT_HALLMARK.md) | Designers, engineers | Hallmark audit, the polish and restyle applied, what is waived |
 
-**Background (Vulnera, Build-a-thon, 24 Oct 2026):** [PROJECT.md](PROJECT.md), [PLAN.md](PLAN.md), [TEAM.md](TEAM.md), [tasks/](tasks/). These describe the original pipeline Vulnexis is built on. Where they disagree with the documents above, the documents above are current.
+**Background (Vulnera, Build-a-thon, 24 Oct 2026):** [PROJECT.md](PROJECT.md), [PLAN.md](PLAN.md), [TEAM.md](TEAM.md), [tasks/](tasks/). These describe the original pipeline Vulnera is built on. Where they disagree with the documents above, the documents above are current.

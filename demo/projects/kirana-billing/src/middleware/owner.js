@@ -1,4 +1,4 @@
-// DEMO ONLY: deliberately vulnerable code for testing Vulnexis.
+// DEMO ONLY: deliberately vulnerable code for testing Vulnera.
 const jwt = require('jsonwebtoken');
 
 // Lets the request through only with the shop owner's token.

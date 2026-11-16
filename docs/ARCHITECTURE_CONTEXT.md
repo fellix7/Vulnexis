@@ -2,7 +2,7 @@
 
 A vulnerable package only matters if an attacker can get a request to the code that loads it. A bug in a library used only by a nightly job on a private network, or only by owner pages behind a JWT check, is real, but it is not as urgent as the same bug on a public route.
 
-Vulnexis reads the project's own deployment files, docs and code, works out which processes run and who can reach them, and gives every vulnerable package an **exposure level**. That level can move a finding **down one step**, with every claim quoted from a file and line.
+Vulnera reads the project's own deployment files, docs and code, works out which processes run and who can reach them, and gives every vulnerable package an **exposure level**. That level can move a finding **down one step**, with every claim quoted from a file and line.
 
 Code: `server/src/pipeline/context.ts` (deployment files, docs, merging), `server/src/pipeline/reach.ts` (import graph and auth mounts), the tier rule `applyExposure()` in `server/src/pipeline/score.ts`. Checks: `server/src/pipeline/__checks__/context.check.ts` (offline; one case per rule below).
 
@@ -12,17 +12,17 @@ Code: `server/src/pipeline/context.ts` (deployment files, docs, merging), `serve
 
 | Source | What we took from it |
 | :--- | :--- |
-| **CISA SSVC, "System Exposure"** ([CERT/CC reference](https://certcc.github.io/SSVC/reference/decision_points/system_exposure/)) | Three values: *open* (internet or a widely accessible network), *controlled* (networked, with access restrictions or mitigations), *small* (local or highly controlled, no exposed interface). **If exposure is unknown, assume open.** Vulnexis maps every level onto these three. |
-| **CISA VEX status justifications** ([CISA PDF](https://www.cisa.gov/sites/default/files/2023-01/VEX_Status_Justification_Jun22.pdf)) | `vulnerable_code_not_in_execute_path`: the code ships but is never executed. Vulnexis uses it only when no entry point loads the package *and* the whole import graph could be followed. We deliberately do **not** claim `vulnerable_code_cannot_be_controlled_by_adversary`: a login wall reduces exposure, it does not make the code unreachable. |
+| **CISA SSVC, "System Exposure"** ([CERT/CC reference](https://certcc.github.io/SSVC/reference/decision_points/system_exposure/)) | Three values: *open* (internet or a widely accessible network), *controlled* (networked, with access restrictions or mitigations), *small* (local or highly controlled, no exposed interface). **If exposure is unknown, assume open.** Vulnera maps every level onto these three. |
+| **CISA VEX status justifications** ([CISA PDF](https://www.cisa.gov/sites/default/files/2023-01/VEX_Status_Justification_Jun22.pdf)) | `vulnerable_code_not_in_execute_path`: the code ships but is never executed. Vulnera uses it only when no entry point loads the package *and* the whole import graph could be followed. We deliberately do **not** claim `vulnerable_code_cannot_be_controlled_by_adversary`: a login wall reduces exposure, it does not make the code unreachable. |
 | **CVSS environmental metrics** (Modified Attack Vector) | The same vulnerability scores lower when the vulnerable component is only reachable from an adjacent or local network. Exposure is that idea, applied from evidence instead of a form field. |
 | **Reachability analysis** in commercial SCA tools | Following imports from entry points to the package. We do it on plain text (no build, no execution), and only claim "not reached" when the graph is complete. |
 | **Cloud "internet exposure" context** in CNAPP tools | Joining Kubernetes Services, Ingresses and load balancers to workloads to decide what faces the internet. We do the same from the manifests in the repository. |
 
-## 2. What Vulnexis reads
+## 2. What Vulnera reads
 
 | File | Detected by | What it tells us |
 | :--- | :--- | :--- |
-| `vulnexis.yml` / `.vulnexis.yml` | name | The team's own declaration (see §6) |
+| `vulnera.yml` / `.vulnera.yml` | name | The team's own declaration (see §6) |
 | `docker-compose*.yml`, `compose.yml` | name | `ports` published (not on `127.0.0.1`) → internet-facing; `network_mode: host` → internet-facing; only `internal: true` networks → private; no ports at all in the file → private; **a service with no ports while another service in the file publishes one, or ports bound only to `127.0.0.1` / `localhost` / `::1`, → unknown** (a reverse proxy may forward to it); `command` / `entrypoint` → start file |
 | Kubernetes YAML | `kind:` in content | Ingress → Service → workload = internet-facing (auth annotations = behind login); `LoadBalancer` / `NodePort` = internet-facing; `ClusterIP` only = private; `CronJob` / `Job` = no network entry point; container `command` / `args` → start file |
 | `serverless.yml` | name | `http` / `httpApi` / `alb` / `websocket` events = internet-facing (with `authorizer` = behind login); `schedule` = offline; queues and streams = private; `handler` → start file |
@@ -39,8 +39,8 @@ Start commands are resolved to source files: `npm start` → the `start` script,
 
 1. **Entry points.** Each process from the files above, with an exposure and the lines that prove it. With no deployment files, `package.json` start/main and any file that starts a server become entry points with **unknown** exposure.
 2. **Merge.** The same component seen in several files keeps the **more exposed** reading. Disagreements are reported.
-3. **Docs.** A Markdown claim is kept as evidence next to the component and never changes its exposure (not even when it is unknown). When it claims something safer than config or code, or safer than "unknown", Vulnexis reports a conflict.
-4. **Import graph.** From each entry point, Vulnexis walks relative imports (and monorepo workspace packages). A router mounted behind an auth middleware (guard line before the mount, prefix match on a path-segment boundary), or a route file whose `router.use(requireAuth)` comes before its first route, caps everything below it at **behind login**. Optional or non-auth middleware (`optionalAuth`, `auth({ authRequired: false })`, rate limiters, CORS, loggers, plain `session`) is never a guard. A file that names a package in a string (for example `app.set('view engine', 'ejs')`) counts as loading it, because frameworks load those by name.
+3. **Docs.** A Markdown claim is kept as evidence next to the component and never changes its exposure (not even when it is unknown). When it claims something safer than config or code, or safer than "unknown", Vulnera reports a conflict.
+4. **Import graph.** From each entry point, Vulnera walks relative imports (and monorepo workspace packages). A router mounted behind an auth middleware (guard line before the mount, prefix match on a path-segment boundary), or a route file whose `router.use(requireAuth)` comes before its first route, caps everything below it at **behind login**. Optional or non-auth middleware (`optionalAuth`, `auth({ authRequired: false })`, rate limiters, CORS, loggers, plain `session`) is never a guard. A file that names a package in a string (for example `app.set('view engine', 'ejs')`) counts as loading it, because frameworks load those by name.
 5. **Per package.** The package's exposure is the most exposed file that loads it, directly or through the direct dependency that pulls it in (a transitive package inherits from every direct dependency whose tree contains it).
 
 | Level | Meaning | SSVC | Effect on the tier |
@@ -58,7 +58,7 @@ Start commands are resolved to source files: `npm start` → the `start` script,
 - Lower anything on **CISA KEV** (exploited in the wild).
 - Lower a "behind login" finding when the code has a **public sign-up route** (`/register`, `/signup`, …): anyone can get past that wall.
 - Let **docs set exposure**. Docs are evidence; contradictions are shown in the UI and in the scan notes.
-- Trust a **third-party repo's `vulnexis.yml`**. `buildContext({ trustDeclarations: false })` (the server passes `!req.repoUrl`) shows declarations as evidence and a note, but they set no exposure; compose, Kubernetes, serverless and Procfile still count.
+- Trust a **third-party repo's `vulnera.yml`**. `buildContext({ trustDeclarations: false })` (the server passes `!req.repoUrl`) shows declarations as evidence and a note, but they set no exposure; compose, Kubernetes, serverless and Procfile still count.
 - Claim **"not loaded"** when the graph is incomplete or the importer might run: browser code, a worker started by a non-start script, a package preloaded with `node -r pkg` / `--require pkg` / `npx pkg` (any package.json script, Procfile, Dockerfile or start command naming it), or a package no scanned file imports (all "unknown"). Also incomplete: dynamic `require(variable)`, file-based routing frameworks in the root or any workspace (Next.js, Nuxt, Remix, SvelteKit, Gatsby, Astro, …), source lines over 2,000 characters or files over 400 KB (not analysed), skipped source files, or an entry point whose start file is not in the scanned code. In those cases the level is "unknown".
 - Use AI. Exposure is computed deterministically from quoted lines; the Gemini rule ("AI may only raise a priority") is unchanged.
 
@@ -71,9 +71,9 @@ Start commands are resolved to source files: `npm start` → the `start` script,
 - **Markdown report:** an Architecture table and an exposure line per finding.
 - **API:** `finding.exposure` and `result.context` (see [API.md](API.md)).
 
-## 6. Declaring it yourself: `vulnexis.yml`
+## 6. Declaring it yourself: `vulnera.yml`
 
-For anything config cannot show (a service behind a corporate VPN, an internal admin tool), add a file at the project root:
+For anything config cannot show (a service behind a corporate VPN, an internal admin tool), add a file at the project root. Older projects that use the previous name `vulnexis.yml` still work; it is read the same way.
 
 ```yaml
 components:
@@ -90,7 +90,7 @@ components:
     note: Runs nightly from cron, takes no requests.
 ```
 
-A list form (`components: [{ name, entry, exposure }]` ) also works. For a repository you scan but do not own, declarations are ignored for exposure (see §4). If `vulnexis.yml` and a compose file disagree, the more exposed reading wins and the conflict is reported.
+A list form (`components: [{ name, entry, exposure }]` ) also works. For a repository you scan but do not own, declarations are ignored for exposure (see §4). If `vulnera.yml` and a compose file disagree, the more exposed reading wins and the conflict is reported.
 
 ## 7. Worked example: `demo/projects/kirana-billing`
 
@@ -101,11 +101,11 @@ A list form (`components: [{ name, entry, exposure }]` ) also works. For a repos
 | axios | `src/routes/supplier.js`, public route | Internet | none |
 | ejs, jsonwebtoken, express (+ qs, body-parser…) | public routes / `src/server.js` | Internet | none |
 
-It also shows drift detection: `ARCHITECTURE.md:12` and `openapi.yaml:34` say `/supplier` needs a login, but `src/server.js:15` mounts it with no auth middleware. Vulnexis reports both and keeps `/supplier` public.
+It also shows drift detection: `ARCHITECTURE.md:12` and `openapi.yaml:34` say `/supplier` needs a login, but `src/server.js:15` mounts it with no auth middleware. Vulnera reports both and keeps `/supplier` public.
 
 ## 8. Known limits
 
 - Express-style `.use()` / Fastify `.register()` mounts and Nest `@UseGuards` are understood. Guards applied per route (`router.get('/x', requireAuth, …)`) are not, so those routes count as unguarded (safe direction). A `@UseGuards(...)` counts only above the single `class` of the file, naming Auth/Jwt/Session/Role and not Throttler. Ingress `auth-type` counts only with a real value (`none`, empty, `false` do not). Regex analysis is linear: lines over 2,000 characters and files over 400 KB are skipped and make the graph incomplete.
-- Guard detection is by name (`requireAuth`, `verifyToken`, `passport.authenticate`, `expressjwt`, `…Auth`, `…Guard`). A custom guard with an unusual name is missed, so the route stays public (safe direction). Declare it in `vulnexis.yml` if needed.
+- Guard detection is by name (`requireAuth`, `verifyToken`, `passport.authenticate`, `expressjwt`, `…Auth`, `…Guard`). A custom guard with an unusual name is missed, so the route stays public (safe direction). Declare it in `vulnera.yml` if needed.
 - Kubernetes workloads link to code through container `command`/`args` or a single Dockerfile. Helm templates are not rendered.
-- Only npm projects (the lockfile requirement of Vulnexis as a whole).
+- Only npm projects (the lockfile requirement of Vulnera as a whole).

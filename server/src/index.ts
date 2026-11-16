@@ -238,7 +238,7 @@ async function runScan(req: ScanRequest, onStep?: (step: AgentStep) => void, sig
           : `no deployment files; import graph of ${plural(sources.length, 'source file')} and the servers they start`,
         sources: [SOURCES.ssvc, SOURCES.vex],
       },
-      // A repository scanned by link belongs to someone else: its vulnexis.yml is shown but cannot lower anything.
+      // A repository scanned by link belongs to someone else: its vulnera.yml is shown but cannot lower anything.
       () => buildContextAsync({ lockfile, sources, contextFiles, base, truncated, trustDeclarations: !req.repoUrl }, packages),
       (v) => {
         if (!v) return { output: 'Nothing to map', decision: 'Ranking uses the published rules only.' };

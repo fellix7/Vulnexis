@@ -12,7 +12,7 @@ import type { ContextFileKind, Finding } from '../types'
 import './architecture.css'
 
 const KIND_LABEL: Record<ContextFileKind, string> = {
-  vulnexis: 'vulnexis.yml (your declaration)',
+  declaration: 'vulnera.yml (your declaration)',
   compose: 'Docker Compose',
   kubernetes: 'Kubernetes',
   serverless: 'Serverless',
@@ -23,7 +23,7 @@ const KIND_LABEL: Record<ContextFileKind, string> = {
   markdown: 'Docs (Markdown)',
 }
 
-const EXAMPLE = `# vulnexis.yml (optional): tell Vulnera what config cannot
+const EXAMPLE = `# vulnera.yml (optional): tell Vulnera what config cannot
 components:
   web:
     entry: src/server.js
@@ -61,8 +61,8 @@ export default function ArchitecturePage() {
         <div className="panel">
           <EmptyState icon="layers" title={tr('No architecture context in this scan', 'इस स्कैन में आर्किटेक्चर जानकारी नहीं')}>
             {tr(
-              'Scan a GitHub repository, or upload the project folder next to the lockfile. Vulnera reads docker-compose.yml, Kubernetes manifests, serverless.yml, Procfile, Dockerfile, OpenAPI specs, package.json, ARCHITECTURE.md / SECURITY.md and an optional vulnexis.yml to learn which code is internet-facing.',
-              'GitHub रिपॉज़िटरी स्कैन करें, या लॉकफ़ाइल के साथ प्रोजेक्ट फ़ोल्डर अपलोड करें। Vulnera docker-compose.yml, Kubernetes, serverless.yml, Procfile, Dockerfile, OpenAPI, package.json, ARCHITECTURE.md और vulnexis.yml पढ़कर समझता है कि कौन-सा कोड इंटरनेट से जुड़ा है।',
+              'Scan a GitHub repository, or upload the project folder next to the lockfile. Vulnera reads docker-compose.yml, Kubernetes manifests, serverless.yml, Procfile, Dockerfile, OpenAPI specs, package.json, ARCHITECTURE.md / SECURITY.md and an optional vulnera.yml to learn which code is internet-facing.',
+              'GitHub रिपॉज़िटरी स्कैन करें, या लॉकफ़ाइल के साथ प्रोजेक्ट फ़ोल्डर अपलोड करें। Vulnera docker-compose.yml, Kubernetes, serverless.yml, Procfile, Dockerfile, OpenAPI, package.json, ARCHITECTURE.md और vulnera.yml पढ़कर समझता है कि कौन-सा कोड इंटरनेट से जुड़ा है।',
             )}
           </EmptyState>
         </div>

@@ -1,4 +1,4 @@
-# Start Vulnexis on Windows (PowerShell).
+# Start Vulnera on Windows (PowerShell).
 #   .\demo\start.ps1            live data (needs internet), http://localhost:8787
 #   .\demo\start.ps1 -Offline   saved snapshots only (bundled sample + demo data work without internet)
 param([switch]$Offline)
@@ -7,7 +7,7 @@ Set-Location (Join-Path $PSScriptRoot '..')
 
 $have = (node -p "process.versions.node") 2>$null
 if (-not $have -or [int]($have.Split('.')[0]) -lt 22) {
-  Write-Error "Vulnexis needs Node.js 22 or newer (found: $have). Install it from https://nodejs.org"
+  Write-Error "Vulnera needs Node.js 22 or newer (found: $have). Install it from https://nodejs.org"
 }
 
 if (-not (Test-Path node_modules)) { npm ci --no-audit --no-fund }
@@ -22,7 +22,7 @@ $port = (Select-String -Path .env -Pattern '^PORT=(\d+)' | ForEach-Object { $_.M
 if (-not $port) { $port = 8787 }
 $ip = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' } | Select-Object -First 1).IPAddress
 Write-Host ""
-Write-Host "Vulnexis is starting:"
+Write-Host "Vulnera is starting:"
 Write-Host "  this computer:  http://localhost:$port"
 if ($ip) { Write-Host "  your phone (same Wi-Fi):  http://${ip}:$port" }
 Write-Host "Stop with Ctrl+C."

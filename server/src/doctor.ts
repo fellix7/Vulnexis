@@ -27,7 +27,7 @@ const PROBES: { id: Probe['id']; name: string; needed: string; url: string; init
 async function probe(p: (typeof PROBES)[number] | { id: 'gemini'; name: string; needed: string; url: string; init?: RequestInit; okWhen?: (s: number) => boolean }): Promise<Probe> {
   const t0 = Date.now();
   try {
-    const res = await fetch(p.url, { ...p.init, headers: { 'User-Agent': 'vulnexis-doctor', ...(p.init?.headers ?? {}) }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const res = await fetch(p.url, { ...p.init, headers: { 'User-Agent': 'vulnera-doctor', ...(p.init?.headers ?? {}) }, signal: AbortSignal.timeout(TIMEOUT_MS) });
     await res.body?.cancel().catch(() => {});
     const ok = p.okWhen ? p.okWhen(res.status) : res.ok;
     const detail = `HTTP ${res.status}`;

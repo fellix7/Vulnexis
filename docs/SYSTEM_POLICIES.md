@@ -1,9 +1,9 @@
-# Vulnexis system policies
+# Vulnera system policies
 
-These policies describe how Vulnexis behaves: what it collects, what the AI is allowed to do, how facts are sourced, how input is handled, and what users may use it for. Each policy names the code that enforces it, so it can be checked rather than trusted.
+These policies describe how Vulnera behaves: what it collects, what the AI is allowed to do, how facts are sourced, how input is handled, and what users may use it for. Each policy names the code that enforces it, so it can be checked rather than trusted.
 
-**Applies to:** the Vulnexis web app and API in this repository (MVP, November 2026).
-**Owner:** the Vulnexis team. **Review:** whenever a data source, AI model, or data flow changes.
+**Applies to:** the Vulnera web app and API in this repository (MVP, November 2026).
+**Owner:** the Vulnera team. **Review:** whenever a data source, AI model, or data flow changes.
 
 | # | Policy | One-line rule |
 | :--- | :--- | :--- |
@@ -19,7 +19,7 @@ These policies describe how Vulnexis behaves: what it collects, what the AI is a
 | 10 | [Language and accessibility](#10-language-and-accessibility-policy) | Hindi and English, simple words, phone-first, colour never alone |
 | 11 | [Availability and failure](#11-availability-and-failure-policy) | Fail visibly and honestly; degrade to rules, never to guesses |
 | 12 | [Third-party services](#12-third-party-services) | What leaves the server, to whom, and why |
-| 13 | [Acceptable use](#13-acceptable-use) | What users must not do with Vulnexis |
+| 13 | [Acceptable use](#13-acceptable-use) | What users must not do with Vulnera |
 | 14 | [Security issues and incidents](#14-security-issues-and-incident-response) | How to report a problem and how we respond |
 | 15 | [Change control](#15-change-control) | How these policies and the rules behind them change |
 
@@ -27,15 +27,15 @@ These policies describe how Vulnexis behaves: what it collects, what the AI is a
 
 ## 1. Scope and intended use
 
-**Vulnexis is a defensive tool.** It reads a project's dependency list and source code and tells the owner which known, published vulnerabilities to fix first and how.
+**Vulnera is a defensive tool.** It reads a project's dependency list and source code and tells the owner which known, published vulnerabilities to fix first and how.
 
 - Intended users: developers and teams triaging **their own projects**, or **public open-source projects** they depend on or contribute to.
-- Vulnexis does **not** discover new vulnerabilities, produce exploits, attack, probe or scan any running system, or test networks.
-- Vulnexis only reports vulnerabilities already published in OSV.dev. It does not claim a project is secure.
+- Vulnera does **not** discover new vulnerabilities, produce exploits, attack, probe or scan any running system, or test networks.
+- Vulnera only reports vulnerabilities already published in OSV.dev. It does not claim a project is secure.
 
 ## 2. Personal data policy
 
-Vulnexis is designed so that it never needs personal data.
+Vulnera is designed so that it never needs personal data.
 
 | Rule | How it is enforced |
 | :--- | :--- |
@@ -43,9 +43,9 @@ Vulnexis is designed so that it never needs personal data.
 | Never ask for Aadhaar, PAN, OTPs, bank or card details, passwords, phone numbers or addresses | No field exists for them; the agent never prompts the user for anything |
 | WhatsApp sharing collects nothing | The share button opens `https://wa.me/?text=…` with the summary only; no phone number is entered or stored (`client/src/pages/India.tsx`) |
 | No analytics, tracking pixels or third-party cookies | None are included in `client/` |
-| The language choice is a preference, not personal data | Stored only in the user's own browser (`localStorage` key `vulnexis:lang:v1`) |
+| The language choice is a preference, not personal data | Stored only in the user's own browser (`localStorage` key `vulnera:lang:v1`) |
 
-If a scanned repository itself contains personal data (for example in fixtures), Vulnexis does not extract, display or store it. Only short line windows around imports and uses of vulnerable packages can reach the AI, after best-effort secret masking (policy 8). Never whole files.
+If a scanned repository itself contains personal data (for example in fixtures), Vulnera does not extract, display or store it. Only short line windows around imports and uses of vulnerable packages can reach the AI, after best-effort secret masking (policy 8). Never whole files.
 
 ## 3. Data handling and retention
 
@@ -65,7 +65,7 @@ If a scanned repository itself contains personal data (for example in fixtures),
 
 ## 4. AI usage policy
 
-Vulnexis uses Google Gemini for **one job**: reading short line windows of the user's code to judge whether it calls the vulnerable function named in an advisory.
+Vulnera uses Google Gemini for **one job**: reading short line windows of the user's code to judge whether it calls the vulnerable function named in an advisory.
 
 ### What the AI may do
 - Return one verdict per advisory: `USES_VULNERABLE_API`, `NO_VULNERABLE_USAGE_FOUND` or `UNCERTAIN`, with up to two sentences of reasoning and line citations.
@@ -84,7 +84,7 @@ Vulnexis uses Google Gemini for **one job**: reading short line windows of the u
 | Decide the regulatory brief | The India brief is deterministic templates filled from scan data (`client/src/lib/india.ts`); no AI text |
 
 ### Architecture context (not AI)
-Exposure from the project's own files (docker-compose, Kubernetes, serverless.yml, Procfile, Dockerfile, OpenAPI, package.json, Markdown docs, `vulnexis.yml`) and the import graph is computed **deterministically**, with every claim quoted from a file and line. It may lower a finding **one step**, never below Plan, never for CISA KEV, and never for "behind login" when anyone can sign up. Docs never override config or code; contradictions are reported. Unknown exposure counts as internet-facing (CISA SSVC default). Architecture files are never sent to Gemini. Details: [ARCHITECTURE_CONTEXT.md](ARCHITECTURE_CONTEXT.md).
+Exposure from the project's own files (docker-compose, Kubernetes, serverless.yml, Procfile, Dockerfile, OpenAPI, package.json, Markdown docs, `vulnera.yml`) and the import graph is computed **deterministically**, with every claim quoted from a file and line. It may lower a finding **one step**, never below Plan, never for CISA KEV, and never for "behind login" when anyone can sign up. Docs never override config or code; contradictions are reported. Unknown exposure counts as internet-facing (CISA SSVC default). Architecture files are never sent to Gemini. Details: [ARCHITECTURE_CONTEXT.md](ARCHITECTURE_CONTEXT.md).
 
 ### Human authority
 - Apart from the one-step architecture rule above, only a person can lower a finding's tier, and never for KEV-listed findings.
@@ -196,13 +196,13 @@ The rule: **degrade to deterministic rules, never to guesses**, and always tell 
 | Google Gemini | Masked line windows around imports and uses of vulnerable packages, advisory text | Code-usage verdicts |
 | WhatsApp (`wa.me`) | Only when the user taps Share: the summary text, in the user's own browser | Let the user send the summary |
 
-No other services are contacted. The server sends `User-Agent: vulnexis-scanner` and no user identifiers.
+No other services are contacted. The server sends `User-Agent: vulnera-scanner` and no user identifiers.
 
 ## 13. Acceptable use
 
 Users must not:
-- scan repositories they are not allowed to read, or try to use Vulnexis to reach private code;
-- use Vulnexis to find targets to attack, or to support exploitation of third-party systems;
+- scan repositories they are not allowed to read, or try to use Vulnera to reach private code;
+- use Vulnera to find targets to attack, or to support exploitation of third-party systems;
 - automate high-volume requests against the public deployment (each scan downloads a repository and calls public APIs);
 - submit content designed to manipulate the AI or crash the server (prompt injection, decompression bombs, oversized payloads).
 
@@ -210,10 +210,10 @@ The server enforces size, time and host limits (policy 7), runs at most `MAX_CON
 
 ## 14. Security issues and incident response
 
-- **Report a problem** with Vulnexis itself (for example a way to make it read private data or execute code) by opening a private security advisory on the GitHub repository, or by contacting the maintainers directly. Please do not open a public issue for security bugs.
+- **Report a problem** with Vulnera itself (for example a way to make it read private data or execute code) by opening a private security advisory on the GitHub repository, or by contacting the maintainers directly. Please do not open a public issue for security bugs.
 - **Our response:** acknowledge within 2 working days; fix or mitigate critical issues first; credit reporters who want it.
-- **If Vulnexis's own server is compromised**, the team will take the deployment offline, rotate the Gemini keys, review logs, and, where the CERT-In directions apply to the operator, report within 6 hours of noticing. The server stores no personal data and no user projects, which limits impact.
-- **Dependencies of Vulnexis itself** are scanned with Vulnexis before each release.
+- **If Vulnera's own server is compromised**, the team will take the deployment offline, rotate the Gemini keys, review logs, and, where the CERT-In directions apply to the operator, report within 6 hours of noticing. The server stores no personal data and no user projects, which limits impact.
+- **Dependencies of Vulnera itself** are scanned with Vulnera before each release.
 
 ## 15. Change control
 

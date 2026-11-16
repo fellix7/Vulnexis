@@ -1,4 +1,4 @@
-# Vulnexis API reference
+# Vulnera API reference
 
 Base URL: the server origin (default `http://localhost:8787`). In development, the Vite dev server proxies `/api` to it.
 
@@ -68,7 +68,7 @@ Response: `200`, `Content-Type: application/x-ndjson; charset=utf-8`. One JSON o
 - The stream ends with exactly one `result` or one `error` line:
 
 ```json
-{"type":"error","status":400,"error":"No package-lock.json found in this repository. Vulnexis needs an npm lockfile to know exact versions."}
+{"type":"error","status":400,"error":"No package-lock.json found in this repository. Vulnera needs an npm lockfile to know exact versions."}
 ```
 
 Errors are sent in-band (the HTTP status stays 200 because headers are already sent); `status` is the equivalent HTTP status. The exceptions are `429` (rate limit, queue full, or too many scans from one client), which are returned as a normal JSON error before streaming starts.
@@ -127,7 +127,7 @@ interface ScanResult {
   repo?: { owner: string; name: string; ref: string; url: string; lockfilePath: string; sourceFiles: number;
           stars?: number; contributors?: number };   // from the GitHub API; left out if it is unreachable or rate limited (GITHUB_TOKEN raises the limit)
   context?: {                   // architecture context (see ARCHITECTURE_CONTEXT.md)
-    files: { path: string; kind: 'vulnexis' | 'compose' | 'kubernetes' | 'serverless' | 'procfile' | 'dockerfile' | 'openapi' | 'manifest' | 'markdown' }[];
+    files: { path: string; kind: 'declaration' | 'compose' | 'kubernetes' | 'serverless' | 'procfile' | 'dockerfile' | 'openapi' | 'manifest' | 'markdown' }[];
     entryPoints: { component: string; file: string | null; exposure: Exposure; how: string; evidence: Evidence[] }[];
     protectedMounts: { file: string; line: number; prefix: string; guard: string }[];
     conflicts: string[];        // docs/config disagreements; the more exposed reading wins

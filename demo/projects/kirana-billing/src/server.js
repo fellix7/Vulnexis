@@ -1,4 +1,4 @@
-// DEMO ONLY: deliberately vulnerable code for testing Vulnexis. Never deploy or run on a network.
+// DEMO ONLY: deliberately vulnerable code for testing Vulnera. Never deploy or run on a network.
 const express = require('express');
 const invoices = require('./routes/invoices');
 const auth = require('./routes/auth');

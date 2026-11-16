@@ -1,4 +1,4 @@
-# Vulnexis: demo script and pitch (3 minutes)
+# Vulnera: demo script and pitch (3 minutes)
 
 Problem Statement 3: Open Innovation. Judged out of 70: Technical 20, ML.ai 10, Innovation 10, UX 10, Completeness 10, Presentation 10.
 
@@ -28,7 +28,7 @@ Point at the timeline as steps stream in:
 `/remediation`: "Every target version was re-checked. If there's no clean version, it says so."
 
 **1:50 · Who can actually reach it? (optional, +20 s; use the kirana-billing upload)**
-`/architecture`: "It also read the docker-compose file, the OpenAPI spec and our ARCHITECTURE.md. lodash is only used on the owner pages behind a JWT check, so it moves down one step; node-fetch only runs in a nightly job on a private network. Every claim quotes the file and line. And look: our own docs say `/supplier` needs login, but the code doesn't check. Vulnexis caught that."
+`/architecture`: "It also read the docker-compose file, the OpenAPI spec and our ARCHITECTURE.md. lodash is only used on the owner pages behind a JWT check, so it moves down one step; node-fetch only runs in a nightly job on a private network. Every claim quotes the file and line. And look: our own docs say `/supplier` needs login, but the code doesn't check. Vulnera caught that."
 
 **2:00 · Built for India (35 s)**
 `/india`: verdict, next steps, CERT-In 6-hour rule, DPDP Section 8(5), each linked to the official source.
@@ -36,16 +36,16 @@ Flip **हिंदी**. Tap **Share on WhatsApp**.
 > "The developer gets commands. The founder gets this, in Hindi, on WhatsApp."
 
 **2:35 · Business case (25 s)**
-> "Who pays: Indian startups at ₹999 a month, and dev agencies at ₹4,999 for 25 client apps. What they renew for: the weekly re-scan that WhatsApps them the day a package they use starts being exploited. First 100 users: free for college clubs and hackathons like this one, with a 'Scanned by Vulnexis' badge on every README."
+> "Who pays: Indian startups at ₹999 a month, and dev agencies at ₹4,999 for 25 client apps. What they renew for: the weekly re-scan that WhatsApps them the day a package they use starts being exploited. First 100 users: free for college clubs and hackathons like this one, with a 'Scanned by Vulnera' badge on every README."
 
 **3:00 · Close**
-> "Vulnexis. Security that speaks your language, for India's builders."
+> "Vulnera. Security that speaks your language, for India's builders."
 
 ## Likely judge questions
 
-- **"Isn't this just npm audit?"** npm audit lists. Vulnexis decides: exploitation data, production vs dev, whether *your code* calls the vulnerable function, a verified upgrade, Indian compliance mapping, and Hindi.
+- **"Isn't this just npm audit?"** npm audit lists. Vulnera decides: exploitation data, production vs dev, whether *your code* calls the vulnerable function, a verified upgrade, Indian compliance mapping, and Hindi.
 - **"What if the AI is wrong?"** It can't create or remove a finding. It can only raise a priority, and every citation is machine-checked against the file. "Not found" is shown as "needs review", not "safe".
-- **"A vulnerable backend nobody can reach still shows up?"** It shows up, but lower. Vulnexis reads compose / Kubernetes / serverless / Procfile / OpenAPI / Markdown and the import graph: code only behind login, on a private network, in a cron job, or never loaded moves down one step (CISA SSVC "system exposure"). Never below Plan, never for known-exploited bugs, never when anyone can sign up. See [ARCHITECTURE_CONTEXT.md](ARCHITECTURE_CONTEXT.md).
+- **"A vulnerable backend nobody can reach still shows up?"** It shows up, but lower. Vulnera reads compose / Kubernetes / serverless / Procfile / OpenAPI / Markdown and the import graph: code only behind login, on a private network, in a cron job, or never loaded moves down one step (CISA SSVC "system exposure"). Never below Plan, never for known-exploited bugs, never when anyone can sign up. See [ARCHITECTURE_CONTEXT.md](ARCHITECTURE_CONTEXT.md).
 - **"Where is the agent?"** `/agent`: the plan, tool calls, inputs, outputs, decisions and sources for this run. The plan changes with the inputs (no source → it skips the code check and says why).
 - **"Limits?"** npm only, public repos only, top 30 direct findings get the code check, not legal advice.
 

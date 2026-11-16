@@ -1,5 +1,5 @@
 {
-  "name": "vulnexis",
+  "name": "vulnera",
   "private": true,
   "version": "0.1.0",
   "description": "AI security agent for Indian builders: which vulnerable dependencies to fix first, why, in Hindi or English.",
