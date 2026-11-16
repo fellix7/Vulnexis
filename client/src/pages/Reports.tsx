@@ -8,9 +8,9 @@ import { useScan } from '../state/store'
 import './reports.css'
 
 export default function ReportsPage() {
-  const { current, history } = useScan()
+  const { current, historyItems } = useScan()
   // Demo data never enters history; filter anyway so it can never be compared or listed as a saved scan.
-  const scans = useMemo(() => history.filter((r) => r.source !== 'demo'), [history])
+  const scans = useMemo(() => historyItems.filter((r) => r.source !== 'demo'), [historyItems])
 
   const [picked, setPicked] = useState<string[]>([])
   const [baselineId, setBaselineId] = useState<string | null>(null)

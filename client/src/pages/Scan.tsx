@@ -11,8 +11,10 @@ import { Callout, PageHeader } from '../components/ui/Kit'
 import { formatBytes } from '../lib/format'
 import { useLang } from '../lib/i18n'
 import { collectSources, type CollectedSources } from '../lib/sources'
-import { Link, navigate } from '../router'
+import { Link, navigate, setSearch, useLocation } from '../router'
+import { useAuth } from '../state/auth'
 import { useScan, type ScanInput } from '../state/store'
+import { SignInButton } from '../components/account/AccountUi'
 import './scan.css'
 
 // Survives leaving and returning to /scan while a request is in flight, so the clock and retry keep working.
@@ -20,10 +22,31 @@ const lastRun = { startedAt: 0, label: '', kind: 'upload' as 'upload' | 'sample'
 
 const SAMPLE_NAME = 'QuickNotes (sample)'
 
+// /auth/github/callback failures land on /scan?auth=<reason>.
+const AUTH_RESULT: Record<string, [string, string]> = {
+  denied: ['Sign-in was cancelled.', 'साइन इन रद्द हुआ।'],
+  state: ['Sign-in expired, please try again.', 'साइन इन की समय-सीमा ख़त्म, फिर कोशिश करें।'],
+  email: ['Your GitHub account needs a verified email.', 'आपके GitHub खाते में सत्यापित ईमेल चाहिए।'],
+  error: ['Sign-in failed, please try again.', 'साइन इन नहीं हुआ, फिर कोशिश करें।'],
+}
+
 export default function ScanPage() {
-  const { current, status, error, liveSteps, queue, cancelScan, health, healthFailed, runScan, loadDemo, dismissError } = useScan()
+  const { current, status, error, errorCode, liveSteps, queue, cancelScan, health, healthFailed, runScan, loadDemo, dismissError } = useScan()
   const { tr } = useLang()
+  const { accounts, user } = useAuth()
   const scanning = status === 'scanning'
+  const uploadNeedsSignIn = accounts && !user
+
+  // Show the OAuth callback's result once, then drop it from the address bar.
+  const authParam = useLocation().search.get('auth')
+  const [authResult, setAuthResult] = useState<string | null>(null)
+  useEffect(() => {
+    if (!authParam) return
+    setAuthResult(authParam in AUTH_RESULT ? authParam : 'error')
+    const qs = new URLSearchParams(window.location.search)
+    qs.delete('auth')
+    setSearch(qs)
+  }, [authParam])
 
   const [info, setInfo] = useState<LockfileInfo | null>(null)
   const [lockError, setLockError] = useState<string | null>(null)
@@ -169,6 +192,8 @@ export default function ScanPage() {
 
   const canRun = !!info && !scanning && !collecting && !reading
   const apiHint = error ? /reach the API/i.test(error) : false
+  const quotaError = errorCode === 'quota_exceeded'
+  const signinError = errorCode === 'signin_required'
 
   return (
     <div className="scan-page">
@@ -195,6 +220,11 @@ export default function ScanPage() {
 
       <div className="scan-layout">
         <div className="scan-main">
+          {authResult && (
+            <Callout tone={authResult === 'denied' ? 'info' : 'warn'} role="status">
+              {tr(...AUTH_RESULT[authResult]!)}
+            </Callout>
+          )}
           {healthFailed && (
             <Callout tone="warn" role="status">
               <strong>The scan API is not reachable.</strong> Scanning needs the Vulnera server. From the project root, run <code>npm run dev</code> to start it. You can still{' '}
@@ -218,8 +248,15 @@ export default function ScanPage() {
 
           {status === 'error' && error && (
             <div ref={errorBox}>
-              <Callout tone="danger" role="alert">
-                <strong>The scan did not finish.</strong> {error}
+              <Callout tone={quotaError || signinError ? 'warn' : 'danger'} role="alert">
+                <strong>
+                  {quotaError
+                    ? tr('Scan limit reached.', 'स्कैन सीमा पूरी हुई।')
+                    : signinError
+                      ? tr('Sign in to run this scan.', 'यह स्कैन चलाने के लिए साइन इन करें।')
+                      : 'The scan did not finish.'}
+                </strong>{' '}
+                {error}
                 {apiHint && (
                   <>
                     {' '}
@@ -227,16 +264,27 @@ export default function ScanPage() {
                   </>
                 )}
                 <div className="cluster scan-error-actions">
-                  <button type="button" className="btn btn--sm" onClick={retry}>
-                    <Icon name="refresh" size={14} />
-                    Try again
-                  </button>
+                  {signinError ? (
+                    <SignInButton />
+                  ) : quotaError ? (
+                    user && (
+                      <Link to="/account" className="btn btn--sm">
+                        <Icon name="user" size={14} />
+                        {tr('See your usage', 'इस्तेमाल देखें')}
+                      </Link>
+                    )
+                  ) : (
+                    <button type="button" className="btn btn--sm" onClick={retry}>
+                      <Icon name="refresh" size={14} />
+                      Try again
+                    </button>
+                  )}
                   <button type="button" className="btn btn--ghost btn--sm" onClick={dismissError}>
                     Dismiss
                   </button>
                 </div>
               </Callout>
-              {!apiHint && <ConnectionCheck auto={/could not (reach|download)|blocked|network|proxy|certificate|timed? ?out/i.test(error)} />}
+              {!apiHint && !errorCode && <ConnectionCheck auto={/could not (reach|download)|blocked|network|proxy|certificate|timed? ?out/i.test(error)} />}
               {lastRun.kind === 'upload' && info && <p className="scan-hint">Your chosen files are still selected below.</p>}
             </div>
           )}
@@ -247,6 +295,19 @@ export default function ScanPage() {
             <span>{tr('or upload files from your computer', 'या अपने कंप्यूटर से फ़ाइल अपलोड करें')}</span>
           </div>
 
+          {uploadNeedsSignIn ? (
+            <section className="scan-signin" aria-labelledby="scan-signin-h">
+              <span className="scan-signin__icon" aria-hidden="true">
+                <Icon name="lock" size={16} />
+              </span>
+              <div className="scan-signin__body">
+                <h2 id="scan-signin-h">{tr('Sign in to upload a lockfile', 'लॉकफ़ाइल अपलोड करने के लिए साइन इन करें')}</h2>
+                <p>{tr('GitHub links and the sample work without an account.', 'GitHub लिंक और सैंपल बिना खाते के चलते हैं।')}</p>
+              </div>
+              <SignInButton className="btn btn--primary" />
+            </section>
+          ) : (
+          <>
           <section className="scan-step" aria-labelledby="scan-s1">
             <span className="scan-step__n" aria-hidden="true">
               {info ? <Icon name="check" size={14} /> : '01'}
@@ -309,6 +370,8 @@ export default function ScanPage() {
               <Icon name="alert" size={16} />
               <div>{sizeError}</div>
             </div>
+          )}
+          </>
           )}
 
           <section className="scan-alt" aria-labelledby="scan-alt-h">

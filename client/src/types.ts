@@ -156,4 +156,5 @@ export interface ScanRequest {
   sourcesTruncated?: boolean; // some source files were left out (limits)
   sample?: boolean;
   repoUrl?: string; // public GitHub repository, e.g. https://github.com/owner/name
+  meta?: { projectName: string }; // signed in: the name the saved scan is listed under (max 200 chars)
 }

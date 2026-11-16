@@ -20,6 +20,10 @@ import './code-evidence.css'
 //  - violet + dashed  = produced by the AI (verdict, reasoning, extracted API names)
 //  - solid green      = checked by the server (citation quotes) or taken verbatim from a source (advisory text, your files)
 
+/** Saved scans have citation quotes stripped on the server: the file and line remain, the code does not. */
+export const QUOTE_NOT_STORED = 'Code quote not stored (source code is never saved)'
+const noQuote = (c: Citation) => !c.quote?.trim()
+
 const VERIFY_HINT =
   'The server checked that this quote exists at this file and line (within one line) in the files you uploaded. Citations that fail the check are dropped before they reach this page.'
 
@@ -144,6 +148,12 @@ function CitationEvidence({ finding: f, resolved, demo }: { finding: Finding; re
           {c.file}:{shownLine}
           {shownLine !== c.line && <span className="subtle"> (cited as line {c.line})</span>}
         </p>
+        {!ctx && noQuote(c) ? (
+          <p className="ce-fine ce-noquote">
+            <Icon name="lock" size={14} />
+            {QUOTE_NOT_STORED}
+          </p>
+        ) : (
         <div className="ce-code" tabIndex={0} role="region" aria-label={`Source excerpt from ${c.file}, line ${shownLine}`}>
           <div className="ce-lines">
             {lines.map((l) => (
@@ -159,6 +169,7 @@ function CitationEvidence({ finding: f, resolved, demo }: { finding: Finding; re
             ))}
           </div>
         </div>
+        )}
       </div>
     </figure>
   )
@@ -287,9 +298,16 @@ export function CitationQuote({ citation: c, demo = false }: { citation: Citatio
           </span>
         )}
       </div>
-      <pre className="code ce-cite__quote">
-        <code>{c.quote}</code>
-      </pre>
+      {noQuote(c) ? (
+        <p className="ce-fine ce-noquote">
+          <Icon name="lock" size={14} />
+          {QUOTE_NOT_STORED}
+        </p>
+      ) : (
+        <pre className="code ce-cite__quote">
+          <code>{c.quote}</code>
+        </pre>
+      )}
     </div>
   )
 }

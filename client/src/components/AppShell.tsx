@@ -7,6 +7,8 @@ import { SourceBadge } from './ui/Badges'
 import { Icon, type IconName } from './ui/Icon'
 import { Logo } from './ui/Logo'
 import { LangToggle, useLang } from '../lib/i18n'
+import { useAuth } from '../state/auth'
+import { quotaText, SignInButton, UserMenu } from './account/AccountUi'
 
 interface NavItem {
   to: string
@@ -49,6 +51,7 @@ const WORKSPACE: NavItem[] = [
   { to: '/remediation', label: 'Remediation', hi: 'सुधार', icon: 'wrench', match: (p) => p === '/remediation', count: (n) => n.plans },
   { to: '/reports', label: 'Reports & history', hi: 'रिपोर्ट व इतिहास', icon: 'history', match: (p) => p === '/reports' },
 ]
+const ACCOUNT_ITEM: NavItem = { to: '/account', label: 'Account', hi: 'खाता', icon: 'user', match: (p) => p === '/account' }
 
 /** Live service state in the sidebar footer: an icon per state, not a decorative dot. */
 function StatusIcon({ tone }: { tone: string }) {
@@ -63,6 +66,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { current, health, healthFailed, status } = useScan()
   const [open, setOpen] = useState(false)
   const { tr } = useLang()
+  const { accounts, user, usage } = useAuth()
+  const nav = user ? [...WORKSPACE, ACCOUNT_ITEM] : WORKSPACE
+  const quota = user ? quotaText(usage, tr) : null
+  const quotaFull = !!usage && usage.limit > 0 && usage.scans >= usage.limit
 
   useEffect(() => setOpen(false), [path])
   useEffect(() => {
@@ -101,7 +108,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
         <nav className="nav-group" aria-label="Workspace">
           <span className="eyebrow">{tr('Workspace', 'वर्कस्पेस')}</span>
-          {WORKSPACE.map((item) => {
+          {nav.map((item) => {
             const n = counts && item.count ? item.count(counts) : null
             return (
               <Link key={item.to} to={item.to} className="nav-link" aria-current={item.match(path) ? 'page' : undefined}>
@@ -121,6 +128,17 @@ export function AppShell({ children }: { children: ReactNode }) {
               <span className="nav-count nav-count--hot">{counts.fixNow}</span>
             </Link>
           </nav>
+        )}
+        {accounts && (
+          <div className="sidebar__acct" aria-label={tr('Your account', 'आपका खाता')}>
+            {user ? <UserMenu placement="up" /> : <SignInButton />}
+            {quota && (
+              <span className={`quota-line${quotaFull ? ' quota-line--full' : ''}`}>
+                <Icon name={quotaFull ? 'alert' : 'activity'} size={12} />
+                {quota}
+              </span>
+            )}
+          </div>
         )}
         <div className="sidebar__foot" aria-label="Service status">
           <span className="status-row">
@@ -171,6 +189,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
           <div className="topbar__actions">
             <LangToggle compact />
+            {accounts && (user ? <UserMenu /> : <SignInButton className="btn btn--ghost btn--sm" iconOnlySm />)}
             {path !== '/scan' && (
               <Link to="/scan" className="btn btn--primary btn--sm">
                 <Icon name="upload" size={14} />

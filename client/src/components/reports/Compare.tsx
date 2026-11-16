@@ -1,8 +1,8 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { findingKey } from '../../lib/review'
 import { findingHref, formatScanTime } from '../../lib/selectors'
 import { Link } from '../../router'
-import type { ScanRecord } from '../../state/store'
+import { useScan, type HistoryItem, type ScanRecord } from '../../state/store'
 import { SeverityBadge, TierBadge } from '../ui/Badges'
 import { Icon, type IconName } from '../ui/Icon'
 import { Callout } from '../ui/Kit'
@@ -10,7 +10,7 @@ import { compareScans, type CompareItem } from './scanDiff'
 
 interface Props {
   /** Saved scans, newest first (demo data is never in here). */
-  scans: ScanRecord[]
+  scans: HistoryItem[]
   current: ScanRecord | null
   baselineId: string | null
   latestId: string | null
@@ -19,7 +19,7 @@ interface Props {
   onSwap: (baselineId: string, latestId: string) => void
 }
 
-const label = (r: ScanRecord) => `${r.projectName}, ${formatScanTime(r.result.scannedAt)}, ${r.result.findings.length} findings`
+const label = (r: HistoryItem) => `${r.projectName}, ${formatScanTime(r.scannedAt)}, ${r.findingCount} findings`
 
 export function Compare({ scans, current, baselineId, latestId, onBaseline, onLatest, onSwap }: Props) {
   const enough = scans.length >= 2
@@ -29,7 +29,30 @@ export function Compare({ scans, current, baselineId, latestId, onBaseline, onLa
   const same = !!baseline && !!latest && baseline.id === latest.id
   const reversed = !!baseline && !!latest && !same && scans.indexOf(baseline) < scans.indexOf(latest)
 
-  const result = useMemo(() => (enough && baseline && latest && !same ? compareScans(baseline, latest) : null), [enough, baseline, latest, same])
+  // Full records: local history has them; signed-in history loads the two picked scans on demand.
+  const { loadScan, loadedScan } = useScan()
+  const [fetched, setFetched] = useState<Record<string, ScanRecord>>({})
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const recordOf = (id: string | undefined) => (id ? (loadedScan(id) ?? fetched[id]) : undefined)
+  const baseRec = recordOf(baseline?.id)
+  const latestRec = recordOf(latest?.id)
+  const wantIds = enough && !same ? [baseline?.id, latest?.id] : []
+  const missing = wantIds.filter((id): id is string => !!id && !recordOf(id)).join(' ')
+  useEffect(() => {
+    if (!missing) return
+    let live = true
+    setLoadError(null)
+    for (const id of missing.split(' ')) {
+      loadScan(id)
+        .then((r) => live && setFetched((m) => ({ ...m, [id]: r })))
+        .catch((e) => live && setLoadError(e instanceof Error ? e.message : 'Could not load the scans.'))
+    }
+    return () => {
+      live = false
+    }
+  }, [missing, loadScan])
+
+  const result = useMemo(() => (enough && baseRec && latestRec && !same ? compareScans(baseRec, latestRec) : null), [enough, baseRec, latestRec, same])
   const currentKeys = useMemo(() => new Set((current?.result.findings ?? []).map(findingKey)), [current])
 
   return (
@@ -105,6 +128,18 @@ export function Compare({ scans, current, baselineId, latestId, onBaseline, onLa
               </Callout>
             )}
 
+            {!same && !result && (
+              loadError ? (
+                <Callout tone="danger" role="alert">
+                  {loadError}
+                </Callout>
+              ) : (
+                <p className="rep-loading subtle" role="status">
+                  <span className="spinner" aria-hidden="true" />
+                  Loading both scans…
+                </p>
+              )
+            )}
             {result && (
               <>
                 <dl className="rep-deltas" aria-label="Summary of changes">

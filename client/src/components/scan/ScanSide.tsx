@@ -1,23 +1,29 @@
 import { formatBytes } from '../../lib/format'
 import { MAX_BYTES, MAX_FILES } from '../../lib/sources'
+import { useAuth } from '../../state/auth'
 import { CommandBlock } from '../ui/Kit'
 import { Icon, type IconName } from '../ui/Icon'
 
-const POINTS: { icon: IconName; title: string; body: string }[] = [
+type Point = { icon: IconName; title: string; body: string }
+const POINTS: Point[] = [
   { icon: 'eye', title: 'Read only', body: 'Never installed, built or run.' },
   { icon: 'upload', title: 'Only names and versions leave', body: 'Looked up at OSV.dev, EPSS, CISA KEV and npm.' },
   { icon: 'sparkle', title: 'Gemini sees line windows', body: 'Only short line windows around imports and uses, obvious secrets masked. Never whole files.' },
   { icon: 'database', title: 'History stays here', body: 'Saved in this browser only.' },
 ]
 
+const SAVED: Point = { icon: 'database', title: 'Results saved to your account', body: 'Kept 90 days. Source code is never stored.' }
+
 /** Side column on /scan: what happens to the user's files, and what can be scanned. */
 export function ScanSide() {
+  const signedIn = !!useAuth().user
+  const points = signedIn ? [...POINTS.slice(0, -1), SAVED] : POINTS
   return (
     <>
       <section className="scan-aside" aria-labelledby="scan-privacy-h">
         <h2 id="scan-privacy-h">Your files</h2>
         <ul className="scan-points">
-          {POINTS.map((p) => (
+          {points.map((p) => (
             <li key={p.title} className="scan-point">
               <span className="scan-point__icon" aria-hidden="true">
                 <Icon name={p.icon} size={14} />

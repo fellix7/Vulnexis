@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from '../../router'
 import { LangToggle, useLang } from '../../lib/i18n'
+import { useAuth } from '../../state/auth'
+import { SignInButton, UserMenu } from '../account/AccountUi'
 import { Logo } from '../ui/Logo'
 import { goToSection } from './scroll'
 
@@ -40,6 +42,7 @@ const SECTION_IDS = SECTION_LINKS.map((l) => l.id)
 export function LandingNav() {
   const active = useActiveSection(SECTION_IDS)
   const { tr } = useLang()
+  const { accounts, user } = useAuth()
   return (
     <header className="lp-nav">
       <nav className="lp-wrap lp-nav__inner" aria-label="Primary">
@@ -60,6 +63,7 @@ export function LandingNav() {
           <Link to="/overview" className="btn btn--ghost lp-nav__open">
             {tr('Open app', 'ऐप खोलें')}
           </Link>
+          {accounts && (user ? <UserMenu /> : <SignInButton className="btn btn--ghost lp-nav__signin" label={tr('Sign in', 'साइन इन')} textClass="lp-nav__signin-txt" />)}
           <Link to="/scan" className="btn btn--primary">
             {tr('Scan a project', 'स्कैन करें')}
           </Link>

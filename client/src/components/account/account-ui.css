@@ -1,0 +1,154 @@
+/* Sign-in button, user chip and menu (AppShell, LandingNav, /account). */
+.avatar {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  color: var(--accent);
+  font-weight: 650;
+  line-height: 1;
+}
+.umenu {
+  position: relative;
+  min-width: 0;
+}
+.umenu__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  height: 32px;
+  padding: 0 8px 0 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-1);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 560;
+  cursor: pointer;
+  transition: border-color var(--t-fast);
+}
+.umenu__btn:hover,
+.umenu__btn[aria-expanded='true'] {
+  border-color: var(--line-hover);
+}
+.umenu__btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.umenu__login {
+  min-width: 0;
+}
+.umenu__chev {
+  flex: none;
+  color: var(--text-3);
+}
+.umenu__menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 70;
+  min-width: 168px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  box-shadow: 0 12px 32px var(--drawer-shadow);
+}
+.umenu[data-placement='up'] .umenu__menu {
+  top: auto;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: auto;
+}
+.umenu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-md);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.umenu__item:hover,
+.umenu__item:focus-visible {
+  background: var(--surface-3);
+  color: var(--text);
+}
+.umenu__item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Sidebar block above the service status. */
+.sidebar__acct {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: 0 var(--s-1);
+}
+.sidebar__acct + .sidebar__foot {
+  margin-top: 0;
+}
+.sidebar__acct .btn {
+  width: 100%;
+  justify-content: flex-start;
+}
+.sidebar__acct .umenu__btn {
+  width: 100%;
+  border-radius: var(--r-md);
+}
+.sidebar__acct .umenu__chev {
+  margin-left: auto;
+}
+.sidebar__acct .umenu__menu {
+  right: 0;
+}
+.quota-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 var(--s-2);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.quota-line--full {
+  color: var(--warn);
+}
+
+@media (max-width: 640px) {
+  .topbar .umenu__login,
+  .topbar .umenu__chev {
+    display: none;
+  }
+  .topbar .umenu__btn {
+    padding: 0 3px;
+  }
+}
+
+/* Landing nav: the sign-in button keeps only its icon on phones. */
+@media (max-width: 520px) {
+  .lp-nav__signin-txt {
+    display: none;
+  }
+  .lp-nav .umenu__login,
+  .lp-nav .umenu__chev {
+    display: none;
+  }
+  .lp-nav .umenu__btn {
+    padding: 0 3px;
+  }
+}

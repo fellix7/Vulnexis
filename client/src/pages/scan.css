@@ -709,3 +709,37 @@ label.btn.is-disabled {
 .scan-more[open] > summary {
   margin-bottom: var(--s-4);
 }
+
+/* Accounts on, signed out: uploads need an account. */
+.scan-signin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-5);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+}
+.scan-signin__icon {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--text-2);
+}
+.scan-signin__body {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.scan-signin__body h2 {
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+.scan-signin__body p {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}

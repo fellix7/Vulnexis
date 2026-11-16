@@ -248,3 +248,17 @@
   padding: var(--s-2) var(--s-3);
   border-left: 2px solid var(--ok);
 }
+
+/* Saved scans: the quote was stripped on the server. */
+.ce-noquote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: var(--s-3);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-md);
+  color: var(--text-3);
+}
+.ce-noquote svg {
+  flex: none;
+}

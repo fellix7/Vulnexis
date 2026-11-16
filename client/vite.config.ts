@@ -5,7 +5,7 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react()],
   server: {
-    // Same-origin API calls in dev; no CORS needed on the server.
-    proxy: { '/api': process.env.VITE_API_TARGET ?? 'http://localhost:8787' },
+    // Same-origin API calls in dev; no CORS needed on the server. /auth is GitHub sign-in, /v1 the API-key routes.
+    proxy: Object.fromEntries(['/api', '/auth', '/v1'].map((p) => [p, process.env.VITE_API_TARGET ?? 'http://localhost:8787'])),
   },
 })

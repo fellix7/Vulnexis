@@ -1,27 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
-import { effectiveTier, findingKey } from '../../lib/review'
 import { formatScanTime } from '../../lib/selectors'
 import { Link, navigate } from '../../router'
-import { useScan, type ScanRecord } from '../../state/store'
+import { useAuth } from '../../state/auth'
+import { useScan, type HistoryItem } from '../../state/store'
 import { SourceBadge } from '../ui/Badges'
 import { Icon } from '../ui/Icon'
-import { EmptyState } from '../ui/Kit'
+import { Callout, EmptyState } from '../ui/Kit'
 import { AiStatusTag } from './AiStatusTag'
 
 interface Props {
   /** Saved scans, newest first (demo data is never in here). */
-  scans: ScanRecord[]
+  scans: HistoryItem[]
   currentId: string | null
   picked: string[]
   onTogglePick: (id: string) => void
   onCompareSelected: () => void
 }
 
-const fixNowCount = (r: ScanRecord) =>
-  r.result.findings.filter((f) => effectiveTier(f, r.review[findingKey(f)]) === 'FIX_NOW').length
-
 export function History({ scans, currentId, picked, onTogglePick, onCompareSelected }: Props) {
-  const { openScan, deleteScan, clearHistory } = useScan()
+  const { openScan, deleteScan, clearHistory, remote, remoteHistory, loadMoreHistory } = useScan()
+  const authLoading = useAuth().loading
+  const [busy, setBusy] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   // 'all' = clear history is awaiting confirmation; otherwise the id of the scan awaiting delete confirmation.
   const [confirm, setConfirm] = useState<string | 'all' | null>(null)
   const heading = useRef<HTMLHeadingElement>(null)
@@ -38,15 +38,27 @@ export function History({ scans, currentId, picked, onTogglePick, onCompareSelec
     }
   }, [confirm])
 
-  function open(id: string) {
-    openScan(id)
-    navigate('/overview')
+  async function open(id: string) {
+    setBusy(id)
+    setActionError(null)
+    const ok = await openScan(id)
+    setBusy(null)
+    if (ok) navigate('/overview')
+    else setActionError('Could not open this scan. It may have expired or been deleted.')
   }
 
-  function remove(id: string) {
-    deleteScan(id)
-    setConfirm(null)
-    heading.current?.focus()
+  async function remove(id: string) {
+    setBusy(id)
+    setActionError(null)
+    try {
+      await deleteScan(id)
+      heading.current?.focus()
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Could not delete this scan.')
+    } finally {
+      setBusy(null)
+      setConfirm(null)
+    }
   }
 
   function clearAll() {
@@ -64,7 +76,7 @@ export function History({ scans, currentId, picked, onTogglePick, onCompareSelec
           Scan history
           {scans.length > 0 && <span className="subtle num rep-count"> {scans.length}</span>}
         </h2>
-        {scans.length > 0 && (
+        {scans.length > 0 && !remote && (
           <div className="cluster">
             <button
               type="button"
@@ -84,13 +96,36 @@ export function History({ scans, currentId, picked, onTogglePick, onCompareSelec
       </div>
 
       <p className="rep-note subtle">
-        Saved in this browser only.
+        {remote ? 'Saved to your account for 90 days. Source code is never stored.' : 'Saved in this browser only.'}
       </p>
+      {actionError && (
+        <div className="rep-hist-msg">
+          <Callout tone="danger" role="alert">
+            {actionError}
+          </Callout>
+        </div>
+      )}
       <span className="sr-only" role="status" aria-live="polite">
         {confirm ? 'Press the confirm button to delete, or Escape to cancel.' : ''}
       </span>
 
-      {scans.length === 0 ? (
+      {authLoading || (remote && !remoteHistory.loaded) ? (
+        remoteHistory.error && !authLoading ? (
+          <div className="rep-hist-msg">
+            <Callout tone="danger" role="alert">
+              {remoteHistory.error}{' '}
+              <button type="button" className="link-btn" onClick={loadMoreHistory}>
+                Try again
+              </button>
+            </Callout>
+          </div>
+        ) : (
+          <p className="rep-hist-msg rep-loading subtle" role="status">
+            <span className="spinner" aria-hidden="true" />
+            Loading your scans…
+          </p>
+        )
+      ) : scans.length === 0 ? (
         <EmptyState
           icon="history"
           title="No saved scans yet"
@@ -133,8 +168,8 @@ export function History({ scans, currentId, picked, onTogglePick, onCompareSelec
                   {scans.map((r) => {
                     const isCurrent = r.id === currentId
                     const isPicked = picked.includes(r.id)
-                    const when = formatScanTime(r.result.scannedAt)
-                    const fixNow = fixNowCount(r)
+                    const when = formatScanTime(r.scannedAt)
+                    const fixNow = r.fixNowCount
                     return (
                       <tr key={r.id} role="row" className={isCurrent ? 'is-current' : undefined}>
                         <th scope="row" role="rowheader" className="rep-projcell">
@@ -161,25 +196,27 @@ export function History({ scans, currentId, picked, onTogglePick, onCompareSelec
                           {when}
                         </td>
                         <td role="cell" data-label="Packages" className="num mono">
-                          {r.result.packageCount}
+                          {r.packageCount}
                         </td>
                         <td role="cell" data-label="Findings" className="num mono">
-                          {r.result.findings.length}
+                          {r.findingCount}
                         </td>
                         <td role="cell" data-label="Fix now" className="num mono">
                           {fixNow > 0 ? <span className="rep-hot">{fixNow}</span> : fixNow}
                         </td>
                         <td role="cell" data-label="AI check">
-                          <AiStatusTag result={r.result} />
+                          <AiStatusTag aiStatus={r.aiStatus} assessed={r.aiAssessed} />
                         </td>
                         <td role="cell" data-label="Actions" className="rep-actions">
-                          <button type="button" className="btn btn--sm" onClick={() => open(r.id)}>
+                          <button type="button" className="btn btn--sm" onClick={() => void open(r.id)} disabled={busy === r.id}>
+                            {busy === r.id && confirm !== r.id && <span className="spinner" aria-hidden="true" />}
                             Open<span className="sr-only"> {r.projectName}, {when}</span>
                           </button>
                           <button
                             type="button"
                             className={`btn btn--sm ${confirm === r.id ? 'btn--danger' : 'btn--ghost'}`}
-                            onClick={() => (confirm === r.id ? remove(r.id) : setConfirm(r.id))}
+                            disabled={busy === r.id}
+                            onClick={() => (confirm === r.id ? void remove(r.id) : setConfirm(r.id))}
                           >
                             <Icon name="trash" size={14} />
                             {confirm === r.id ? 'Confirm delete' : 'Delete'}
@@ -201,6 +238,15 @@ export function History({ scans, currentId, picked, onTogglePick, onCompareSelec
               </table>
             </div>
           </div>
+          {remote && (remoteHistory.nextCursor || remoteHistory.error) && (
+            <div className="rep-more">
+              {remoteHistory.error && <span className="subtle">{remoteHistory.error}</span>}
+              <button type="button" className="btn btn--sm" onClick={loadMoreHistory} disabled={remoteHistory.loading}>
+                {remoteHistory.loading ? <span className="spinner" aria-hidden="true" /> : <Icon name="arrow-down" size={14} />}
+                Load more
+              </button>
+            </div>
+          )}
           <div className="rep-pickbar">
             <p className="muted" aria-live="polite">
               {picked.length === 2

@@ -76,7 +76,7 @@ function findingBlock(f: Finding, review: ReviewState, result: ScanResult): stri
     for (const c of f.ai.citations) {
       lines.push(`  - ${code(`${c.file}:${c.line}`)}`)
       lines.push('')
-      lines.push(fenced(c.quote).replace(/^/gm, '    '))
+      lines.push(c.quote?.trim() ? fenced(c.quote).replace(/^/gm, '    ') : '    Code quote not stored (source code is never saved)')
       lines.push('')
     }
   }

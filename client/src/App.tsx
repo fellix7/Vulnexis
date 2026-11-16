@@ -2,6 +2,7 @@ import { useEffect, type ComponentType } from 'react'
 import { AppShell } from './components/AppShell'
 import { Icon } from './components/ui/Icon'
 import { PageHeader } from './components/ui/Kit'
+import AccountPage from './pages/Account'
 import AgentPage from './pages/Agent'
 import ArchitecturePage from './pages/Architecture'
 import EvidencePage from './pages/Evidence'
@@ -15,6 +16,7 @@ import ReportsPage from './pages/Reports'
 import ScanPage from './pages/Scan'
 import { Link, navigate, useLocation } from './router'
 import { LangProvider } from './lib/i18n'
+import { AuthProvider } from './state/auth'
 import { ScanProvider, useScan } from './state/store'
 
 const APP_ROUTES: Record<string, { page: ComponentType; title: string }> = {
@@ -28,6 +30,7 @@ const APP_ROUTES: Record<string, { page: ComponentType; title: string }> = {
   '/evidence': { page: EvidencePage, title: 'Code evidence' },
   '/remediation': { page: RemediationPage, title: 'Remediation' },
   '/reports': { page: ReportsPage, title: 'Reports & history' },
+  '/account': { page: AccountPage, title: 'Account' },
 }
 
 function Routes() {
@@ -76,9 +79,11 @@ function Routes() {
 export default function App() {
   return (
     <LangProvider>
-      <ScanProvider>
-        <Routes />
-      </ScanProvider>
+      <AuthProvider>
+        <ScanProvider>
+          <Routes />
+        </ScanProvider>
+      </AuthProvider>
     </LangProvider>
   )
 }
