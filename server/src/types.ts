@@ -107,6 +107,7 @@ export interface ScanResult {
   agent?: AgentStep[]; // what the agent did, step by step (tools called, decisions taken, sources)
   repo?: RepoRef; // set when the project was fetched from a public GitHub repository
   context?: ArchitectureContext; // deployment files and entry points found in the project
+  scanId?: string; // set when the scan was saved to the signed-in user's history
 }
 
 // One step of the agent's run. Each step calls one tool (or decides), and says why.
@@ -154,4 +155,24 @@ export interface ScanRequest {
   sourcesTruncated?: boolean; // some source files were left out (limits), so "not loaded anywhere" cannot be claimed
   sample?: boolean;
   repoUrl?: string; // public GitHub repository, e.g. https://github.com/owner/name
+  meta?: { projectName?: string }; // label shown in the saved history (max 200 characters)
+}
+
+// ---------- accounts ----------
+
+export interface PlanInfo {
+  id: string;
+  name: string;
+  monthlyScans: number;
+  maxConcurrent: number;
+  maxApiKeys: number;
+  aiEnabled: boolean;
+}
+
+/** period = first day of the month (daily plan: the day) as YYYY-MM-DD; limit null = no limit; resetsAt = ISO time. */
+export interface UsageInfo {
+  period: string;
+  scans: number;
+  limit: number | null;
+  resetsAt: string;
 }

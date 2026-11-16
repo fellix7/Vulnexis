@@ -22,6 +22,7 @@ const MAX_CONTEXT = 60;
 const MAX_CONTEXT_BYTES = 256 * 1024;
 const MAX_CONTEXT_TOTAL = 1536 * 1024;
 const MAX_PATH = 500;
+const MAX_PROJECT_NAME = 200;
 const SOURCE_EXT = /\.(js|jsx|ts|tsx|mjs|cjs|mts|cts)$/;
 
 const isPlain = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -74,6 +75,16 @@ export function validateScanRequest(body: unknown): ScanRequest {
       for (const k of keys) if (k.length > MAX_LOCK_KEY) throw tooBig(`A package path in the lockfile is longer than ${MAX_LOCK_KEY} characters.`);
     }
     out.lockfile = lock;
+  }
+
+  if (body.meta !== undefined) {
+    if (!isPlain(body.meta)) throw bad('"meta" must be an object.');
+    const name = body.meta.projectName;
+    if (name !== undefined) {
+      if (typeof name !== 'string') throw bad('"meta.projectName" must be text.');
+      if (name.length > MAX_PROJECT_NAME) throw tooBig(`"meta.projectName" is longer than ${MAX_PROJECT_NAME} characters.`);
+      if (name.trim()) out.meta = { projectName: name.trim() };
+    }
   }
 
   if (body.sources !== undefined) out.sources = files(body.sources, 'sources', MAX_SOURCES, MAX_SOURCE_BYTES, MAX_SOURCES_TOTAL, true);

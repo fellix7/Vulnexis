@@ -13,6 +13,17 @@ import { OfflineMissError } from './cache.js';
 import { runWithStats, savedDataNote, stats } from './scanStats.js';
 import { doctorAccess, jsonErrorHandler, securityHeaders } from './security.js';
 import { validateScanRequest, ValidationError } from './validate.js';
+import { exhausted as aiBudgetExhausted } from './aiBudget.js';
+import { keysRouter } from './apiKeys.js';
+import { accountsEnabled } from './auth/config.js';
+import { sameOrigin } from './auth/csrf.js';
+import { authRouter } from './auth/routes.js';
+import { callerOf, identify, requireKeyCaller } from './caller.js';
+import { closeDb, dbEnabled } from './db/pool.js';
+import { migrate } from './db/migrate.js';
+import { admit, refund } from './quota.js';
+import { save as saveScan, scansRoutes, TOO_BIG_NOTE } from './scansStore.js';
+import { startSweep } from './sweep.js';
 import { analyzeFindings } from './pipeline/ai.js';
 import { enrich, loadKev } from './pipeline/enrich.js';
 import { matchPackages } from './pipeline/match.js';
@@ -50,9 +61,24 @@ const scanLimiter = createLimiter({
 });
 const doctorLimiter = createLimiter({ limits: [{ windowMs: 60_000, max: 10 }], message: (m) => `Too many requests. Try again in ${m} ${m === 1 ? 'minute' : 'minutes'}.` });
 
+// Anonymous callers with accounts on can only send {sample:true} or {repoUrl}: 4 KB is plenty.
+const anonymousBody = express.json({ limit: '4kb' });
+const bodyByCaller: express.RequestHandler = (req, res, next) =>
+  (accountsEnabled() && callerOf(res).kind === 'anonymous' ? anonymousBody : scanBody)(req, res, next);
+/** Anonymous uploads of any size are refused (the quota taken by `admit` is given back). */
+const anonymousGuard: express.RequestHandler = async (req, res, next) => {
+  const b = req.body as Record<string, unknown> | undefined;
+  if (accountsEnabled() && callerOf(res).kind === 'anonymous' && b && (b.lockfile !== undefined || b.sources !== undefined || b.contextFiles !== undefined)) {
+    await refund(res);
+    return void res.status(401).json({ error: 'Sign in to upload a lockfile.', code: 'signin_required' });
+  }
+  next();
+};
+
 app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
+    accounts: accountsEnabled(),
     offline: process.env.OFFLINE === '1',
     gemini: Boolean(process.env.GEMINI_API_KEY),
   });
@@ -88,9 +114,9 @@ async function loadSample(): Promise<{ lockfile: unknown; sources: SourceFile[];
 }
 
 // Each scan runs inside its own stats scope, so concurrent scans never share counters or warnings.
-const scan = (req: ScanRequest, onStep?: (step: AgentStep) => void, signal?: AbortSignal): Promise<ScanResult> => runWithStats(() => runScan(req, onStep, signal), signal);
+const scan = (req: ScanRequest, onStep?: (step: AgentStep) => void, signal?: AbortSignal, aiEnabled = true): Promise<ScanResult> => runWithStats(() => runScan(req, onStep, signal, aiEnabled), signal);
 
-async function runScan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal?: AbortSignal): Promise<ScanResult> {
+async function runScan(req: ScanRequest, onStep?: (step: AgentStep) => void, signal?: AbortSignal, aiEnabled = true): Promise<ScanResult> {
   const notes: string[] = [];
   const agent = new Agent(onStep, signal);
   const st = stats();
@@ -152,7 +178,12 @@ async function runScan(req: ScanRequest, onStep?: (step: AgentStep) => void, sig
   // 2. Plan: decide which tools this run needs, from what the user gave us and what the server can do.
   // Offline mode can still replay saved Gemini answers when they were committed to data/snapshots.
   const savedAi = offline && existsSync(path.resolve(import.meta.dirname, '../../data/snapshots/gemini-package'));
-  const willInvestigate = sources.length > 0 && (hasKey || savedAi);
+  const canInvestigate = sources.length > 0 && (hasKey || savedAi);
+  // The plan may exclude the AI step, and a monthly Gemini budget can run out: either way the rules alone rank the findings.
+  const budgetUsed = canInvestigate && aiEnabled ? await aiBudgetExhausted() : false;
+  const willInvestigate = canInvestigate && aiEnabled && !budgetUsed;
+  if (canInvestigate && !aiEnabled) notes.push('The AI code check is not part of your plan. Priorities come from the published rules.');
+  if (budgetUsed) notes.push("AI code check paused: this month's AI budget is used up. Priorities come from the published rules.");
   agent.note('plan', 'Planning the investigation', {
     input: `lockfile ✓ · source files: ${sources.length} · architecture files: ${contextFiles.length} · Gemini key: ${hasKey ? 'yes' : 'no'} · data: ${offline ? 'saved snapshots' : 'live'}`,
     output: [
@@ -302,7 +333,7 @@ async function runScan(req: ScanRequest, onStep?: (step: AgentStep) => void, sig
     );
     notes.push(...ai.warnings);
   } else {
-    agent.note('gemini', 'Code check skipped', { output: sources.length ? 'No Gemini key configured' : 'No source code provided' }, 'skipped');
+    agent.note('gemini', 'Code check skipped', { output: !sources.length ? 'No source code provided' : !aiEnabled ? 'Not included in your plan' : budgetUsed ? "This month's AI budget is used up" : 'No Gemini key configured' }, 'skipped');
   }
 
   // AI can only raise a tier, so rescoring with verdicts is safe.
@@ -391,11 +422,14 @@ const TIMEOUT = { status: 504, error: 'This scan took longer than 3 minutes and 
 class DeadlineError extends Error {}
 
 /** Shape and size limits before any work; answers 400/413 with a plain message, or returns the clean request. */
-function checked(req: express.Request, res: express.Response): ScanRequest | null {
+async function checked(req: express.Request, res: express.Response): Promise<ScanRequest | null> {
   try {
-    return validateScanRequest(req.body);
+    const body = validateScanRequest(req.body);
+    if (body.sample) await refund(res); // the sample is never counted
+    return body;
   } catch (e) {
     if (!(e instanceof ValidationError)) throw e;
+    await refund(res);
     res.status(e.status).json({ error: e.message });
     return null;
   }
@@ -411,6 +445,7 @@ async function runQueued(
   body: ScanRequest,
   abort: AbortController,
   hooks: { onQueue?: (position: number, ahead: number) => void; onStep?: (s: AgentStep) => void; finish: (out: { result: ScanResult } | { status: number; error: string }) => void },
+  aiEnabled = true,
 ) {
   let release: (() => void) | undefined;
   let timer: NodeJS.Timeout | undefined;
@@ -418,7 +453,9 @@ async function runQueued(
   const finish = (out: Parameters<typeof hooks.finish>[0]) => {
     if (done || abort.signal.aborted && !(abort.signal.reason instanceof DeadlineError)) return;
     done = true;
-    hooks.finish(out);
+    // No result delivered (4xx scan errors, 5xx, deadline): give the scan back before answering.
+    if ('error' in out) void refund(res).then(() => hooks.finish(out));
+    else hooks.finish(out);
   };
   try {
     release = await req.queueTicket!.slot;
@@ -426,23 +463,43 @@ async function runQueued(
       abort.abort(new DeadlineError());
       finish(TIMEOUT); // tell the client now; the slot is freed once the scan actually stops
     }, DEADLINE_MS);
-    const result = await scan(body, (st) => !done && hooks.onStep?.(st), abort.signal);
+    const result = await scan(body, (st) => !done && hooks.onStep?.(st), abort.signal, aiEnabled);
+    await saveResult(res, body, result);
     finish({ result });
   } catch (e) {
     if (abort.signal.reason instanceof DeadlineError) finish(TIMEOUT);
     else if (!abort.signal.aborted) finish(failure(e));
+    else if (!release) void refund(res); // left the queue before getting a slot
   } finally {
     clearTimeout(timer);
     release?.();
   }
 }
 
+/** Signed-in and key callers get the finished scan saved (never samples); anonymous scans leave no trace. */
+async function saveResult(res: express.Response, body: ScanRequest, result: ScanResult) {
+  const caller = callerOf(res);
+  if (caller.kind === 'anonymous' || body.sample || !dbEnabled()) return;
+  try {
+    const name = body.meta?.projectName ?? (result.repo ? `${result.repo.owner}/${result.repo.name}` : 'Uploaded lockfile');
+    const id = await saveScan(caller.userId, caller.kind === 'key' ? caller.keyId : null, result.repo ? 'repo' : 'upload', name, result);
+    if (id) {
+      result.scanId = id;
+      if (!res.headersSent) res.setHeader('X-Scan-Id', id);
+    } else result.notes.push(TOO_BIG_NOTE);
+  } catch (e) {
+    console.error('[scans] could not save a scan:', e instanceof Error ? e.message : e);
+    result.notes.push('This scan could not be saved to your history. The result above is complete.');
+  }
+}
+
 function join(req: express.Request, res: express.Response, abort: AbortController, onQueue?: (p: number, a: number) => void): boolean {
   try {
-    req.queueTicket = queue.join(clientKey(req), abort.signal, onQueue);
+    req.queueTicket = queue.join(clientKey(req), abort.signal, onQueue, res.locals.plan?.max_concurrent);
     return true;
   } catch (e) {
     if (!(e instanceof QueueFullError || e instanceof ClientLimitError)) throw e;
+    void refund(res);
     const m = e instanceof ClientLimitError ? CLIENT_BUSY : BUSY;
     res.status(m.status).json({ error: m.error });
     return false;
@@ -450,8 +507,8 @@ function join(req: express.Request, res: express.Response, abort: AbortControlle
 }
 
 // Streams the agent's steps as they happen (one JSON object per line), then the result.
-app.post('/api/scan/stream', scanLimiter, scanBody, async (req, res) => {
-  const body = checked(req, res);
+const streamScan: express.RequestHandler = async (req, res) => {
+  const body = await checked(req, res);
   if (!body) return;
   const abort = new AbortController();
   res.on('close', () => {
@@ -471,49 +528,87 @@ app.post('/api/scan/stream', scanLimiter, scanBody, async (req, res) => {
   });
   const pos = req.queueTicket!.position;
   if (pos > 0) send({ type: 'queue', position: pos, ahead: pos - 1 });
-  await runQueued(req, res, body, abort, {
-    onQueue: undefined,
-    onStep: (step) => send({ type: 'step', step }),
-    finish: (out) => send('result' in out ? { type: 'result', result: out.result } : { type: 'error', ...out }),
-  });
+  await runQueued(
+    req,
+    res,
+    body,
+    abort,
+    {
+      onQueue: undefined,
+      onStep: (step) => send({ type: 'step', step }),
+      finish: (out) => send('result' in out ? { type: 'result', result: out.result } : { type: 'error', ...out }),
+    },
+    res.locals.plan?.ai_enabled !== false,
+  );
   hb.stop();
   res.end();
-});
+};
 
-app.post('/api/scan', scanLimiter, scanBody, async (req, res) => {
-  const body = checked(req, res);
+const plainScan: express.RequestHandler = async (req, res) => {
+  const body = await checked(req, res);
   if (!body) return;
   const abort = new AbortController();
   res.on('close', () => {
     if (!res.writableFinished) abort.abort(new Error('client gone'));
   });
   if (!join(req, res, abort)) return;
-  await runQueued(req, res, body, abort, {
-    finish: (out) => {
-      if ('result' in out) res.json(out.result);
-      else res.status(out.status).json({ error: out.error });
+  await runQueued(
+    req,
+    res,
+    body,
+    abort,
+    {
+      finish: (out) => {
+        if ('result' in out) res.json(out.result);
+        else res.status(out.status).json({ error: out.error });
+      },
     },
-  });
-});
+    res.locals.plan?.ai_enabled !== false,
+  );
+};
+
+// Order: who is calling, CSRF, rate limit, quota (before the body is read), body parser, then the handler.
+const scanChain = [identify, sameOrigin, scanLimiter, admit, bodyByCaller, anonymousGuard];
+app.post('/api/scan/stream', ...scanChain, streamScan);
+app.post('/api/scan', ...scanChain, plainScan);
+// The same handlers for programs: API key only.
+app.post('/v1/scan/stream', identify, requireKeyCaller, ...scanChain.slice(1), streamScan);
+app.post('/v1/scan', identify, requireKeyCaller, ...scanChain.slice(1), plainScan);
+
+app.use('/api', sameOrigin); // every other write under /api needs a same-origin browser request (or a Bearer key)
+app.use(authRouter());
+app.use(keysRouter());
+app.use(scansRoutes());
 
 // Production: serve the built client from the same origin (one process to deploy).
 const CLIENT_DIST = path.resolve(import.meta.dirname, '../../client/dist');
 if (existsSync(CLIENT_DIST)) {
   app.use(express.static(CLIENT_DIST, { index: false, maxAge: '1h' }));
   // App routes only (no file extension): a missing /assets/x.js must 404, not return the HTML page.
-  app.get(/^\/(?!api\/)[^.]*$/, (_req, res) => res.sendFile(path.join(CLIENT_DIST, 'index.html')));
+  app.get(/^\/(?!api\/|auth\/|v1\/)[^.]*$/, (_req, res) => res.sendFile(path.join(CLIENT_DIST, 'index.html')));
 }
 
 // Last: malformed JSON, oversized bodies and unexpected errors become short JSON answers (no stack traces).
 app.use(jsonErrorHandler);
 
+if (dbEnabled() && process.env.MIGRATE_ON_START !== '0') {
+  try {
+    await migrate();
+  } catch (e) {
+    console.error(`[db] startup migration failed, not starting: ${e instanceof Error ? e.message : String(e)}`);
+    console.error('[db] check DATABASE_URL, or set MIGRATE_ON_START=0 and run "npm run migrate -w server" yourself.');
+    process.exit(1);
+  }
+}
+
 const server = app.listen(PORT, () => {
-  console.log(`Vulnera API listening on http://localhost:${PORT}`);
+  console.log(`Vulnera API listening on http://localhost:${PORT}${accountsEnabled() ? ' (accounts on)' : ''}`);
   runDoctor().then(printDoctor).catch(() => {});
   loadKev().catch(() => {}); // read (and, once a day, refresh) the CISA KEV catalog before the first scan
+  startSweep();
 });
 
-// Clean stop for deploys and restarts: stop taking requests, stop the analysis workers, then exit.
+// Clean stop for deploys and restarts: stop taking requests, stop the analysis workers, close the database, then exit.
 let stopping = false;
 for (const sig of ['SIGTERM', 'SIGINT'] as const) {
   process.on(sig, () => {
@@ -521,7 +616,7 @@ for (const sig of ['SIGTERM', 'SIGINT'] as const) {
     stopping = true;
     server.close();
     const exit = () => process.exit(0);
-    shutdownWorkers().then(exit, exit);
+    shutdownWorkers().then(() => closeDb()).then(exit, exit);
     setTimeout(exit, 5000).unref(); // open streams must not hold the process forever
   });
 }

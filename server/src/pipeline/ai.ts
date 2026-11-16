@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { GoogleGenAI, Type } from '@google/genai';
+import { record as recordAiTokens } from '../aiBudget.js';
 import { cached } from '../cache.js';
 import { findingKey } from '../keys.js';
 import { currentSignal, throwIfScanAborted } from '../scanStats.js';
@@ -528,6 +529,8 @@ async function callModel<T>(
           }),
         CALL_TIMEOUT_MS,
       );
+      const u = res.usageMetadata;
+      if (u) void recordAiTokens(u.promptTokenCount ?? 0, (u.candidatesTokenCount ?? 0) + (u.thoughtsTokenCount ?? 0));
       return args.parse(parseJson(res.text));
     } catch (e) {
       throwIfScanAborted();

@@ -8,8 +8,8 @@ These policies describe how Vulnera behaves: what it collects, what the AI is al
 | # | Policy | One-line rule |
 | :--- | :--- | :--- |
 | 1 | [Scope and intended use](#1-scope-and-intended-use) | Defensive triage of your own or public open-source projects only |
-| 2 | [Personal data](#2-personal-data-policy) | No personal data is asked for, collected or stored |
-| 3 | [Data handling and retention](#3-data-handling-and-retention) | Project files are read in memory and not kept; history stays in the user's browser |
+| 2 | [Personal data](#2-personal-data-policy) | With accounts on: GitHub id, login, name and email only; nothing else is asked for |
+| 3 | [Data handling and retention](#3-data-handling-and-retention) | Project files are read in memory and not kept; signed-in scan results kept 90 days; source code never stored |
 | 4 | [AI usage](#4-ai-usage-policy) | AI reads code snippets and may raise a priority; it never creates, removes or lowers a finding |
 | 5 | [Agent decisions and transparency](#5-agent-decision-and-transparency-policy) | Every step, decision and source is shown to the user |
 | 6 | [Sources and citations](#6-source-and-citation-policy) | Every fact links to its source; unknowns are shown as unknown |
@@ -35,17 +35,55 @@ These policies describe how Vulnera behaves: what it collects, what the AI is al
 
 ## 2. Personal data policy
 
-Vulnera is designed so that it never needs personal data.
+Vulnera runs in one of two modes:
+
+- **Accounts off** (no `DATABASE_URL`, GitHub OAuth app or `PUBLIC_ORIGIN` configured; `server/src/auth/config.ts` › `accountsEnabled`): a single-user tool with no accounts, no sign-in and no database. No personal data is collected or stored.
+- **Accounts on** (the public deployment): people may sign in with GitHub. Anonymous use (the sample scan and a few public repository scans a day) still needs no account.
+
+### What is stored when someone signs in
+
+| Data | Source | Why | Code |
+| :--- | :--- | :--- | :--- |
+| GitHub numeric id | GitHub `/user` | Identify the account across logins (a renamed login keeps the same account) | `server/src/auth/routes.ts` (callback upsert) |
+| GitHub login and display name | GitHub `/user` | Show who is signed in; confirm account deletion | same |
+| Email address | GitHub `/user/emails`: the **primary, verified** address only | Contact about the account or a security issue; never shared or used for marketing | `server/src/auth/github.ts` › `fetchProfile` |
+| Plan, created and last-login time | Vulnera | Quotas and housekeeping | `users` table |
+| Session | Vulnera | Keep the browser signed in: only the **sha256 hash** of the session id is stored, with created, last-seen (updated at most every 10 minutes) and expiry times | `server/src/auth/session.ts` |
+| API keys | Vulnera | Programmatic access: only a public id, the sha256 hash and the last 4 characters; the key itself is shown once | `api_keys` table |
+| Saved scans and reviews | Vulnera | History, compare and reports for signed-in users | `server/src/scansStore.ts` |
+| Monthly scan counters | Vulnera | Plan quotas | `usage` table |
+
+- **GitHub sign-in asks only for `read:user user:email`** (read-only profile and email addresses). Vulnera cannot read the user's private repositories, organisations or anything else through it.
+- **The GitHub access token is never stored or logged.** It is used for exactly two read calls (`/user` and `/user/emails`) during sign-in and then discarded (`server/src/auth/github.ts`). No avatar is fetched or stored.
+- Sign-in uses OAuth with PKCE (S256) and a one-time `state` value, kept in a 10-minute signed cookie, never in the database.
+- Never ask for Aadhaar, PAN, OTPs, bank or card details, passwords, phone numbers or addresses: no field exists for them, and the agent never prompts the user for anything. Payments, when they arrive, go through the payment provider; card details never reach Vulnera.
+
+### Anonymous visitors
+
+- With accounts on, anonymous scans are counted per IP address per day. The counter row stores an **unsalted sha256 of the IP and the day**, not the IP itself, and is **deleted after 2 days** (`server/src/quota.ts`, `server/src/sweep.ts`). Because it is unsalted and IPv4 space is small, treat it as pseudonymous, not anonymous: it exists only to enforce the daily limit.
+- Per-IP rate limits (scans, sign-in attempts) are counted in server memory only and forgotten within a day.
+
+### Cookies
+
+| Cookie | Set when | Contents | Lifetime | Flags |
+| :--- | :--- | :--- | :--- | :--- |
+| `__Host-vulnera_sid` (`vulnera_sid` on plain http) | After GitHub sign-in | Random 256-bit session id | 30 days (`SESSION_TTL_DAYS`), or until sign-out | HttpOnly, SameSite=Lax, Path=/, Secure on https |
+| `vulnera_oauth` | Only while signing in | Signed one-time `state`, PKCE verifier and the page to return to | 10 minutes; cleared by the callback | HttpOnly, SameSite=Lax, Path=/auth, Secure on https |
+
+These are strictly necessary cookies for signing in. There are **no analytics, tracking pixels, advertising or third-party cookies** (none are included in `client/`).
+
+### Other rules
 
 | Rule | How it is enforced |
 | :--- | :--- |
-| No accounts, logins, sign-up forms or contact fields | The UI has no such inputs; the API accepts only `repoUrl`, `lockfile`, `sources`, `sample` (`server/src/types.ts` › `ScanRequest`) |
-| Never ask for Aadhaar, PAN, OTPs, bank or card details, passwords, phone numbers or addresses | No field exists for them; the agent never prompts the user for anything |
 | WhatsApp sharing collects nothing | The share button opens `https://wa.me/?text=…` with the summary only; no phone number is entered or stored (`client/src/pages/India.tsx`) |
-| No analytics, tracking pixels or third-party cookies | None are included in `client/` |
 | The language choice is a preference, not personal data | Stored only in the user's own browser (`localStorage` key `vulnera:lang:v1`) |
 
 If a scanned repository itself contains personal data (for example in fixtures), Vulnera does not extract, display or store it. Only short line windows around imports and uses of vulnerable packages can reach the AI, after best-effort secret masking (policy 8). Never whole files.
+
+### Deleting an account
+
+Signed-in users can delete their account from **Account › Danger zone** by typing their GitHub login (`DELETE /api/me`). This immediately deletes the user row and, by cascade, every session, API key, saved scan, review and usage counter belonging to it, and signs the browser out. Nothing is kept in the database afterwards (database backups held by the hosting provider age out on its own schedule). Signing out (`POST /api/auth/logout`) deletes that session row.
 
 ## 3. Data handling and retention
 
@@ -56,11 +94,16 @@ If a scanned repository itself contains personal data (for example in fixtures),
 | GitHub repository tarball | Downloaded to server memory, unpacked in memory | Discarded when the response is sent; never written to disk |
 | Package names + versions | Sent to OSV.dev and the npm registry for lookups | Responses cached in `.cache/` on the server (public data, re-fetchable) |
 | CVE ids | Sent to FIRST EPSS | Responses cached in `.cache/` |
-| Scan results and reviews | Returned to the browser | Saved in the user's browser only (last 8 scans, `vulnera:history:v1`); never stored on the server |
+| Scan results and reviews, signed in | Saved in the database with the user's account. **Source code is never stored**: every code quote from the AI check is blanked before saving and shown only during the live scan (`server/src/scansStore.ts`) | **90 days** (`SCAN_RETENTION_DAYS`), then deleted by the hourly sweep (`server/src/sweep.ts`); or earlier, when the user deletes the scan or the account |
+| Scan results and reviews, anonymous or accounts off | Returned to the browser | Saved in the user's browser only (last 8 scans, `vulnera:history:v1`); never stored on the server |
+| Account data (policy 2) | Database | Until the user deletes the account |
+| Sessions | Database (hash only) | Until sign-out or expiry (30 days); expired rows deleted hourly |
+| Anonymous daily IP counter | Database (hash of IP and day) | 2 days |
 | Source files for code evidence | Kept in browser memory for the open tab only | Gone when the tab closes; never persisted |
 
-- The server has **no database**. There is nothing to breach beyond the public-data cache.
-- Users can delete history at any time from **Reports & history › Clear history**.
+- With accounts off the server has **no database**; there is nothing to breach beyond the public-data cache.
+- With accounts on, the database holds only the data above. Every table has row level security with no policies, so a hosted provider's public REST API cannot read it; the app connects as the owner.
+- Users can delete browser history at any time from **Reports & history › Clear history**, saved scans one by one, or everything by deleting the account (policy 2). Signing out clears Vulnera's data from the browser except the language choice.
 - **Demo data** is illustrative, labelled "Demo data" wherever it appears, and is never saved to history.
 
 ## 4. AI usage policy
@@ -149,6 +192,8 @@ The agent must be **inspectable**: a user can see what it did, with what, and wh
 ## 8. Secrets and credentials
 
 - API keys (`GEMINI_API_KEY`, optional `GEMINI_API_KEY_2`, `_3`, …) live in the server's `.env`, which is git-ignored. They are never sent to the browser; `/api/health` reports only whether a key exists.
+- `DATABASE_URL` and `GITHUB_CLIENT_SECRET` (accounts on) live in the same server environment and are never sent to the browser or logged. The client secret also keys the HMAC that signs the short-lived sign-in cookie, so rotating it invalidates sign-ins in progress (not existing sessions).
+- Session cookies and API keys are never logged; the database holds only their sha256 hashes.
 - Before any code or advisory text reaches Gemini, likely secrets are masked as `[REDACTED]`, best effort (`pipeline/ai.ts` › `redact`): PEM blocks (private keys, certificates), JWT-like strings, credentials in connection strings (`scheme://user:pass@host`), Google API keys, OpenAI/Anthropic-style keys, AWS access key ids, GitHub tokens, Stripe live keys, values of quoted and unquoted assignments whose name contains `secret`, `token`, `passw`, `pwd`, `api_key`, `private_key`, `access_key` or `auth`, and long hex/base64 strings in string literals. Masking cannot catch every secret, so do not scan code you are not allowed to share with Google. Masking keeps line numbers unchanged so citations stay valid.
 - Masking is best effort. Users should not commit secrets to repositories in the first place.
 - No secrets are written to the agent trace, notes, logs shown to users, or reports.
@@ -193,10 +238,11 @@ The rule: **degrade to deterministic rules, never to guesses**, and always tell 
 | CISA KEV | Nothing (catalogue download) | Known exploited list |
 | npm registry | Package names | List versions for upgrade planning |
 | GitHub (codeload) | Owner and repository name in the URL | Download a public repository as text |
+| GitHub (OAuth, accounts on) | The sign-in redirect; then, server to server, the one-time code and PKCE verifier, and two read calls with the user's token | Sign in: read the GitHub id, login, name and primary verified email (policy 2) |
 | Google Gemini | Masked line windows around imports and uses of vulnerable packages, advisory text | Code-usage verdicts |
 | WhatsApp (`wa.me`) | Only when the user taps Share: the summary text, in the user's own browser | Let the user send the summary |
 
-No other services are contacted. The server sends `User-Agent: vulnera-scanner` and no user identifiers.
+No other services are contacted. Scan lookups send `User-Agent: vulnera-scanner` and no user identifiers; only the sign-in calls to GitHub carry the user's own token.
 
 ## 13. Acceptable use
 
@@ -212,7 +258,7 @@ The server enforces size, time and host limits (policy 7), runs at most `MAX_CON
 
 - **Report a problem** with Vulnera itself (for example a way to make it read private data or execute code) by opening a private security advisory on the GitHub repository, or by contacting the maintainers directly. Please do not open a public issue for security bugs.
 - **Our response:** acknowledge within 2 working days; fix or mitigate critical issues first; credit reporters who want it.
-- **If Vulnera's own server is compromised**, the team will take the deployment offline, rotate the Gemini keys, review logs, and, where the CERT-In directions apply to the operator, report within 6 hours of noticing. The server stores no personal data and no user projects, which limits impact.
+- **If Vulnera's own server is compromised**, the team will take the deployment offline, rotate the Gemini keys, review logs, and, where the CERT-In directions apply to the operator, report within 6 hours of noticing. The server stores no source code and no user projects, and keeps only the account data in policy 2 (no GitHub tokens; session ids and API keys only as hashes), which limits impact. If the database may have been exposed, the team will also delete all sessions (forcing sign-out), ask users to rotate API keys, rotate the GitHub OAuth client secret, and tell affected users.
 - **Dependencies of Vulnera itself** are scanned with Vulnera before each release.
 
 ## 15. Change control

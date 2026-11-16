@@ -58,9 +58,9 @@ export class ScanQueue {
     };
   }
 
-  /** Throws ClientLimitError / QueueFullError synchronously when the request cannot be accepted. */
-  join(client: string, signal?: AbortSignal, onPosition?: (position: number, ahead: number) => void): Ticket {
-    if ((this.perClient.get(client) ?? 0) >= this.opts.perClient) throw new ClientLimitError();
+  /** `cap` overrides the per-client limit for this call (the plan's max_concurrent). Throws ClientLimitError / QueueFullError synchronously when the request cannot be accepted. */
+  join(client: string, signal?: AbortSignal, onPosition?: (position: number, ahead: number) => void, cap?: number): Ticket {
+    if ((this.perClient.get(client) ?? 0) >= (cap ?? this.opts.perClient)) throw new ClientLimitError();
     if (this.running < this.opts.maxRunning && this.waiting.length === 0) {
       this.running++;
       this.perClient.set(client, (this.perClient.get(client) ?? 0) + 1);
