@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import tls from 'node:tls';
 import { Agent, EnvHttpProxyAgent, setGlobalDispatcher } from 'undici';
 
-// Outbound network setup, imported first by index.ts. Two things a browser does that Node's fetch does not:
+// Outbound network setup, imported first by index.ts and app.ts. Two things a browser does that Node's fetch does not:
 //
 // 1. Trust the operating system's certificates. Office, college and venue networks often inspect HTTPS with
 //    their own certificate, installed in the OS (so the browser works) but unknown to Node, which then fails

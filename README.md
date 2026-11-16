@@ -118,7 +118,7 @@ docker build -t vulnera .
 docker run -p 8080:8080 -e TRUST_PROXY=1 -e GEMINI_API_KEY=your-key vulnera
 ```
 
-Ready-made configs: [`fly.toml`](fly.toml) (Fly.io, Mumbai) and [`render.yaml`](render.yaml) (Render). Step by step: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#5-host-it-for-demos).
+Ready-made configs: [`vercel.json`](vercel.json) (Vercel: import the repo, set `TRUST_PROXY=1`), [`fly.toml`](fly.toml) (Fly.io, Mumbai) and [`render.yaml`](render.yaml) (Render). Step by step: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#5-host-it-for-demos).
 
 ## Limits (said plainly)
 

@@ -236,7 +236,7 @@ function scansRouter(): Router {
   return r;
 }
 
-/** Mount points: `/api/scans` (session or key) and `/v1/scans` (key only). CSRF for the session writes is applied by index.ts. */
+/** Mount points: `/api/scans` (session or key) and `/v1/scans` (key only). CSRF for the session writes is applied by app.ts. */
 export function scansRoutes(): Router {
   const r = Router();
   r.use('/api/scans', needAccounts, noStore, identify, signedIn, scansRouter());

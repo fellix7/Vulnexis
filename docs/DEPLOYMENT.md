@@ -69,6 +69,18 @@ Accounts stay off until you add a database and a GitHub app, so the hosted site 
 
 Leave `DATABASE_URL` unset. Health check: `GET /api/health`. Memory: 1 GB.
 
+**Option 0: Vercel (quickest; Mumbai region)**
+
+1. vercel.com → Add New → Project → import the GitHub repository. Vercel reads `vercel.json`; leave the build settings as they are.
+2. Environment Variables: `TRUST_PROXY` = `1`, and `GEMINI_API_KEY` if you have one.
+3. Deploy. You get `https://<project>.vercel.app`, and every push to `main` redeploys.
+
+How it runs: the web app is served from Vercel's CDN, and one function (`api/index.mjs`) runs the Express server in `bom1` (Mumbai). Limits on Vercel:
+- **Uploads are capped at 4.5 MB** per request (Vercel's limit). Scanning by GitHub link has no such cap; a large lockfile plus source folder upload can fail with "payload too large".
+- **A scan must finish within 300 seconds** (the function limit; Vulnera's own deadline is 180 s, so this only matters if you raise `SCAN_DEADLINE_MS`).
+- **Caches and rate limits live per function instance**, so they reset more often than on a single server. Fine for demos.
+- **The Hobby plan is for personal, non-commercial use** under Vercel's terms. For client and investor work, use Pro, or Fly.io / Render below.
+
 **Option A: Fly.io (Mumbai region, always on)**
 
 ```bash
