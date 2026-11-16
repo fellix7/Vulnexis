@@ -201,7 +201,7 @@ export function overridesSnippet(items: RemediationItem[]): string {
   const map = new Map<string, string>()
   for (const i of items) {
     const to = i.plan.to
-    if (!to) continue
+    if (!to || i.plan.parentOnly) continue
     const prev = map.get(i.plan.name)
     if (!prev || cmpVersion(to, prev) > 0) map.set(i.plan.name, to)
   }

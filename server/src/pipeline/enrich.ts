@@ -1,6 +1,8 @@
 import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { cached, isOffline } from '../cache.js';
+import { fetchRetry } from '../http.js';
+import { throwIfScanAborted, withScanSignal } from '../scanStats.js';
 import type { Advisory, Enrichment } from '../types.js';
 
 // Adds EPSS (exploit probability, FIRST) and KEV (exploited in the wild, CISA) to advisories.
@@ -11,7 +13,6 @@ const KEV_FILE = path.join(ROOT, 'data', 'kev.json');
 const KEV_URL = 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json';
 const EPSS_URL = 'https://api.first.org/data/v1/epss';
 const EPSS_BATCH = 50;
-const FETCH_TIMEOUT_MS = 15_000;
 
 export interface EnrichResult {
   /** keyed by advisory.id */
@@ -62,7 +63,7 @@ function adopt(cat: KevCatalog) {
 
 async function downloadKev(): Promise<void> {
   try {
-    const res = await fetch(KEV_URL, { signal: AbortSignal.timeout(30_000) });
+    const res = await fetch(KEV_URL, { signal: withScanSignal(30_000) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
     const cat = parseKev(text);
@@ -79,6 +80,7 @@ async function downloadKev(): Promise<void> {
     }
     console.log(`[kev] refreshed from CISA (${cat.set.size} entries, ${cat.date ?? 'date unknown'})`);
   } catch (err) {
+    if (err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError')) kevState.attemptedAt = 0; // cancelled with its scan: try again on the next one
     console.warn(`[kev] refresh failed (${err instanceof Error ? err.message : String(err)}); using the bundled copy${kevState.date ? ` from ${kevState.date}` : ''}`);
   }
 }
@@ -136,9 +138,7 @@ interface EpssResponse {
 }
 
 async function fetchEpssBatch(cves: string[]): Promise<Map<string, number>> {
-  const res = await fetch(`${EPSS_URL}?cve=${cves.join(',')}`, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-  if (!res.ok) throw new Error(`EPSS HTTP ${res.status}`);
-  const body = (await res.json()) as EpssResponse;
+  const body = await fetchRetry<EpssResponse>(`${EPSS_URL}?cve=${cves.join(',')}`, undefined, async (res) => (await res.json()) as EpssResponse);
   const out = new Map<string, number>();
   for (const row of body.data ?? []) {
     const p = Number(row.epss);
@@ -173,6 +173,7 @@ async function lookupEpss(cves: string[], warnings: string[]): Promise<Map<strin
     }
   }
   await Promise.all(tasks);
+  throwIfScanAborted(); // a cancelled scan is not "EPSS unavailable"
   if (failed) warnings.push(`EPSS unavailable for ${failed} CVE(s) (${firstError}); shown as "no data"`);
   return result;
 }
@@ -186,6 +187,7 @@ export async function enrich(advisories: Advisory[]): Promise<EnrichResult> {
   try {
     kev = await loadKev();
   } catch (err) {
+    throwIfScanAborted();
     warnings.push(`CISA KEV list unavailable (${err instanceof Error ? err.message : String(err)}); KEV shown as "no data"`);
   }
 

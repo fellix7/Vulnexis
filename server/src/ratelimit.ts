@@ -5,6 +5,15 @@ import type { Request, RequestHandler } from 'express';
 
 export const clientKey = (req: Pick<Request, 'ip'>): string => req.ip ?? 'unknown';
 
+/**
+ * A direct request from this computer, with no reverse proxy configured in front and no forwarded-for header
+ * (which a proxy would add). On a public server every user arrives from another address, or through the proxy.
+ */
+export function isOwnMachine(req: Pick<Request, 'get' | 'socket'>): boolean {
+  const local = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket?.remoteAddress ?? '');
+  return local && !Number(process.env.TRUST_PROXY) && !req.get('x-forwarded-for');
+}
+
 export interface Limit {
   windowMs: number;
   max: number;
@@ -50,6 +59,7 @@ export function createLimiter(o: LimiterOptions) {
   timer.unref();
 
   const middleware: RequestHandler = (req, res, next) => {
+    if (isOwnMachine(req)) return next(); // running Vulnera on your own computer: no limits on yourself
     const wait = hit(clientKey(req));
     if (wait === 0) return next();
     const minutes = Math.max(1, Math.ceil(wait / 60));

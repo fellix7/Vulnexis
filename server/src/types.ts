@@ -94,6 +94,7 @@ export interface UpgradePlan {
   jump: 'patch' | 'minor' | 'major' | null;
   command: string | null;
   viaParent?: string; // for transitive packages: direct dependency to upgrade
+  parentOnly?: boolean; // an override would be wrong here (copies need different majors, or the package is also a direct dependency): upgrade the parent instead
 }
 
 export interface ScanResult {

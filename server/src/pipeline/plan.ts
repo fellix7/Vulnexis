@@ -27,18 +27,23 @@ function jumpOf(from: string, to: string): UpgradePlan['jump'] {
   return 'patch'; // patch, prepatch, prerelease
 }
 
-function commandFor(pkg: Package, to: string): string {
-  if (pkg.direct) return `npm install ${pkg.dev ? '-D ' : ''}${pkg.name}@${to}`;
-  // `npm pkg set` splits keys on dots (socket.io becomes socket > io), so dotted names get a JSON snippet.
-  if (pkg.name.includes('.')) return `Add to package.json: "overrides": { "${pkg.name}": "${to}" }`;
-  return `npm pkg set overrides.${pkg.name}=${to}`;
-}
+/** Every command we hand to a customer must match one of these; anything else is dropped. */
+const COMMAND_ALLOW_LIST = [
+  /^npm install (?:-D )?[@a-z0-9][\w.\-\/@]*@\d[\w.\-+]*$/i,
+  /^npm pkg set overrides\.[@\w.\-\/]+=\d[\w.\-+]*$/i,
+  /^npm uninstall [@a-z0-9][\w.\-\/@]*$/i,
+];
+export const allowedCommand = (cmd: string | null): string | null => (cmd && COMMAND_ALLOW_LIST.some((re) => re.test(cmd)) ? cmd : null);
 
-/** Smallest version that clears every advisory, or null when some advisory has no fix above `current`. */
-function candidateFor(current: string, advisories: Advisory[]): string | null {
+/** Smallest version that clears every advisory, or null when some advisory has no fix above `current`. Prereleases only if `current` is one. */
+export function candidateFor(current: string, advisories: Advisory[]): string | null {
+  if (!semver.valid(current)) return null;
+  const allowPre = !!semver.prerelease(current);
   let candidate: string | null = null;
   for (const adv of advisories) {
-    const next = adv.fixedVersions.filter((v) => semver.gt(v, current)).sort(semver.compare)[0];
+    const next = adv.fixedVersions
+      .filter((v) => semver.valid(v) && semver.gt(v, current) && (allowPre || !semver.prerelease(v)))
+      .sort(semver.compare)[0];
     if (!next) return null;
     if (!candidate || semver.gt(next, candidate)) candidate = next;
   }
@@ -117,25 +122,55 @@ export async function planUpgrades(matches: { pkg: Package; advisory: Advisory }
   const resolved = await resolveFixes(upgradable);
   let next = 0;
   const fixes = entries.map((_e, i) => (malicious[i] ? null : resolved[next++]!));
+
+  // Transitive copies of one package share a single override (npm keeps one per name): the highest safe version,
+  // unless the copies span different majors, which would force a major upgrade on some parent.
+  const directNames = new Set(entries.filter((e) => e.pkg.direct).map((e) => e.pkg.name));
+  const overrideTo = new Map<string, string | null>(); // name -> version, or null = no override command
+  const parentOnly = new Set<string>(); // names where an override would be wrong, not merely awkward to write
+  const byName = new Map<string, number[]>();
+  entries.forEach((e, i) => {
+    if (!e.pkg.direct && fixes[i] && !malicious[i]) byName.set(e.pkg.name, [...(byName.get(e.pkg.name) ?? []), i]);
+  });
+  for (const [name, idx] of byName) {
+    const tos = idx.map((i) => fixes[i]!);
+    const majors = new Set(tos.map((v) => semver.major(v)));
+    const highest = tos.reduce((m, v) => (semver.gt(v, m) ? v : m));
+    if (majors.size > 1 || directNames.has(name)) parentOnly.add(name);
+    // A dotted name (socket.io) cannot be written with `npm pkg set`; the package.json snippet in the UI covers it.
+    overrideTo.set(name, parentOnly.has(name) || name.includes('.') ? null : highest);
+  }
+  const overrideEmitted = new Set<string>();
+
   const plans = entries.map(({ pkg }, i) => {
-    const to = fixes[i]!;
+    let to = fixes[i];
+    let command: string | null = null;
+    if (malicious[i]) command = `npm uninstall ${pkg.name}`;
+    else if (to && pkg.direct) command = `npm install ${pkg.dev ? '-D ' : ''}${pkg.name}@${to}`;
+    else if (to) {
+      const o = overrideTo.get(pkg.name);
+      if (o) {
+        to = o;
+        if (!overrideEmitted.has(pkg.name)) {
+          overrideEmitted.add(pkg.name);
+          command = `npm pkg set overrides.${pkg.name}=${o}`;
+        }
+      }
+    }
     const plan: UpgradePlan = {
       name: pkg.name,
       from: pkg.version,
       to,
-      jump: to ? jumpOf(pkg.version, to) : null,
-      command: malicious[i] ? `npm uninstall ${pkg.name}` : to ? commandFor(pkg, to) : null,
+      jump: to && semver.valid(pkg.version) ? jumpOf(pkg.version, to) : null,
+      command: allowedCommand(command),
     };
     if (!pkg.direct && pkg.path[0]) plan.viaParent = pkg.path[0];
+    if (!pkg.direct && parentOnly.has(pkg.name)) plan.parentOnly = true;
     return { plan, direct: pkg.direct };
   });
 
+  const safeCompare = (a: string, b: string) => (semver.valid(a) && semver.valid(b) ? semver.compare(a, b) : a.localeCompare(b));
   return plans
-    .sort(
-      (a, b) =>
-        Number(b.direct) - Number(a.direct) ||
-        a.plan.name.localeCompare(b.plan.name) ||
-        semver.compare(a.plan.from, b.plan.from),
-    )
+    .sort((a, b) => Number(b.direct) - Number(a.direct) || a.plan.name.localeCompare(b.plan.name) || safeCompare(a.plan.from, b.plan.from))
     .map((p) => p.plan);
 }

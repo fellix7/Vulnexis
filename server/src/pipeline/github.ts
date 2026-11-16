@@ -1,5 +1,8 @@
-import { gunzipSync } from 'node:zlib';
+import { Readable, Transform, Writable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import { createGunzip } from 'node:zlib';
 import { adviceFor, reasonOf } from '../net.js';
+import { currentSignal, withScanSignal } from '../scanStats.js';
 import type { RepoRef, SourceFile } from '../types.js';
 import { isContextPath, MAX_CONTEXT_FILE_BYTES, MAX_CONTEXT_FILES, MAX_CONTEXT_TOTAL_BYTES } from './context.js';
 
@@ -23,6 +26,8 @@ const OWNER_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
 const REPO_RE = /^[A-Za-z0-9._-]{1,100}$/;
 const REF_RE = /^[A-Za-z0-9._/-]{1,200}$/;
 const MAX_TAR_ENTRIES = 50_000;
+const MAX_KEPT_BYTES = 48 * 1024 * 1024; // sources + context files held at once
+const MAX_KEPT_LOCK_BYTES = 24 * 1024 * 1024;
 const CODE_EXT = /\.(js|jsx|ts|tsx|mjs|cjs|mts|cts|vue|svelte)$/;
 
 /** Encode a ref segment by segment so slashes in branch names survive. */
@@ -81,22 +86,25 @@ export function networkMessage(reason: string): string {
   return `Could not download the repository from GitHub. ${adviceFor(reason)} Try again, or upload the lockfile instead. (${reason})`;
 }
 
-/** GET with a first-byte deadline and an overall deadline; one retry on network failure. */
-async function getWithDeadlines(url: string, hosts: string[], read: (res: Response) => Promise<Buffer>): Promise<{ res: Response; body: Buffer }> {
+/** GET with a first-byte deadline and an overall deadline; one retry on network failure. A cancelled scan is never retried. */
+async function getWithDeadlines<T>(url: string, hosts: string[], read: (res: Response) => Promise<T>): Promise<{ res: Response; body: T | undefined }> {
   let last: unknown;
   for (let attempt = 0; attempt < 2; attempt++) {
     const ctrl = new AbortController();
     const timeout = () => ctrl.abort(new DOMException('timed out', 'TimeoutError'));
     const first = setTimeout(timeout, FIRST_BYTE_MS);
     const total = setTimeout(timeout, DOWNLOAD_MS);
+    const scan = currentSignal();
     try {
-      const res = await fetch(url, { headers: { 'User-Agent': 'vulnexis-scanner' }, signal: ctrl.signal, redirect: 'follow' });
+      const res = await fetch(url, { headers: { 'User-Agent': 'vulnexis-scanner' }, signal: scan ? AbortSignal.any([ctrl.signal, scan]) : ctrl.signal, redirect: 'follow' });
       clearTimeout(first);
       if (res.url && !hosts.includes(new URL(res.url).hostname)) {
+        await res.body?.cancel().catch(() => {});
         throw new RepoError('GitHub redirected the download to an unexpected address, so it was not used.');
       }
-      return { res, body: res.ok ? await read(res) : Buffer.alloc(0) };
+      return { res, body: res.ok ? await read(res) : undefined };
     } catch (e) {
+      scan?.throwIfAborted();
       if (e instanceof RepoError) throw e;
       last = e;
       console.warn(`[github] ${url} attempt ${attempt + 1} failed: ${reasonOf(e)}`);
@@ -118,22 +126,57 @@ const capped = (max: number, message: string) => async (res: Response): Promise<
   }
   return Buffer.concat(chunks);
 };
-const readCapped = capped(MAX_TARBALL_BYTES, 'This repository is larger than 60 MB. Upload its package-lock.json instead.');
 const readCappedLockfile = capped(MAX_LOCKFILE_BYTES, 'The package-lock.json in this repository is larger than 10 MB. Upload a smaller lockfile instead.');
 
+const TOO_BIG_COMPRESSED = 'This repository is larger than 60 MB. Upload its package-lock.json instead.';
+const TOO_BIG_UNPACKED = 'This repository is too large to read (over 300 MB unpacked). Upload its package-lock.json instead.';
+const STOP = new Error('tar reading finished'); // ends the pipeline early without being a failure
+
+/** Streams the body through gunzip and the tar parser; only the kept files are held in memory. Stops the download at any cap. */
+async function readTarball(res: Response, keep: (path: string, size: number) => boolean): Promise<TarResult> {
+  const parser = new TarParser(keep);
+  let compressed = 0;
+  let unpacked = 0;
+  const count = new Transform({
+    transform(chunk: Buffer, _enc, cb) {
+      compressed += chunk.length;
+      cb(compressed > MAX_TARBALL_BYTES ? new RepoError(TOO_BIG_COMPRESSED) : null, chunk);
+    },
+  });
+  const sink = new Writable({
+    write(chunk: Buffer, _enc, cb) {
+      unpacked += chunk.length;
+      if (unpacked > MAX_UNPACKED_BYTES) return cb(new RepoError(TOO_BIG_UNPACKED));
+      try {
+        parser.push(chunk);
+      } catch (e) {
+        return cb(e as Error);
+      }
+      cb(parser.done ? STOP : null);
+    },
+  });
+  try {
+    await pipeline(Readable.fromWeb(res.body as never), count, createGunzip(), sink);
+  } catch (e) {
+    if (e !== STOP) {
+      if (typeof (e as NodeJS.ErrnoException)?.code === 'string' && (e as NodeJS.ErrnoException).code!.startsWith('Z_')) {
+        throw new RepoError('GitHub sent an archive that could not be unpacked. Try again, or upload the lockfile instead.');
+      }
+      throw e;
+    }
+  }
+  return parser.finish();
+}
+
 // One download per scan: the repository snapshot from codeload (no API quota, no token, public repos only).
-async function download(owner: string, name: string, ref: string): Promise<Buffer> {
+// Streamed: gunzip + tar run as the bytes arrive, so memory stays near the size of the kept files.
+async function download(owner: string, name: string, ref: string, keep: (path: string, size: number) => boolean): Promise<TarResult> {
   const url = `https://codeload.github.com/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/tar.gz/${encRef(ref)}`;
-  const { res, body } = await getWithDeadlines(url, ['codeload.github.com', 'github.com'], readCapped);
+  const { res, body } = await getWithDeadlines(url, ['codeload.github.com', 'github.com'], (r) => readTarball(r, keep));
   if (res.status === 404) throw new RepoError('Repository not found. Check the link, and make sure the repository is public.');
   if (res.status === 403 || res.status === 429) throw new NetworkError(`HTTP ${res.status} from codeload.github.com`);
-  if (!res.ok) throw new RepoError(`GitHub answered HTTP ${res.status}.`);
-  try {
-    // A small .tar.gz can expand to gigabytes; cap it so one link cannot exhaust server memory.
-    return gunzipSync(body, { maxOutputLength: MAX_UNPACKED_BYTES });
-  } catch {
-    throw new RepoError('This repository is too large to read (over 300 MB unpacked). Upload its package-lock.json instead.');
-  }
+  if (!res.ok || !body) throw new RepoError(`GitHub answered HTTP ${res.status}.`);
+  return body;
 }
 
 /**
@@ -146,7 +189,7 @@ async function rootLockfile(owner: string, name: string, ref: string): Promise<u
   if (res.status === 404) return null;
   if (!res.ok) throw new NetworkError(`HTTP ${res.status} from raw.githubusercontent.com`);
   try {
-    return JSON.parse(body.toString('utf8'));
+    return JSON.parse(body!.toString('utf8'));
   } catch {
     throw new RepoError('package-lock.json in this repository is not valid JSON.');
   }
@@ -156,41 +199,119 @@ interface TarFile {
   path: string; // without the top-level "<repo>-<sha>/" folder
   data: Buffer;
 }
+export interface TarResult {
+  files: TarFile[];
+  all: { path: string; size: number }[];
+  truncated: boolean;
+}
 
-// Minimal ustar reader: regular files only, with GNU long names and PAX path headers.
-export function untar(buf: Buffer, keep: (path: string, size: number) => boolean): { files: TarFile[]; all: { path: string; size: number }[]; truncated: boolean } {
-  const files: TarFile[] = [];
-  const all: { path: string; size: number }[] = [];
-  let off = 0;
-  let longName: string | null = null;
-  const str = (a: number, n: number) => buf.toString('utf8', a, a + n).replace(/\0.*$/s, '');
-  let entries = 0;
-  let truncated = false;
-  while (off + 512 <= buf.length) {
-    if (buf[off] === 0) break;
-    if (++entries > MAX_TAR_ENTRIES) {
-      truncated = true;
-      break;
+const MAX_META_BYTES = 64 * 1024; // GNU long names / PAX headers larger than this are ignored
+
+/**
+ * Incremental ustar reader: regular files only, with GNU long names and PAX path headers. Feed it chunks with push();
+ * it copies only the files `keep` wants and records path + size for every regular file. `done` turns true at the end
+ * of the archive or when the entry cap is hit (truncated).
+ */
+export class TarParser {
+  readonly files: TarFile[] = [];
+  readonly all: { path: string; size: number }[] = [];
+  truncated = false;
+  done = false;
+  private hdr = Buffer.alloc(512);
+  private hdrFill = 0;
+  private entries = 0;
+  private longName: string | null = null;
+  private cur: { mode: 'keep' | 'meta' | 'skip'; type: string; name: string; remaining: number; pad: number; chunks: Buffer[] } | null = null;
+
+  constructor(private keep: (path: string, size: number) => boolean) {}
+
+  push(chunk: Uint8Array): void {
+    let off = 0;
+    while (off < chunk.length && !this.done) {
+      const cur = this.cur;
+      if (!cur) {
+        const take = Math.min(512 - this.hdrFill, chunk.length - off);
+        this.hdr.set(chunk.subarray(off, off + take), this.hdrFill);
+        this.hdrFill += take;
+        off += take;
+        if (this.hdrFill === 512) {
+          this.hdrFill = 0;
+          this.start();
+        }
+      } else if (cur.remaining > 0) {
+        const take = Math.min(cur.remaining, chunk.length - off);
+        if (cur.mode !== 'skip') cur.chunks.push(Buffer.from(chunk.subarray(off, off + take))); // copy: do not pin zlib's buffers
+        cur.remaining -= take;
+        off += take;
+        if (cur.remaining === 0 && cur.pad === 0) this.end();
+      } else {
+        const take = Math.min(cur.pad, chunk.length - off);
+        cur.pad -= take;
+        off += take;
+        if (cur.pad === 0) this.end();
+      }
     }
-    const size = parseInt(str(off + 124, 12).trim() || '0', 8);
-    if (!Number.isFinite(size) || size < 0) break; // corrupt header: never loop on it
-    const type = String.fromCharCode(buf[off + 156] || 48);
-    const prefix = str(off + 345, 155);
-    let name = longName ?? (prefix ? `${prefix}/${str(off, 100)}` : str(off, 100));
-    longName = null;
-    const dataStart = off + 512;
-    if (type === 'L') longName = buf.toString('utf8', dataStart, dataStart + size).replace(/\0.*$/s, '');
-    else if (type === 'x') {
-      const m = buf.toString('utf8', dataStart, dataStart + size).match(/\d+ path=([^\n]*)\n/);
-      if (m) longName = m[1]!;
-    } else if (type === '0' || type === '7') {
-      name = name.replace(/^[^/]*\//, '');
-      all.push({ path: name, size });
-      if (keep(name, size)) files.push({ path: name, data: buf.subarray(dataStart, dataStart + size) });
-    }
-    off = dataStart + Math.ceil(size / 512) * 512;
   }
-  return { files, all, truncated };
+
+  private start(): void {
+    const h = this.hdr;
+    if (h[0] === 0) {
+      this.done = true;
+      return;
+    }
+    if (++this.entries > MAX_TAR_ENTRIES) {
+      this.truncated = true;
+      this.done = true;
+      return;
+    }
+    const str = (a: number, n: number) => h.toString('utf8', a, a + n).replace(/\0.*$/s, '');
+    const size = parseInt(str(124, 12).trim() || '0', 8);
+    if (!Number.isFinite(size) || size < 0) {
+      this.done = true; // corrupt header: never loop on it
+      return;
+    }
+    const type = String.fromCharCode(h[156] || 48);
+    const prefix = str(345, 155);
+    let name = this.longName ?? (prefix ? `${prefix}/${str(0, 100)}` : str(0, 100));
+    this.longName = null;
+    let mode: 'keep' | 'meta' | 'skip' = 'skip';
+    if (type === 'L' || type === 'x') mode = size <= MAX_META_BYTES ? 'meta' : 'skip';
+    else if (type === '0' || type === '7') {
+      name = name.replace(/^[^/]*\//, '');
+      this.all.push({ path: name, size });
+      if (this.keep(name, size)) mode = 'keep';
+    }
+    this.cur = { mode, type, name, remaining: size, pad: Math.ceil(size / 512) * 512 - size, chunks: [] };
+    if (size === 0 && this.cur.pad === 0) this.end();
+  }
+
+  private end(): void {
+    const c = this.cur!;
+    this.cur = null;
+    if (c.mode === 'keep') this.files.push({ path: c.name, data: Buffer.concat(c.chunks) });
+    else if (c.mode === 'meta') {
+      const text = Buffer.concat(c.chunks).toString('utf8');
+      if (c.type === 'L') this.longName = text.replace(/\0.*$/s, '');
+      else {
+        const m = text.match(/\d+ path=([^\n]*)\n/);
+        if (m) this.longName = m[1]!;
+      }
+    }
+  }
+
+  /** Call after the last push (a half-read kept file is returned as far as it got, like a cut-off archive). */
+  finish(): TarResult {
+    if (this.cur?.mode === 'keep') this.files.push({ path: this.cur.name, data: Buffer.concat(this.cur.chunks) });
+    this.cur = null;
+    return { files: this.files, all: this.all, truncated: this.truncated };
+  }
+}
+
+/** Whole-buffer convenience over TarParser (used by checks). */
+export function untar(buf: Buffer, keep: (path: string, size: number) => boolean): TarResult {
+  const p = new TarParser(keep);
+  p.push(buf);
+  return p.finish();
 }
 
 export interface FetchedRepo {
@@ -209,12 +330,20 @@ export interface FetchedRepo {
  * Stars and contributor count from the GitHub API (one small request each, in parallel with the download).
  * Optional: unauthenticated calls allow 60 an hour per IP (GITHUB_TOKEN raises that); any failure just leaves them out.
  */
-export async function fetchRepoStats(owner: string, name: string): Promise<{ stars?: number; contributors?: number }> {
+type RepoStats = { stars?: number; contributors?: number };
+const STATS_TTL_MS = 3_600_000; // GitHub allows 60 anonymous API calls an hour per IP: remember answers for an hour
+const STATS_EMPTY_TTL_MS = 300_000; // a failed lookup (rate limit, network) is retried after 5 minutes
+const STATS_MAX = 1000;
+const statsCache = new Map<string, { at: number; ttl: number; value: Promise<RepoStats> }>();
+/** For checks. */
+export const clearRepoStatsCache = () => statsCache.clear();
+
+async function loadRepoStats(owner: string, name: string): Promise<{ stars?: number; contributors?: number }> {
   const headers: Record<string, string> = { 'User-Agent': 'vulnexis-scanner', Accept: 'application/vnd.github+json' };
   if (process.env.GITHUB_TOKEN?.trim()) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN.trim()}`;
   const base = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
   const get = async (url: string) => {
-    const r = await fetch(url, { headers, signal: AbortSignal.timeout(8000) });
+    const r = await fetch(url, { headers, signal: withScanSignal(8000) });
     if (r.url && new URL(r.url).hostname !== 'api.github.com') throw new Error('unexpected redirect');
     return r;
   };
@@ -229,19 +358,63 @@ export async function fetchRepoStats(owner: string, name: string): Promise<{ sta
       return Array.isArray(list) ? list.length : undefined;
     }),
   ]);
-  const out: { stars?: number; contributors?: number } = {};
+  currentSignal()?.throwIfAborted();
+  const out: RepoStats = {};
   if (repo.status === 'fulfilled' && typeof repo.value === 'number') out.stars = repo.value;
   if (people.status === 'fulfilled' && typeof people.value === 'number' && Number.isFinite(people.value)) out.contributors = people.value;
   return out;
+}
+
+/**
+ * Stars and contributor count from the GitHub API (two small requests, shared by every scan of the same repository for an hour).
+ * Optional: any failure just leaves them out. A scan that is cancelled gets the abort, and nothing is cached from it.
+ */
+export function fetchRepoStats(owner: string, name: string): Promise<RepoStats> {
+  const key = `${owner}/${name}`.toLowerCase();
+  const hit = statsCache.get(key);
+  if (hit && Date.now() - hit.at < hit.ttl) return hit.value;
+  const entry = { at: Date.now(), ttl: STATS_TTL_MS, value: loadRepoStats(owner, name) };
+  statsCache.delete(key);
+  statsCache.set(key, entry);
+  if (statsCache.size > STATS_MAX) statsCache.delete(statsCache.keys().next().value!);
+  entry.value.then(
+    (v) => {
+      if (Object.keys(v).length === 0) entry.ttl = STATS_EMPTY_TTL_MS;
+    },
+    () => {
+      if (statsCache.get(key) === entry) statsCache.delete(key);
+    },
+  );
+  return entry.value;
 }
 
 export async function fetchRepo(rawUrl: string): Promise<FetchedRepo> {
   const { owner, name, ref: askedRef } = parseRepoUrl(rawUrl);
   const ref = askedRef ?? 'HEAD';
   const statsPromise = fetchRepoStats(owner, name).catch(() => ({}));
-  let tar: Buffer;
+  const isLock = (p: string) => /(^|\/)(package-lock|npm-shrinkwrap)\.json$/.test(p) && !SKIP_DIR.test(p);
+  const isSource = (p: string, size: number) => SOURCE_EXT.test(p) && !SKIP_DIR.test(p) && !SKIP_FILE.test(p) && size <= MAX_FILE_BYTES;
+  const isContext = (p: string, size: number) => isContextPath(p) && size <= MAX_CONTEXT_FILE_BYTES;
+  // Only these files are held in memory while the archive streams past; the rest is just counted.
+  let keptLock = 0;
+  let keptOther = 0;
+  let overflow = false;
+  const keep = (p: string, size: number) => {
+    if (isLock(p) && size <= MAX_LOCKFILE_BYTES) {
+      if (keptLock + size > MAX_KEPT_LOCK_BYTES) return (overflow = true), false;
+      keptLock += size;
+      return true;
+    }
+    if (isSource(p, size) || isContext(p, size)) {
+      if (keptOther + size > MAX_KEPT_BYTES) return (overflow = true), false;
+      keptOther += size;
+      return true;
+    }
+    return false;
+  };
+  let tar: TarResult;
   try {
-    tar = await download(owner, name, ref);
+    tar = await download(owner, name, ref, keep);
   } catch (e) {
     if (!(e instanceof NetworkError)) throw e;
     // The full download failed on this network: fall back to the root lockfile alone.
@@ -263,10 +436,8 @@ export async function fetchRepo(rawUrl: string): Promise<FetchedRepo> {
     };
   }
 
-  const isLock = (p: string) => /(^|\/)(package-lock|npm-shrinkwrap)\.json$/.test(p) && !SKIP_DIR.test(p);
-  const isSource = (p: string, size: number) => SOURCE_EXT.test(p) && !SKIP_DIR.test(p) && !SKIP_FILE.test(p) && size <= MAX_FILE_BYTES;
-  const isContext = (p: string, size: number) => isContextPath(p) && size <= MAX_CONTEXT_FILE_BYTES;
-  const { files, all, truncated } = untar(tar, (p, size) => (isLock(p) && size <= MAX_LOCKFILE_BYTES) || isSource(p, size) || isContext(p, size));
+  const { files, all } = tar;
+  const truncated = tar.truncated || overflow;
 
   // Shallowest lockfile wins (monorepos keep it at the root).
   const lockEntry = files.filter((f) => isLock(f.path)).sort((a, b) => a.path.split('/').length - b.path.split('/').length)[0];

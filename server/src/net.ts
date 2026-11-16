@@ -72,8 +72,16 @@ export function adviceFor(reason: string): string {
   return 'The service could not be reached from this network.';
 }
 
-/** A user-facing message for a data source that failed, e.g. "Could not reach OSV.dev. … (ECONNRESET)". */
+/**
+ * A user-facing message for a data source that failed.
+ * Production (customers): short, no setup advice and no raw error codes (those go to the logs).
+ * Development (an operator on their own machine): the detailed advice and the low-level reason.
+ */
 export function sourceMessage(source: string, e: unknown): string {
   const reason = reasonOf(e);
+  if (process.env.NODE_ENV === 'production') {
+    console.warn(`[net] ${source} unreachable: ${reason}`);
+    return `${source.charAt(0).toUpperCase()}${source.slice(1)} is not responding right now. Please try again in a few minutes.`;
+  }
   return `Could not reach ${source}. ${adviceFor(reason)} (${reason})`;
 }

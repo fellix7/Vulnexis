@@ -154,7 +154,11 @@ export function AgentLive({
       </div>
       {queue && (
         <p className="agent-live__meta" role="status" aria-live="polite">
-          <strong>{tr(`Waiting for a free slot: ${queue.ahead} ahead of you`, `खाली जगह का इंतज़ार: आपसे आगे ${queue.ahead}`)}</strong>
+          <strong>
+            {queue.ahead === 0
+              ? tr('Waiting for a free slot: you are next', 'खाली जगह का इंतज़ार: अगली बारी आपकी है')
+              : tr(`Waiting for a free slot: ${queue.ahead} ahead of you`, `खाली जगह का इंतज़ार: आपसे आगे ${queue.ahead}`)}
+          </strong>
         </p>
       )}
       {onCancel && (

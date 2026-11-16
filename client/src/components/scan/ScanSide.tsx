@@ -6,7 +6,7 @@ import { Icon, type IconName } from '../ui/Icon'
 const POINTS: { icon: IconName; title: string; body: string }[] = [
   { icon: 'eye', title: 'Read only', body: 'Never installed, built or run.' },
   { icon: 'upload', title: 'Only names and versions leave', body: 'Looked up at OSV.dev, EPSS, CISA KEV and npm.' },
-  { icon: 'sparkle', title: 'Gemini sees snippets', body: 'Only around vulnerable imports, secrets masked.' },
+  { icon: 'sparkle', title: 'Gemini sees line windows', body: 'Only short line windows around imports and uses, obvious secrets masked. Never whole files.' },
   { icon: 'database', title: 'History stays here', body: 'Saved in this browser only.' },
 ]
 

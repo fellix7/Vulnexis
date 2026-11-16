@@ -5,8 +5,13 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { gunzipSync } from 'node:zlib';
-import { fetchRepo, fetchRepoStats, parseRepoUrl, RepoError, untar } from '../github.js';
+import { randomBytes } from 'node:crypto';
+import { Readable } from 'node:stream';
+import { gunzipSync, createGzip } from 'node:zlib';
+import { TarParser } from '../github.js';
+import { withScanSignal } from '../../scanStats.js';
+import { runWithStats } from '../../scanStats.js';
+import { clearRepoStatsCache, fetchRepo, fetchRepoStats, parseRepoUrl, RepoError, untar } from '../github.js';
 
 // --- links ---
 assert.deepEqual(parseRepoUrl('https://github.com/OWASP/NodeGoat'), { owner: 'OWASP', name: 'NodeGoat', ref: undefined });
@@ -42,13 +47,31 @@ globalThis.fetch = (async (url: string | URL) => {
   if (u.includes('/contributors')) return reply([{}], '<https://api.github.com/x?per_page=1&page=2>; rel="next", <https://api.github.com/x?per_page=1&page=87>; rel="last"');
   return new Response('', { status: 404 });
 }) as typeof fetch;
+clearRepoStatsCache();
 assert.deepEqual(await fetchRepoStats('OWASP', 'NodeGoat'), { stars: 2140, contributors: 87 });
+clearRepoStatsCache();
 globalThis.fetch = (async (url: string | URL) => (String(url).includes('/contributors') ? reply([{}, {}, {}]) : reply({ stargazers_count: 3 }))) as typeof fetch;
 assert.deepEqual(await fetchRepoStats('a', 'b'), { stars: 3, contributors: 3 }, 'one page: count the list');
+clearRepoStatsCache();
 globalThis.fetch = (async () => new Response('rate limited', { status: 403 })) as typeof fetch;
 assert.deepEqual(await fetchRepoStats('a', 'b'), {}, 'rate limit: left out, never an error');
+clearRepoStatsCache();
 globalThis.fetch = (async () => { throw new TypeError('fetch failed'); }) as typeof fetch;
 assert.deepEqual(await fetchRepoStats('a', 'b'), {}, 'network failure: left out');
+// F16: repeated scans of one repository make no further API calls for an hour
+{
+  clearRepoStatsCache();
+  let calls = 0;
+  globalThis.fetch = (async (url: string | URL) => {
+    calls++;
+    return String(url).includes('/contributors') ? reply([{}]) : reply({ stargazers_count: 5 });
+  }) as typeof fetch;
+  const [x, y] = await Promise.all([fetchRepoStats('Own', 'Rep'), fetchRepoStats('own', 'rep')]);
+  await fetchRepoStats('own', 'rep');
+  assert.deepEqual([x, y], [{ stars: 5, contributors: 1 }, { stars: 5, contributors: 1 }]);
+  assert.equal(calls, 2, 'two API requests in total, not per scan');
+  console.log('ok  repo stats cached');
+}
 globalThis.fetch = realFetch;
 
 // --- S2: long input is rejected fast ---
@@ -91,6 +114,7 @@ await assert.rejects(fetchRepo('https://github.com/a/b/tree/feat/x'), RepoError)
 assert.ok(seen.includes('https://codeload.github.com/a/b/tar.gz/feat/x'));
 
 // stats: a redirect away from api.github.com is dropped, never followed with the token
+clearRepoStatsCache();
 globalThis.fetch = (async () => withUrl(reply({ stargazers_count: 9 }), 'https://evil.example/')) as typeof fetch;
 assert.deepEqual(await fetchRepoStats('a', 'b'), {});
 
@@ -130,11 +154,120 @@ await assert.rejects(fetchRepo('a/b'), (e) => e instanceof RepoError && /larger 
   execFileSync('tar', ['-czf', t2, '-C', d2, 'r-1']);
   const body = readFileSync(t2);
   globalThis.fetch = (async (url: string | URL) =>
-    String(url).includes('codeload') ? new Response(body) : new Response('', { status: 404 })) as typeof fetch;
+    String(url).includes('codeload') ? new Response(body as unknown as BodyInit) : new Response('', { status: 404 })) as typeof fetch;
   const r = await fetchRepo('a/b');
   assert.equal(r.sources.length, 1);
   assert.equal(r.skipped, 2, 'oversized .ts and .vue count; .min.js does not');
   console.log('ok  skipped counts dropped code');
+}
+globalThis.fetch = realFetch;
+
+// --- F7: streaming tar reader ---
+function header(name: string, size: number, type = '0'): Buffer {
+  const h = Buffer.alloc(512);
+  h.write(name, 0, 100);
+  h.write(size.toString(8).padStart(11, '0') + '\0', 124);
+  h.write(type, 156);
+  return h;
+}
+const pad = (n: number) => Buffer.alloc((512 - (n % 512)) % 512);
+/** A tar made of `[name, size-or-content]` entries; numeric sizes are generated lazily as zeros. */
+function* tarChunks(entries: [string, number | string, string?][]): Generator<Buffer> {
+  const zeros = Buffer.alloc(1024 * 1024);
+  for (const [name, body, type] of entries) {
+    const size = typeof body === 'number' ? body : Buffer.byteLength(body);
+    yield header(name, size, type);
+    if (typeof body === 'string') yield Buffer.from(body);
+    else for (let left = size; left > 0; left -= zeros.length) yield zeros.subarray(0, Math.min(left, zeros.length));
+    yield pad(size);
+  }
+  yield Buffer.alloc(1024);
+}
+const gzipOf = async (chunks: Iterable<Buffer>) => {
+  const out: Buffer[] = [];
+  for await (const c of Readable.from(chunks, { objectMode: false }).pipe(createGzip({ level: 1 })) as AsyncIterable<Buffer>) out.push(c);
+  return Buffer.concat(out);
+};
+const serve = (body: Buffer) => {
+  globalThis.fetch = (async (url: string | URL) => (String(url).includes('codeload') ? new Response(body as unknown as BodyInit) : new Response('', { status: 404 }))) as typeof fetch;
+};
+const LOCK = '{"lockfileVersion":3,"packages":{"":{}}}';
+
+// the parser gives the same answer fed one byte at a time, with GNU long names and PAX paths
+{
+  const longName = 'top/' + 'd/'.repeat(80) + 'long.js';
+  const pax = `${String(' path=p/pax/file.js\n'.length + 2)} path=p/pax/file.js\n`;
+  const tar = Buffer.concat([...tarChunks([['top/@LongLink', longName, 'L'], ['top/short', 'x'], ['top/pax', pax, 'x'], ['top/ignored', 'y'], ['top/a.txt', 'hello']])]);
+  const whole = untar(tar, (p) => p.endsWith('.js') || p.endsWith('.txt'));
+  const p = new TarParser((q) => q.endsWith('.js') || q.endsWith('.txt'));
+  for (let i = 0; i < tar.length; i += 7) p.push(tar.subarray(i, i + 7));
+  const bytewise = p.finish();
+  assert.deepEqual(bytewise.all, whole.all);
+  assert.deepEqual(bytewise.files.map((f) => [f.path, f.data.toString()]), whole.files.map((f) => [f.path, f.data.toString()]));
+  assert.ok(whole.all.some((f) => f.path === longName.replace(/^top\//, '')), 'GNU long name');
+  assert.ok(whole.all.some((f) => f.path === 'pax/file.js'), 'PAX path');
+  console.log('ok  incremental tar parser: chunking-independent, long names, PAX');
+}
+
+// 200 MB unpacked, mostly large files nobody reads: memory stays flat and the answer is right
+{
+  const entries: [string, number | string][] = [['r-1/package-lock.json', LOCK], ['r-1/src/app.js', 'require("x")']];
+  for (let i = 0; i < 20; i++) entries.push([`r-1/data/blob-${i}.bin`, 10 * 1024 * 1024]);
+  const gzBody = await gzipOf(tarChunks(entries));
+  serve(gzBody);
+  global.gc?.();
+  const base = process.memoryUsage();
+  let peak = 0;
+  const t = setInterval(() => {
+    const m = process.memoryUsage();
+    peak = Math.max(peak, m.heapUsed + m.external - base.heapUsed - base.external);
+  }, 5);
+  const t0 = performance.now();
+  const r = await fetchRepo('a/b');
+  clearInterval(t);
+  const mb = peak / 1048576;
+  assert.equal(r.repo.lockfilePath, 'package-lock.json');
+  assert.equal(r.sources.length, 1);
+  assert.ok(mb < 50, `heap+external grew ${mb.toFixed(1)} MB`);
+  console.log(`ok  200 MB unpacked tarball (${(gzBody.length / 1048576).toFixed(2)} MB gz) streamed in ${Math.round(performance.now() - t0)} ms, peak memory growth ${mb.toFixed(1)} MB`);
+}
+
+// caps: unpacked size, compressed size; both reject with a friendly RepoError
+{
+  serve(await gzipOf(tarChunks([['r-1/package-lock.json', LOCK], ['r-1/big.bin', 310 * 1024 * 1024]])));
+  await assert.rejects(fetchRepo('a/b'), (e) => e instanceof RepoError && /over 300 MB/.test((e as Error).message));
+  const noise = randomBytes(61 * 1024 * 1024);
+  serve(await gzipOf([header('r-1/package-lock.json', LOCK.length), Buffer.from(LOCK), pad(LOCK.length), header('r-1/n.bin', noise.length), noise, pad(noise.length), Buffer.alloc(1024)]));
+  await assert.rejects(fetchRepo('a/b'), (e) => e instanceof RepoError && /larger than 60 MB/.test((e as Error).message));
+  serve(Buffer.from('this is not gzip at all'));
+  await assert.rejects(fetchRepo('a/b'), (e) => e instanceof RepoError && /could not be unpacked/.test((e as Error).message));
+  // 50,000-entry cap stops the stream and flags truncated
+  const many: [string, number | string][] = [['r-1/package-lock.json', LOCK]];
+  for (let i = 0; i < 50_010; i++) many.push([`r-1/f${i}.txt`, 0]);
+  serve(await gzipOf(tarChunks(many)));
+  assert.equal((await fetchRepo('a/b')).truncated, true);
+  console.log('ok  unpacked / compressed / entry caps');
+}
+
+// a cancelled scan aborts the download and is not retried
+{
+  let calls = 0;
+  const ac = new AbortController();
+  globalThis.fetch = (async (_u: string | URL, init?: RequestInit) => {
+    calls++;
+    const stream = new ReadableStream({
+      start(c) {
+        c.enqueue(new Uint8Array([0x1f, 0x8b, 8, 0, 0, 0, 0, 0, 0, 3]));
+        init!.signal!.addEventListener('abort', () => c.error(init!.signal!.reason));
+      },
+    });
+    setTimeout(() => ac.abort(new Error('cancelled')), 20);
+    return new Response(stream);
+  }) as typeof fetch;
+  await assert.rejects(runWithStats(() => fetchRepo('a/b'), ac.signal), /cancelled/);
+  assert.equal(calls, 1);
+  void withScanSignal;
+  console.log('ok  scan cancel aborts the repo download without a retry');
 }
 globalThis.fetch = realFetch;
 

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { stats } from './scanStats.js';
+import { runDetached, stats, untilScanAborted } from './scanStats.js';
 
 // External HTTP responses go through here.
 //
@@ -188,7 +188,9 @@ export async function cached<T>(namespace: string, key: string, fetcher: () => P
   const mk = memKey(namespace, key);
   let pending = inflight.get(mk) as Promise<Outcome<T>> | undefined;
   if (!pending) {
-    pending = (async (): Promise<Outcome<T>> => {
+    // Shared by every scan asking for this key, so it runs outside the first caller's scan context:
+    // that scan being cancelled must not fail the lookup for the others.
+    pending = runDetached(async (): Promise<Outcome<T>> => {
       try {
         const value = await fetcher();
         await put(namespace, key, value);
@@ -198,11 +200,12 @@ export async function cached<T>(namespace: string, key: string, fetcher: () => P
         if (!fallback) throw e;
         return { value: fallback.value, fromSaved: fallback };
       }
-    })().finally(() => inflight.delete(mk));
+    }).finally(() => inflight.delete(mk));
+    pending.catch(() => {}); // every waiter may have stopped waiting
     inflight.set(mk, pending);
   }
 
-  const out = await pending;
+  const out = await untilScanAborted(pending);
   if (out.fromSaved) countSaved(out.fromSaved);
   return out.value;
 }

@@ -197,7 +197,13 @@ function TargetDetail({ item, review }: { item: RemediationItem; review: ReviewS
                 )}
               </li>
             )}
-            <li>
+            {plan.parentOnly && (
+              <li>
+                <strong>No override here.</strong> Other copies of <code>{plan.name}</code> in this project need a different major version, or it is also one of
+                your direct dependencies, so one override would break something. Upgrade the parent instead.
+              </li>
+            )}
+            <li hidden={plan.parentOnly}>
               <strong>Option {item.parent ? 'B' : '1'}.</strong> Force the fixed version with an npm override. Suggested: run your tests after applying.
               <div className="rem__optcmd">
                 {optionCommand && (

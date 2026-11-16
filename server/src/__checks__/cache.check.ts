@@ -155,5 +155,20 @@ console.log('ok  byte cap evicts by size and skips oversized answers');
   delete process.env.OFFLINE;
   console.log('ok  offline miss');
 }
+// One lookup shared by two scans: cancelling the first scan must not fail it for the second.
+{
+  clearMemoryCache();
+  let release!: (v: string) => void;
+  const slow = () => new Promise<string>((r) => (release = r));
+  const a = new AbortController();
+  const first = runWithStats(() => cached<string>('osv-vuln', 'shared', slow), a.signal);
+  const second = runWithStats(() => cached<string>('osv-vuln', 'shared', async () => 'never called'));
+  await new Promise((r) => setImmediate(r));
+  a.abort(new Error('scan A cancelled'));
+  await assert.rejects(first, /scan A cancelled/);
+  release('answer');
+  assert.equal(await second, 'answer');
+  console.log('ok  a cancelled scan does not fail a lookup shared with another scan');
+}
 console.log('ALL CACHE CHECKS PASSED');
 

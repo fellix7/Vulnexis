@@ -1,7 +1,7 @@
 import semver from 'semver';
 import { cached, peek, savedOrThrow, store } from '../cache.js';
 import { fetchRetry } from '../http.js';
-import { stats } from '../scanStats.js';
+import { stats, throwIfScanAborted, type ScanStats } from '../scanStats.js';
 import type { Advisory, Severity } from '../types.js';
 
 const OSV = 'https://api.osv.dev/v1';
@@ -17,6 +17,7 @@ export async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, i:
   let next = 0;
   const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
     while (next < items.length) {
+      throwIfScanAborted();
       const i = next++;
       out[i] = await fn(items[i]!, i);
     }
@@ -201,9 +202,25 @@ function fixedVersionsOf(v: OsvVuln, pkgName: string): string[] {
   return [...fixed].sort(semver.compare);
 }
 
+// One fetch per advisory id per scan, however many (package, advisory) pairs mention it. Across scans the cache key
+// is the advisory id too ('osv-vuln', id), so identical concurrent lookups share one request there as well.
+const scanDetails = new WeakMap<ScanStats, Map<string, Promise<OsvVuln>>>();
+function vulnDetail(id: string): Promise<OsvVuln> {
+  const s = stats();
+  let m = scanDetails.get(s);
+  if (!m) scanDetails.set(s, (m = new Map()));
+  let p = m.get(id);
+  if (!p) {
+    p = cached<OsvVuln>('osv-vuln', id, () => requestJson<OsvVuln>(`${OSV}/vulns/${encodeURIComponent(id)}`));
+    m.set(id, p);
+    p.catch(() => m!.delete(id)); // a failure is not remembered
+  }
+  return p;
+}
+
 /** Like getAdvisory but returns null for withdrawn advisories (used when bulk matching). */
 export async function getAdvisoryOrNull(id: string, pkgName: string): Promise<Advisory | null> {
-  const v = await cached<OsvVuln>('osv-vuln', id, () => requestJson<OsvVuln>(`${OSV}/vulns/${encodeURIComponent(id)}`));
+  const v = await vulnDetail(id);
   if (v.withdrawn) return null;
   return {
     id: v.id,

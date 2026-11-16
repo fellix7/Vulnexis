@@ -45,14 +45,14 @@ Vulnexis is designed so that it never needs personal data.
 | No analytics, tracking pixels or third-party cookies | None are included in `client/` |
 | The language choice is a preference, not personal data | Stored only in the user's own browser (`localStorage` key `vulnexis:lang:v1`) |
 
-If a scanned repository itself contains personal data (for example in fixtures), Vulnexis does not extract, display or store it. Only short code snippets around imports of vulnerable packages can reach the AI, after secret masking (policy 8).
+If a scanned repository itself contains personal data (for example in fixtures), Vulnexis does not extract, display or store it. Only short line windows around imports and uses of vulnerable packages can reach the AI, after best-effort secret masking (policy 8). Never whole files.
 
 ## 3. Data handling and retention
 
 | Data | Where it goes | How long it is kept |
 | :--- | :--- | :--- |
 | Uploaded `package-lock.json` | Server memory during the scan | Discarded when the response is sent |
-| Uploaded or GitHub source files | Server memory during the scan; short snippets to Gemini (policy 4) | Discarded when the response is sent |
+| Uploaded or GitHub source files | Server memory during the scan; only line windows around imports and uses to Gemini (policy 4). AI answers are kept in server memory for up to 24 hours (`server/src/cache.ts`), nothing is written to disk | Source files discarded when the response is sent; AI answers up to 24 h, in memory only |
 | GitHub repository tarball | Downloaded to server memory, unpacked in memory | Discarded when the response is sent; never written to disk |
 | Package names + versions | Sent to OSV.dev and the npm registry for lookups | Responses cached in `.cache/` on the server (public data, re-fetchable) |
 | CVE ids | Sent to FIRST EPSS | Responses cached in `.cache/` |
@@ -65,7 +65,7 @@ If a scanned repository itself contains personal data (for example in fixtures),
 
 ## 4. AI usage policy
 
-Vulnexis uses Google Gemini for **one job**: reading short snippets of the user's code to judge whether it calls the vulnerable function named in an advisory.
+Vulnexis uses Google Gemini for **one job**: reading short line windows of the user's code to judge whether it calls the vulnerable function named in an advisory.
 
 ### What the AI may do
 - Return one verdict per advisory: `USES_VULNERABLE_API`, `NO_VULNERABLE_USAGE_FOUND` or `UNCERTAIN`, with up to two sentences of reasoning and line citations.
@@ -91,8 +91,11 @@ Exposure from the project's own files (docker-compose, Kubernetes, serverless.ym
 - A person can confirm or dispute any AI verdict; the review is recorded with the scan and exported in reports.
 
 ### Model and limits
-- Model: `gemini-2.5-flash-lite` by default (`GEMINI_MODEL` to change). Rate limited by `GEMINI_RPM` (default 4/min for the free tier).
-- At most the top **30** direct-dependency findings per scan; up to 12 advisories per call; 8 snippets per file with 3 lines of context; ~160,000 characters of code per call; long lines truncated to 300 characters.
+- Model: `gemini-2.5-flash-lite` by default (`GEMINI_MODEL` to change). Rate limited per key by `GEMINI_RPM` (default 4/min for the free tier; set 60 or more for paid keys). With several keys (`GEMINI_API_KEY_2`, ...) each call goes to the key with the earliest free slot, and a rate-limited key is skipped until its retry time.
+- What is sent: only line windows, never whole files: the import lines plus 8 lines either side of every line that uses what was imported or names a vulnerable API from the advisory; at most 12 windows and 12,000 characters per file, 40,000 characters per call; long lines truncated to 300 characters. Line numbers stay absolute so citations can be checked. If a relevant file had to be cut, "not used" becomes `UNCERTAIN`.
+- Limits per scan: at most the top **30** direct-dependency findings; up to 12 advisories per call; `AI_MAX_CALLS_PER_SCAN` live calls (default 20); no single wait for a Gemini slot longer than `AI_MAX_WAIT_MS` (default 60 s). Past either limit, or when the scan is cancelled, the AI step stops: remaining packages get no AI verdict ("Not assessed") and the scan says so.
+- Storage: AI answers are cached in server memory only, for up to 24 hours; nothing is written to disk unless an operator turns on `CACHE_WRITE_DISK`.
+- Data terms: use a **paid Gemini tier** for customer code. The free tier's data terms may allow Google to use inputs to improve its products; check Google's current terms before sending customer code.
 - Findings the AI did not review are shown as **"Not assessed"**, which the UI states is *not the same as safe*.
 
 ## 5. Agent decision and transparency policy
@@ -146,7 +149,7 @@ The agent must be **inspectable**: a user can see what it did, with what, and wh
 ## 8. Secrets and credentials
 
 - API keys (`GEMINI_API_KEY`, optional `GEMINI_API_KEY_2`, `_3`, …) live in the server's `.env`, which is git-ignored. They are never sent to the browser; `/api/health` reports only whether a key exists.
-- Before any code or advisory text reaches Gemini, likely secrets are masked as `[REDACTED]` (`pipeline/ai.ts` › `redact`): private key blocks, Google API keys, OpenAI/Anthropic-style keys, AWS access key ids, GitHub tokens, Stripe live keys, and quoted values of fields named like `api_key`, `secret`, `token`, `password`. Masking keeps line numbers unchanged so citations stay valid.
+- Before any code or advisory text reaches Gemini, likely secrets are masked as `[REDACTED]`, best effort (`pipeline/ai.ts` › `redact`): PEM blocks (private keys, certificates), JWT-like strings, credentials in connection strings (`scheme://user:pass@host`), Google API keys, OpenAI/Anthropic-style keys, AWS access key ids, GitHub tokens, Stripe live keys, values of quoted and unquoted assignments whose name contains `secret`, `token`, `passw`, `pwd`, `api_key`, `private_key`, `access_key` or `auth`, and long hex/base64 strings in string literals. Masking cannot catch every secret, so do not scan code you are not allowed to share with Google. Masking keeps line numbers unchanged so citations stay valid.
 - Masking is best effort. Users should not commit secrets to repositories in the first place.
 - No secrets are written to the agent trace, notes, logs shown to users, or reports.
 
@@ -190,7 +193,7 @@ The rule: **degrade to deterministic rules, never to guesses**, and always tell 
 | CISA KEV | Nothing (catalogue download) | Known exploited list |
 | npm registry | Package names | List versions for upgrade planning |
 | GitHub (codeload) | Owner and repository name in the URL | Download a public repository as text |
-| Google Gemini | Masked code snippets around imports of vulnerable packages, advisory text | Code-usage verdicts |
+| Google Gemini | Masked line windows around imports and uses of vulnerable packages, advisory text | Code-usage verdicts |
 | WhatsApp (`wa.me`) | Only when the user taps Share: the summary text, in the user's own browser | Let the user send the summary |
 
 No other services are contacted. The server sends `User-Agent: vulnexis-scanner` and no user identifiers.

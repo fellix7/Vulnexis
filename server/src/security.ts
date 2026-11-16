@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { ErrorRequestHandler, Request, RequestHandler } from 'express';
 import { isProduction } from './env.js';
+import { isOwnMachine } from './ratelimit.js';
 
 export const CSP = [
   "default-src 'self'",
@@ -50,8 +51,7 @@ export function doctorAccess(req: Pick<Request, 'get' | 'socket'>): 'ok' | 'not-
   if (!isProduction()) return 'ok';
   // Someone running Vulnera on their own computer may always see it: a direct request from this machine,
   // with no reverse proxy configured in front and no forwarded-for header (which a proxy would add).
-  const local = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket?.remoteAddress ?? '');
-  if (local && !Number(process.env.TRUST_PROXY) && !req.get('x-forwarded-for')) return 'ok';
+  if (isOwnMachine(req)) return 'ok';
   const token = process.env.ADMIN_TOKEN;
   if (!token) return 'not-found';
   return same(req.get('x-admin-token') ?? '', token) ? 'ok' : 'forbidden';

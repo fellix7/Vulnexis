@@ -50,7 +50,7 @@ function Plan({ current }: { current: ScanRecord }) {
     [items, includeMajor, current.projectName, result.scannedAt, demo],
   )
   const hasOverrides = outputs.commands.some((c) => c.startsWith('npm pkg set overrides.'))
-  const transitive = useMemo(() => items.filter((i) => !i.direct && i.plan.to), [items])
+  const transitive = useMemo(() => items.filter((i) => !i.direct && i.plan.to && !i.plan.parentOnly), [items])
   const snippet = useMemo(() => overridesSnippet(transitive), [transitive])
 
   const counts = useMemo(() => {

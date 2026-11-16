@@ -16,10 +16,10 @@ import { validateScanRequest, ValidationError } from './validate.js';
 import { analyzeFindings } from './pipeline/ai.js';
 import { enrich, loadKev } from './pipeline/enrich.js';
 import { matchPackages } from './pipeline/match.js';
-import { parseLockfile } from './pipeline/parse.js';
 import { planUpgrades } from './pipeline/plan.js';
 import { fetchRepo, RepoError } from './pipeline/github.js';
-import { buildContext, isContextPath } from './pipeline/context.js';
+import { isContextPath } from './pipeline/context.js';
+import { buildContextAsync, parseLockfileAsync, shutdownWorkers } from './workers/pool.js';
 import { DEFAULT_EPSS_THRESHOLD, EXPOSURE_LABEL, scoreFindings, TIER_ORDER } from './pipeline/score.js';
 import type { AgentStep, ExposureVerdict, Finding, Package, RepoRef, ScanRequest, ScanResult, SourceFile, Tier } from './types.js';
 
@@ -179,7 +179,7 @@ async function runScan(req: ScanRequest, onStep?: (step: AgentStep) => void, sig
       'parse',
       'Reading the lockfile',
       { input: 'package-lock.json (lockfileVersion 2/3)' },
-      async () => parseLockfile(lockfile),
+      () => parseLockfileAsync(lockfile), // in a worker thread: a huge lockfile must not freeze other scans
       (v) => {
         const direct = v.filter((p) => p.direct).length;
         const dev = v.filter((p) => p.dev).length;
@@ -239,7 +239,7 @@ async function runScan(req: ScanRequest, onStep?: (step: AgentStep) => void, sig
         sources: [SOURCES.ssvc, SOURCES.vex],
       },
       // A repository scanned by link belongs to someone else: its vulnexis.yml is shown but cannot lower anything.
-      async () => buildContext({ lockfile, sources, contextFiles, base, truncated, trustDeclarations: !req.repoUrl }),
+      () => buildContextAsync({ lockfile, sources, contextFiles, base, truncated, trustDeclarations: !req.repoUrl }, packages),
       (v) => {
         if (!v) return { output: 'Nothing to map', decision: 'Ranking uses the published rules only.' };
         const c = v.context;
@@ -507,8 +507,21 @@ if (existsSync(CLIENT_DIST)) {
 // Last: malformed JSON, oversized bodies and unexpected errors become short JSON answers (no stack traces).
 app.use(jsonErrorHandler);
 
-app.listen(PORT, () => {
-  console.log(`Vulnexis API listening on http://localhost:${PORT}`);
+const server = app.listen(PORT, () => {
+  console.log(`Vulnera API listening on http://localhost:${PORT}`);
   runDoctor().then(printDoctor).catch(() => {});
   loadKev().catch(() => {}); // read (and, once a day, refresh) the CISA KEV catalog before the first scan
 });
+
+// Clean stop for deploys and restarts: stop taking requests, stop the analysis workers, then exit.
+let stopping = false;
+for (const sig of ['SIGTERM', 'SIGINT'] as const) {
+  process.on(sig, () => {
+    if (stopping) return;
+    stopping = true;
+    server.close();
+    const exit = () => process.exit(0);
+    shutdownWorkers().then(exit, exit);
+    setTimeout(exit, 5000).unref(); // open streams must not hold the process forever
+  });
+}

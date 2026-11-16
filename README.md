@@ -122,7 +122,7 @@ npm run build && npm start
 | :--- | :--- |
 | No project execution | Repos and uploads are read as text, never installed or run |
 | No personal data | No login, no forms; nothing like Aadhaar, PAN, OTP or bank details is ever asked |
-| Minimal AI context | Only short snippets around imports of vulnerable packages reach Gemini, with secrets masked |
+| Minimal AI context | Only line windows around imports and uses of vulnerable packages reach Gemini (never whole files), with obvious secrets masked (best effort). Nothing is stored on disk; AI answers stay in server memory for up to 24 h. Use a paid Gemini tier for customer code and check Google's current terms |
 | Server-side secrets | The Gemini key never leaves the server |
 | Cited facts | Every step links its data source; every code citation is machine-verified |
 

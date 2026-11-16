@@ -38,6 +38,24 @@ export function withScanSignal(timeoutMs: number): AbortSignal {
   return scan ? AbortSignal.any([t, scan]) : t;
 }
 
+/**
+ * Run work that several scans may share (one cached lookup serving many scans) outside any scan's context,
+ * so one scan being cancelled cannot abort it for the others.
+ */
+export const runDetached = <T>(fn: () => T): T => als.exit(fn);
+
+/** Wait for shared work, but stop waiting (without stopping the work) if THIS scan is cancelled. */
+export function untilScanAborted<T>(work: Promise<T>): Promise<T> {
+  const signal = currentSignal();
+  if (!signal) return work;
+  if (signal.aborted) return Promise.reject(signal.reason);
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+    signal.addEventListener('abort', onAbort, { once: true });
+    work.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
+  });
+}
+
 /** Throws the scan's abort reason if it was cancelled or ran out of time. */
 export function throwIfScanAborted(): void {
   currentSignal()?.throwIfAborted();
