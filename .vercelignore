@@ -1,0 +1,13 @@
+# Never upload secrets or local build output; Vercel installs and builds from source.
+.env
+.env.*
+!.env.example
+node_modules
+**/node_modules
+**/dist
+.cache
+.claude
+.hallmark
+*.log
+docs
+demo
